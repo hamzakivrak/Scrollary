@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scrollary | Global News Radar</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+
+    <style>
+        :root {
+            --primary: #e11d48; --primary-hover: #be123c; --bg-dark: #0f172a;
+            --surface: #1e293b; --surface-light: #334155; --text-main: #f8fafc;
+            --text-muted: #94a3b8; --accent: #3b82f6; --danger: #ef4444;
+            --radius-lg: 20px; --radius-md: 12px;
+            --shadow-card: 0 10px 15px -3px rgba(0,0,0,0.3), 0 4px 6px -2px rgba(0,0,0,0.15);
+            --shadow-glow: 0 0 20px rgba(225, 29, 72, 0.15);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+        
+        body { background-color: var(--bg-dark); color: var(--text-main); line-height: 1.6; padding: 0 15px 20px 15px; overflow-anchor: auto; -webkit-font-smoothing: antialiased; overscroll-behavior-y: contain; transition: background 0.5s ease; }
+        .container { max-width: 1400px; margin: 0 auto; position: relative; z-index: 5; }
+        
+        body[data-theme="glass"] { --bg-dark: #000; background: url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2000&auto=format&fit=crop') center/cover fixed; }
+        body[data-theme="glass"] .news-card, body[data-theme="glass"] .controls-wrapper, body[data-theme="glass"] .modal-content { background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); }
+        body[data-theme="glass"] .news-content { background: transparent; }
+        
+        body[data-theme="metallic"] { --bg-dark: #1a1a1a; background: radial-gradient(circle at 50% 0%, #4a4a4a, #111 80%); }
+        body[data-theme="metallic"] .news-card, body[data-theme="metallic"] .controls-wrapper { background: linear-gradient(145deg, #333, #222); border: 1px solid #555; box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 4px 6px rgba(0,0,0,0.5); }
+        body[data-theme="metallic"] .news-content { background: transparent; }
+
+        body[data-theme="hologram"] { --bg-dark: #0f0c29; background: linear-gradient(135deg, #0f0c29, #302b63, #240b36); }
+        body[data-theme="hologram"] .news-card, body[data-theme="hologram"] .controls-wrapper { background: linear-gradient(125deg, rgba(255,0,128,0.15), rgba(0,255,255,0.15)); border: 1px solid rgba(0,255,255,0.3); backdrop-filter: blur(10px); }
+        body[data-theme="hologram"] .news-content { background: transparent; }
+
+        @keyframes gradientBG { 0% {background-position: 0% 50%;} 50% {background-position: 100% 50%;} 100% {background-position: 0% 50%;} }
+        body[data-theme="animated"] { background: linear-gradient(-45deg, #1e3a8a, #4c1d95, #0f172a, #064e3b); background-size: 400% 400%; animation: gradientBG 15s ease infinite; }
+        body[data-theme="animated"] .news-card, body[data-theme="animated"] .controls-wrapper { background: rgba(0,0,0,0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
+        body[data-theme="animated"] .news-content { background: transparent; }
+
+        body[data-theme="cyber"] { background-color: #050505; background-image: radial-gradient(rgba(34, 211, 238, 0.15) 1px, transparent 1px); background-size: 20px 20px; }
+        body[data-theme="cyber"] .news-card, body[data-theme="cyber"] .controls-wrapper { background: #0a0a0a; border: 1px solid rgba(34, 211, 238, 0.4); box-shadow: 0 0 10px rgba(34, 211, 238, 0.15); }
+        body[data-theme="cyber"] .news-content { background: transparent; }
+
+        .pull-to-refresh { position: fixed; top: -60px; left: 50%; transform: translateX(-50%); background: var(--surface); color: var(--primary); padding: 10px 20px; border-radius: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid var(--surface-light); font-weight: 700; font-size: 0.95rem; z-index: 2000; opacity: 0; display: flex; align-items: center; gap: 10px; pointer-events: none; transition: opacity 0.2s ease; }
+
+        header { text-align: center; padding: 60px 0 20px; transition: all 0.3s; position: relative; }
+        .auth-container { position: absolute; top: 15px; right: 15px; z-index: 1000; display: flex; justify-content: flex-end; }
+        .btn-login { background: var(--primary); color: white; border: none; padding: 8px 18px; border-radius: 20px; cursor: pointer; font-weight: 700; font-size: 0.85rem; box-shadow: 0 4px 10px rgba(225, 29, 72, 0.3); transition: 0.3s; display: flex; align-items: center; gap: 8px; }
+        .btn-login:hover { background: var(--primary-hover); transform: translateY(-2px); }
+        .user-profile { display: flex; align-items: center; gap: 10px; background: rgba(30, 41, 59, 0.9); padding: 5px 15px 5px 5px; border-radius: 30px; border: 1px solid var(--surface-light); box-shadow: var(--shadow-card); }
+        .user-profile img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+        .user-profile span { font-weight: 600; font-size: 0.85rem; color: white; }
+        .btn-logout { background: transparent; border: none; color: #fca5a5; cursor: pointer; font-weight: bold; font-size: 0.8rem; margin-left: 5px; transition: 0.2s; }
+        .btn-logout:hover { color: var(--danger); text-decoration: underline; }
+
+        header h1 { font-size: clamp(2.5rem, 6vw, 3.5rem); color: var(--text-main); font-weight: 900; letter-spacing: -1px; margin-bottom: 5px; text-shadow: var(--shadow-glow); }
+        header h1 span { color: var(--primary); }
+        header p { color: var(--text-muted); font-size: clamp(0.9rem, 3vw, 1.1rem); font-weight: 500; letter-spacing: 0.5px; }
+
+        .controls-wrapper { background: rgba(30, 41, 59, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 0 0 var(--radius-lg) var(--radius-lg); border: 1px solid rgba(255, 255, 255, 0.1); border-top: none; margin-bottom: 25px; box-shadow: var(--shadow-card); position: sticky; top: 0; z-index: 100; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .controls-toggle { display: flex; justify-content: space-between; align-items: center; padding: 15px 25px; font-size: 1rem; font-weight: 600; color: var(--text-main); cursor: pointer; user-select: none; transition: all 0.3s; }
+        .controls-toggle:hover { color: var(--primary); }
+        .toggle-icon { background: var(--surface-light); padding: 5px 10px; border-radius: 8px; font-size: 0.8rem; transition: 0.3s; }
+        .controls-content { padding: 0 25px 25px 25px; display: block; animation: fadeIn 0.3s ease; max-height: 80vh; overflow-y: auto; }
+
+        .controls-wrapper.collapsed { background: transparent; border-color: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none; }
+        .controls-wrapper.collapsed .controls-toggle { background: rgba(225, 29, 72, 0.95); color: white; padding: 12px 25px; border-radius: var(--radius-lg); }
+        .controls-wrapper.collapsed .toggle-icon { background: rgba(0,0,0,0.2); }
+        .controls-wrapper.collapsed .controls-content { display: none; }
+
+        .global-region-selector { display: flex; align-items: center; justify-content: space-between; background: rgba(15, 23, 42, 0.6); padding: 12px 20px; border-radius: var(--radius-md); border: 1px solid var(--surface-light); margin-bottom: 20px; }
+        .global-region-selector span { font-weight: 700; color: white; font-size: 0.95rem; }
+        .global-region-selector select { background: var(--surface); color: white; border: 1px solid var(--accent); padding: 8px 12px; border-radius: 8px; font-weight: bold; outline: none; cursor: pointer; }
+
+        .view-controls { display: flex; gap: 8px; margin-bottom: 15px; justify-content: center; flex-wrap: wrap; }
+        .view-btn { padding: 6px 12px; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--surface-light); color: var(--text-muted); border-radius: 8px; font-size: 0.85rem; cursor: pointer; transition: 0.2s; font-weight: 600; }
+        .view-btn.active { background: var(--surface-light); color: white; border-color: var(--accent); }
+        .view-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+
+        .search-box { margin: 10px 0 15px; position: relative; display: flex; gap: 10px; }
+        .search-box input { flex: 1; padding: 15px 20px 15px 45px; border-radius: var(--radius-md); border: 1px solid var(--surface-light); background: rgba(15, 23, 42, 0.6); color: white; font-size: 1.05rem; outline: none; transition: all 0.3s; }
+        .search-box input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(225, 29, 72, 0.15); background: rgba(15, 23, 42, 0.8); }
+        .search-icon { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 1.2rem; }
+
+        .category-scroll { display: flex; overflow-x: auto; gap: 10px; padding: 5px 0 15px 0; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        .category-scroll::-webkit-scrollbar { display: none; }
+        .cat-btn { white-space: nowrap; padding: 8px 18px; background: rgba(51, 65, 85, 0.5); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .cat-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+        .cat-btn.active { background: var(--primary); border-color: var(--primary); color: white; box-shadow: 0 4px 10px rgba(225, 29, 72, 0.3); }
+        .cat-btn-archive { border-color: #10b981; color: #10b981; }
+        .cat-btn-archive.active { background: #10b981; border-color: #10b981; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3); }
+
+        .filter-section-title { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 12px; font-weight: 600; display: flex; justify-content: space-between; cursor: pointer; user-select: none; padding: 5px 0; }
+        .filter-section-title:hover { color: white; }
+        .select-all-btn { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.85rem; font-weight: 600; }
+
+        .chip-container { display: none; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; padding-right: 5px; }
+        .chip-container.show { display: flex; animation: fadeIn 0.3s ease; }
+        .chip { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 16px; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--surface-light); border-radius: 30px; font-size: 0.9rem; font-weight: 500; color: var(--text-muted); cursor: pointer; transition: all 0.2s ease; user-select: none; }
+        .chip input { display: none; }
+        .chip:hover { border-color: var(--text-muted); color: var(--text-main); }
+        .chip.active { background: var(--primary); border-color: var(--primary); color: white; box-shadow: 0 4px 10px rgba(225, 29, 72, 0.3); }
+        .chip-delete { color: #fca5a5; background: rgba(0,0,0,0.2); border-radius: 50%; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; margin-left: 5px; }
+        .chip-delete:hover { background: white; color: var(--danger); }
+
+        .add-rss-container { margin-bottom: 25px; border-top: 1px solid var(--surface-light); padding-top: 15px; }
+        .add-rss-header { color: var(--accent); font-size: 0.9rem; font-weight: 600; cursor: pointer; display: inline-block; }
+        .add-rss-header:hover { text-decoration: underline; }
+        .add-rss-form { display: none; gap: 10px; margin-top: 15px; flex-direction: column; animation: fadeIn 0.3s ease; }
+        .add-rss-form.show { display: flex; }
+        .add-rss-form input { padding: 12px 15px; border-radius: 8px; border: 1px solid var(--surface-light); background: rgba(15, 23, 42, 0.6); color: white; outline: none; }
+        .add-rss-form input:focus { border-color: var(--accent); }
+        .add-rss-form button { padding: 12px; background: var(--accent); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .add-rss-form button:hover { background: #2563eb; }
+
+        button.fetch-btn { width: 100%; background: var(--primary); color: white; border: none; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; padding: 16px; border-radius: var(--radius-md); font-size: 1rem; transition: all 0.3s; box-shadow: 0 4px 15px rgba(225, 29, 72, 0.2); }
+        button.fetch-btn:hover { background: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(225, 29, 72, 0.4); }
+
+        .news-grid { display: grid; gap: 20px; transition: all 0.3s ease; overflow-x: hidden; }
+        .swipe-wrapper { position: relative; border-radius: var(--radius-lg); background: transparent; overflow: hidden; display: block; }
+        .swipe-bg { position: absolute; top:0; bottom:0; width: 50%; display: flex; align-items: center; font-weight: 800; font-size: 1.2rem; color: white; z-index: 1; }
+        .swipe-bg-left { left: 0; background: var(--accent); padding-left: 20px; justify-content: flex-start; }
+        .swipe-bg-right { right: 0; background: #475569; padding-right: 20px; justify-content: flex-end; }
+        
+        .grid-small { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+        .grid-medium { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+        .grid-large { grid-template-columns: repeat(auto-fill, minmax(450px, 1fr)); }
+
+        .grid-list { display: flex !important; flex-direction: column; gap: 15px; }
+        .grid-list .news-card { flex-direction: row; height: 140px; }
+        .grid-list .card-img-wrapper { width: 150px; height: 100%; flex-shrink: 0; }
+        .grid-list .news-content { padding: 10px 15px; justify-content: center; }
+        .grid-list .news-content h3 { font-size: 1.05rem; -webkit-line-clamp: 2; margin-bottom: 5px; }
+
+        .news-card { background: var(--surface); border-radius: var(--radius-lg); overflow: hidden; border: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; flex-direction: column; box-shadow: 0 4px 6px rgba(0,0,0,0.1); position: relative; user-select: none; -webkit-user-select: none; z-index: 2; width: 100%; touch-action: pan-y; }
+        .news-card.swiping { transition: none; }
+        .news-card.read-article { opacity: 0.5; filter: grayscale(50%); } 
+        .news-card:hover { border-color: var(--primary); box-shadow: var(--shadow-card), 0 0 0 1px var(--primary); opacity: 1; filter: none; }
+        
+        .external-link-btn { position: absolute; top: 12px; right: 12px; background: rgba(15, 23, 42, 0.7); color: white; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 1rem; z-index: 15; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); transition: all 0.2s ease; border: 1px solid rgba(255,255,255,0.2); }
+        .external-link-btn:hover { background: var(--accent); transform: scale(1.1); border-color: var(--accent); }
+
+        .card-img-wrapper { position: relative; width: 100%; height: 200px; overflow: hidden; flex-shrink: 0; background-color: #0f172a; transition: height 0.3s ease; }
+        .grid-small .card-img-wrapper { height: 120px; } 
+        .grid-large .card-img-wrapper { height: 280px; } 
+
+        .img-skeleton { background: linear-gradient(90deg, var(--surface) 25%, var(--surface-light) 50%, var(--surface) 75%); background-size: 200% 100%; animation: skeletonLoading 1.5s infinite; }
+        @keyframes skeletonLoading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        .news-card img { width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.5s ease, transform 0.5s ease; pointer-events: none; }
+        .news-card:hover img { transform: scale(1.05); }
+        .card-img-wrapper::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 50%; background: linear-gradient(to top, rgba(30,41,59,1) 0%, rgba(30,41,59,0) 100%); pointer-events: none; }
+
+        .source-badge { position: absolute; top: 12px; left: 12px; background: var(--primary); color: white; padding: 5px 12px; border-radius: 8px; font-weight: 700; font-size: 0.75rem; z-index: 10; box-shadow: 0 4px 10px rgba(0,0,0,0.4); cursor: pointer; transition: 0.2s; pointer-events: auto; }
+        .source-badge:hover { transform: scale(1.05); background: white; color: var(--primary); }
+        
+        .news-content { padding: 15px 20px; flex-grow: 1; display: flex; flex-direction: column; background: var(--surface); z-index: 2; pointer-events: none; }
+        .grid-small .news-content { padding: 10px 15px; }
+        .news-content h3 { font-size: 1.05rem; margin-bottom: 10px; line-height: 1.5; color: var(--text-main); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-weight: 700; }
+        .grid-large .news-content h3 { font-size: 1.3rem; -webkit-line-clamp: 4; }
+        .meta { display: flex; justify-content: space-between; align-items: center; margin-top: auto; font-size: 0.8rem; color: var(--text-muted); font-weight: 500; pointer-events: auto; }
+        .read-more { color: var(--accent); font-weight: 600; font-size: 0.85rem; }
+
+        body.shorts-mode { padding: 0; overflow-x: hidden; }
+        body.shorts-mode header { display: none; }
+        body.shorts-mode .controls-wrapper { margin-bottom: 0; border-radius: 0; border-left: none; border-right: none; }
+        body.shorts-mode .news-grid { display: flex !important; flex-direction: column; gap: 0; height: calc(100vh - 54px); overflow-y: auto; scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+        body.shorts-mode .swipe-wrapper { flex: 0 0 100%; height: calc(100vh - 54px); scroll-snap-align: start; border-radius: 0; border: none; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 0; }
+        body.shorts-mode .news-card { height: 100%; border-radius: 0; border: none; }
+        body.shorts-mode .card-img-wrapper { height: 60%; }
+        body.shorts-mode .news-content { height: 40%; justify-content: center; }
+        body.shorts-mode .news-content h3 { font-size: 1.4rem; -webkit-line-clamp: 5; }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.95); z-index: 2000; justify-content: center; align-items: center; padding: 20px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+        .modal-content { background: var(--bg-dark); max-width: 1000px; width: 100%; height: 95vh; border-radius: var(--radius-lg); overflow: hidden; position: relative; display: flex; flex-direction: column; border: 1px solid var(--surface-light); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes modalPop { 0% { opacity: 0; transform: scale(0.95) translateY(20px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+
+        .modal-header { background: var(--surface); border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; flex-shrink: 0; }
+        .modal-top-row { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; }
+        .modal-source-name { font-weight: 800; color: var(--text-main); font-size: 1.1rem; display: flex; align-items: center; gap: 8px; }
+        .modal-source-name::before { content: ''; display: inline-block; width: 8px; height: 8px; background: var(--primary); border-radius: 50%; }
+        
+        .modal-actions { display: flex; gap: 15px; align-items: center; }
+        .btn-icon { color: var(--text-muted); text-decoration: none; font-size: 1.2rem; transition: 0.2s; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; background: var(--bg-dark); }
+        .btn-icon:hover { color: white; background: var(--surface-light); }
+        .btn-close { background: rgba(239, 68, 68, 0.1); color: var(--danger); border: none; cursor: pointer; }
+        .btn-close:hover { background: var(--danger); color: white; }
+
+        .modal-tabs { display: flex; border-top: 1px solid var(--surface-light); }
+        .tab-btn { flex: 1; padding: 12px; background: transparent; border: none; color: var(--text-muted); font-weight: 600; font-size: 0.95rem; cursor: pointer; transition: 0.3s; border-bottom: 2px solid transparent; }
+        .tab-btn:hover { color: var(--text-main); background: rgba(255,255,255,0.02); }
+        .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); background: rgba(225, 29, 72, 0.05); }
+
+        .triple-tap-hint { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); color: rgba(255,255,255,0.8); font-size: 0.75rem; padding: 4px 12px; border-radius: 20px; pointer-events: none; z-index: 100; animation: fadeOut 4s forwards; }
+        @keyframes fadeOut { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+
+        .modal-body { flex-grow: 1; position: relative; overflow-y: auto; background: var(--bg-dark); display: flex; flex-direction: column; cursor: default; }
+        #readerView { padding: 30px 25px; max-width: 800px; margin: 0 auto; width: 100%; }
+        .reader-title { font-size: clamp(1.5rem, 4vw, 2.2rem); font-weight: 800; color: white; margin-bottom: 20px; line-height: 1.3; }
+        .reader-image { width: 100%; max-height: 450px; object-fit: cover; border-radius: var(--radius-md); margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .reader-text-container p { margin-bottom: 20px; font-size: 1.15rem; line-height: 1.8; color: #cbd5e1; }
+        .reader-text-container a { color: var(--accent); text-decoration: none; }
+        
+        .loading-pulse { text-align: center; padding: 20px; color: var(--accent); font-weight: 600; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .summary-box { background: rgba(59, 130, 246, 0.1); border-left: 4px solid var(--accent); padding: 20px; border-radius: 0 var(--radius-md) var(--radius-md) 0; margin-bottom: 30px; }
+        .summary-box p { margin: 0; font-size: 1.1rem; color: #e2e8f0; font-style: italic; line-height: 1.7; }
+
+        #iframeView { display: none; flex-direction: column; width: 100%; height: 100%; background: #fff; }
+        .iframe-banner { background: var(--surface); color: var(--text-main); padding: 10px 15px; font-size: 0.85rem; display: flex; justify-content: center; align-items: center; gap: 10px; border-bottom: 1px solid var(--surface-light); flex-shrink: 0; font-weight: 500; }
+        .modal-iframe { width: 100%; flex-grow: 1; border: none; background: #fff; }
+
+        .status-msg { text-align: center; padding: 50px 20px; color: var(--text-muted); grid-column: 1 / -1; font-size: 1.1rem; font-weight: 500; }
+        .loading-bar { width: 100%; height: 6px; background: var(--surface-light); border-radius: 3px; overflow: hidden; margin-top: 20px; }
+        .loading-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); width: 0%; transition: width 0.3s; }
+        .toast-notification { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(150px); background: var(--primary); color: white; padding: 12px 25px; border-radius: 30px; font-weight: 700; font-size: 1rem; box-shadow: 0 10px 25px rgba(225, 29, 72, 0.5); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 3000; cursor: pointer; display: flex; align-items: center; gap: 10px; }
+        .toast-notification.show { transform: translateX(-50%) translateY(0); }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-dark); }
+        ::-webkit-scrollbar-thumb { background: var(--surface-light); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+    </style>
+</head>
+<body>
+
+    <div id="pullToRefresh" class="pull-to-refresh">
+        <span id="ptrIcon">⬇️</span> <span id="ptrText" data-i18n="pullToRefresh">Pull to refresh</span>
+    </div>
+
+    <div class="container">
+        <header id="mainHeader">
+            <div class="auth-container">
+                <button id="loginBtn" class="btn-login" onclick="signInWithGoogle()" data-i18n="login">Login via Google</button>
+                <div id="userInfo" class="user-profile" style="display:none;">
+                    <img id="userPic" src="" alt="User">
+                    <span id="userName">User</span>
+                    <button class="btn-logout" onclick="signOut()" data-i18n="logout">Exit</button>
+                </div>
+            </div>
+            
+            <h1>Scrollary <span>.</span></h1>
+            <p id="headerDesc" data-i18n="subtitle">Global News, Cloud Sync & Infinity Scroll</p>
+        </header>
+
+        <div class="controls-wrapper collapsed" id="controlsWrapper">
+            <div class="controls-toggle" onclick="toggleControls(event)">
+                <span><span style="margin-right:8px;">🌍</span> <span id="menuTitle" data-i18n="menuTitle">Arama, Bölge, Tema ve Kaynak Ekle</span></span>
+                <span class="toggle-icon" id="toggleIcon">▼</span>
+            </div>
+            
+            <div class="controls-content" id="controlsContent">
+                
+                <div class="global-region-selector">
+                    <span id="regionLabel" data-i18n="regionLabel">🌍 Küresel Haber Bölgesi:</span>
+                    <select id="regionSelect" onchange="switchGlobalRegion(this.value)">
+                        <option value="EN">🌐 English (Global/US)</option>
+                        <option value="TR">🇹🇷 Türkçe (Türkiye)</option>
+                        <option value="ES">🇪🇸 Español (Spain/LatAm)</option>
+                        <option value="DE">🇩🇪 Deutsch (Germany)</option>
+                        <option value="FR">🇫🇷 Français (France)</option>
+                        <option value="RU">🇷🇺 Русский (Russia)</option>
+                        <option value="AR">🇦🇪 العربية (MENA)</option>
+                        <option value="HI">🇮🇳 हिन्दी (India)</option>
+                    </select>
+                </div>
+
+                <div class="filter-section-title" style="margin-top:10px;"><span id="themeTitle" data-i18n="themeTitle">🎨 Temalar</span></div>
+                <div class="view-controls" style="margin-bottom:20px;" id="themeBtnsWrapper">
+                    </div>
+
+                <div class="filter-section-title"><span id="layoutTitle" data-i18n="layoutTitle">📐 Görünüm Boyutu</span></div>
+                <div class="view-controls" id="layoutBtnsWrapper">
+                     </div>
+
+                <div class="search-box">
+                    <span class="search-icon">⌕</span>
+                    <input type="text" id="searchInput" data-i18n-ph="searchPlaceholder" placeholder="Search topics, sources..." onkeyup="handleSearch()">
+                </div>
+
+                <div>
+                    <div class="filter-section-title"><span id="catTitle" data-i18n="catTitle">📚 Hızlı Konu Filtreleri</span></div>
+                    <div class="category-scroll" id="catWrapper">
+                        </div>
+                </div>
+
+                <div style="background: rgba(255,255,255,0.05); padding: 10px 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <label style="cursor:pointer; display:flex; align-items:center; gap:8px; color:var(--text-main); font-weight:600;">
+                        <input type="checkbox" id="showReadMain" onchange="toggleReadVisibility(this.checked)" style="width:18px; height:18px; accent-color:var(--primary);">
+                        <span id="hideReadText" data-i18n="hideReadText">👁️ Okunanları Gizle</span>
+                    </label>
+                </div>
+
+                <div>
+                    <div class="filter-section-title" onclick="document.getElementById('filterList').classList.toggle('show')">
+                        <span id="sourceTitle" data-i18n="sourceTitle">📰 Kaynak Filtreleri (Genişlet)</span>
+                        <div><button class="select-all-btn" onclick="toggleAllSourcesState(event)" data-i18n="selectAllBtn">Select/Deselect All</button> <span style="margin-left:5px;">▼</span></div>
+                    </div>
+                    <div class="chip-container" id="filterList"></div>
+                </div>
+
+                <div class="add-rss-container">
+                    <div class="add-rss-header" onclick="document.getElementById('addRssForm').classList.toggle('show')" id="addRssText" data-i18n="addRssTitle">
+                        ➕ Add Custom RSS Source
+                    </div>
+                    <div class="add-rss-form" id="addRssForm">
+                        <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 10px; border: 1px solid var(--surface-light);">
+                            <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;" data-i18n="addRssSearchHint">🔍 Search Topic or Website URL:</div>
+                            <div style="display:flex; gap:10px;">
+                                <input type="text" id="searchRssUrl" placeholder="Topic or URL..." style="flex:1;">
+                                <button onclick="findRssFromUrl()" style="background:var(--accent); width:auto; padding: 10px 20px;" data-i18n="addRssSearchBtn">Find</button>
+                            </div>
+                            <div id="rssSearchResults" style="display:flex; flex-direction:column; gap:5px; margin-top:10px;"></div>
+                        </div>
+                        <div style="font-size:0.8rem; color:var(--text-muted); margin-top:10px;" data-i18n="addRssManualHint">📝 Manual Add:</div>
+                        <input type="text" id="newRssName" data-i18n-ph="addRssNamePlace" placeholder="Source Name">
+                        <input type="url" id="newRssUrl" placeholder="RSS URL (https://...)">
+                        <button onclick="addCustomRSS()" data-i18n="addRssSaveBtn">Save to Cloud</button>
+                    </div>
+                </div>
+
+                <button onclick="fetchAllRSS(false)" class="fetch-btn" id="fetchBtn" data-i18n="fetchBtnText">FETCH LATEST NEWS</button>
+            </div>
+        </div>
+
+        <div id="warningContainer"></div>
+
+        <div id="newsGrid" class="news-grid grid-medium">
+            <div class="status-msg" data-i18n="loadingText">Loading global news radar...</div>
+        </div>
+        
+        <div id="scrollSpinner" class="status-msg" style="display: none; padding: 20px;" data-i18n="scrollLoading">Loading more...</div>
+        <div id="endRefreshSpinner" class="status-msg" style="display: none; padding: 20px; font-size:0.95rem; color:var(--accent);" data-i18n="checkingUpdates">Checking network for updates...</div>
+    </div>
+
+    <div id="sourceFilterModal" class="modal" style="z-index: 2500;">
+        <div class="modal-content" style="max-width: 600px; height: auto; max-height: 85vh;">
+            <div class="modal-header">
+                <div class="modal-top-row">
+                    <h3 style="color:white; margin:0;" data-i18n="manageSourcesTitle">📰 Manage Sources</h3>
+                    <button class="btn-icon btn-close" onclick="closeSourceModal()" title="Close">✕</button>
+                </div>
+            </div>
+            <div class="modal-body" style="padding: 20px; cursor: default;">
+                <input type="text" id="popupSearchInput" data-i18n-ph="searchSourcesPh" placeholder="Search sources..." onkeyup="syncSearchInputs(this.value)" style="width:100%; padding:12px 15px; border-radius:8px; border:1px solid var(--surface-light); background:var(--bg-dark); color:white; margin-bottom:15px; outline:none; font-size:1rem;">
+                
+                <div style="background: rgba(255,255,255,0.05); padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; display:flex; justify-content:space-between; align-items:center;">
+                    <label style="cursor:pointer; display:flex; align-items:center; gap:8px; color:white; font-weight:600;">
+                        <input type="checkbox" id="showReadPopup" onchange="toggleReadVisibility(this.checked)" style="width:18px; height:18px; accent-color:var(--primary);">
+                        <span data-i18n="hideReadPopup">Hide Read</span>
+                    </label>
+                    <button onclick="popupRefresh()" style="background:var(--surface-light); color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:bold;" data-i18n="refreshBtn">🔄 Refresh</button>
+                </div>
+
+                <div style="margin-bottom: 15px; display:flex; justify-content:space-between;">
+                    <button class="select-all-btn" onclick="toggleAllSourcesState(event)" data-i18n="selectAllBtn">Select/Deselect All</button>
+                </div>
+                <div class="chip-container show" id="popupFilterList"></div>
+                <button onclick="closeSourceModal()" style="width:100%; padding:12px; background:var(--primary); color:white; border:none; border-radius:8px; font-weight:bold; margin-top:20px; cursor:pointer;" data-i18n="applyCloseBtn">Apply & Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toastNotification" class="toast-notification" onclick="scrollToTop()"><span>⬆️</span> <span id="toastText">System Update!</span></div>
+
+    <div id="newsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-top-row">
+                    <div class="modal-source-name" id="modalSource">Source</div>
+                    <div class="modal-actions">
+                        <a id="modalLinkExt" href="#" target="_blank" class="btn-icon" title="Open in Browser">↗️</a>
+                        <button class="btn-icon btn-close" onclick="closeModal()" title="Close">✕</button>
+                    </div>
+                </div>
+                <div class="modal-tabs">
+                    <button class="tab-btn active" id="tabReader" onclick="switchTab('reader')" data-i18n="readerTab">📖 Reader View</button>
+                    <button class="tab-btn" id="tabWeb" onclick="switchTab('web')" data-i18n="originalTab">🌐 Original Site</button>
+                </div>
+            </div>
+            <div class="modal-body" id="modalBodyArea">
+                <div class="triple-tap-hint" data-i18n="tripleTapHint">Triple tap to close</div>
+                <div id="readerView">
+                    <h2 class="reader-title" id="modalTitle">Title</h2>
+                    <img id="modalImg" src="" class="reader-image" onerror="this.style.display='none'">
+                    <div class="summary-box"><p id="modalDesc">Summary...</p></div>
+                    <div id="fullTextContainer" class="reader-text-container"></div>
+                </div>
+                <div id="iframeView">
+                    <div class="iframe-banner" id="iframeBanner"><span style="animation: pulse 1.5s infinite;">⏳</span> <span data-i18n="loadingSite">Loading original site...</span></div>
+                    <iframe id="modalIframe" class="modal-iframe" sandbox="allow-same-origin allow-scripts allow-forms allow-popups"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 🌐 i18n DİL SÖZLÜĞÜ (8 DİL)
+        const TRANSLATIONS = {
+            'EN': {
+                subtitle: "Global News, Cloud Sync & Infinity Scroll", menuTitle: "Search, Region, Theme & Sources", regionLabel: "🌍 Global News Region:",
+                themeTitle: "🎨 Themes", themes: { 'default': '🌑 Dark', 'glass': '🪟 Glass', 'metallic': '⚙️ Metal', 'hologram': '🌈 Holo', 'animated': '🌊 Flow', 'cyber': '⚡ Cyber' },
+                layoutTitle: "📐 Layout Size", layouts: { 'list': '🔠 List', 'small': '≣ Small', 'medium': '⊞ Med', 'large': '🔲 Large', 'shorts': '📱 Shorts' },
+                searchPlaceholder: "Search topics, sources...", catTitle: "📚 Quick Filters", 
+                cats: { '': 'All', 'Arşiv': '💾 Archive', 'News': '📰 News', 'Tech': '💻 Tech', 'Science': '🧬 Science', 'Health': '⚕️ Health', 'Sport': '⚽ Sport', 'Finance': '📈 Finance', 'World': '🌍 World', 'Philo': '🦉 Philo' },
+                hideReadText: "👁️ Hide Read Articles", sourceTitle: "📰 Source Filters (Expand)", selectAllBtn: "Select/Deselect All", addRssTitle: "➕ Add Custom RSS Source",
+                addRssSearchHint: "🔍 Search Topic or Website URL:", addRssSearchBtn: "Find / Add", addRssManualHint: "📝 Manual Add:", addRssNamePlace: "Source Name", addRssSaveBtn: "Save to Cloud",
+                fetchBtnText: "FETCH LATEST NEWS", loadingText: "Loading global news radar...", pullToRefresh: "Pull to refresh", login: "Login via Google", logout: "Exit",
+                manageSourcesTitle: "📰 Manage Sources", searchSourcesPh: "Search sources...", hideReadPopup: "Hide Read", refreshBtn: "🔄 Refresh", applyCloseBtn: "Apply & Close",
+                readerTab: "📖 Reader View", originalTab: "🌐 Original Site", tripleTapHint: "Triple tap to close", loadingSite: "Loading original site...", extracting: "Extracting article text...",
+                scrollLoading: "Loading more...", checkingUpdates: "Checking network for updates...", swipeArchive: "💾 Archive", swipeArchived: "💾 Archived", swipeHide: "👁️ Hide", readMore: "Read →"
+            },
+            'TR': {
+                subtitle: "Global Haberler, Bulut Senkronizasyonu ve Sınırsız Akış", menuTitle: "Arama, Bölge, Tema ve Kaynak Ekle", regionLabel: "🌍 Küresel Haber Bölgesi:",
+                themeTitle: "🎨 Temalar", themes: { 'default': '🌑 Standart', 'glass': '🪟 Cam', 'metallic': '⚙️ Metalik', 'hologram': '🌈 Hologram', 'animated': '🌊 Hareketli', 'cyber': '⚡ Neon' },
+                layoutTitle: "📐 Görünüm Boyutu", layouts: { 'list': '🔠 Liste', 'small': '≣ Küçük', 'medium': '⊞ Orta', 'large': '🔲 Büyük', 'shorts': '📱 Shorts' },
+                searchPlaceholder: "Konu, kaynak veya kelime arayın...", catTitle: "📚 Hızlı Konu Filtreleri", 
+                cats: { '': 'Tümü', 'Arşiv': '💾 Arşiv', 'News': '📰 Gündem', 'Tech': '💻 Teknoloji', 'Science': '🧬 Bilim', 'Health': '⚕️ Sağlık', 'Sport': '⚽ Spor', 'Finance': '📈 Ekonomi', 'World': '🌍 Dünya', 'Philo': '🦉 Felsefe' },
+                hideReadText: "👁️ Okunanları Gizle", sourceTitle: "📰 Kaynak Filtreleri (Genişlet)", selectAllBtn: "Tümünü Seç/Kaldır", addRssTitle: "➕ İnternetten RSS Bul veya Konu Ekle",
+                addRssSearchHint: "🔍 Site Adresi veya Konu:", addRssSearchBtn: "Bul / Ekle", addRssManualHint: "📝 Ya da Manuel Kayıt:", addRssNamePlace: "Kaynağın Adı", addRssSaveBtn: "Buluta Kaydet",
+                fetchBtnText: "AĞDAN YENİ HABERLERİ ÇEK", loadingText: "Ağdan taze haberler çekiliyor...", pullToRefresh: "Yenilemek için çekin", login: "Google ile Giriş", logout: "Çıkış",
+                manageSourcesTitle: "📰 Kaynakları Yönet & Ara", searchSourcesPh: "Kaynak arayın...", hideReadPopup: "Okunanları Gizle", refreshBtn: "🔄 Yenile", applyCloseBtn: "Uygula ve Kapat",
+                readerTab: "📖 Okuma Modu", originalTab: "🌐 Orijinal Site", tripleTapHint: "Kapatmak için 3 kez dokun", loadingSite: "Orijinal site yükleniyor...", extracting: "Haber metni analiz ediliyor...",
+                scrollLoading: "Daha fazla yükleniyor...", checkingUpdates: "Ağda yeni gelişme var mı kontrol ediliyor...", swipeArchive: "💾 Arşivle", swipeArchived: "💾 Arşivlendi", swipeHide: "👁️ Gizle", readMore: "Oku →"
+            },
+            'ES': {
+                subtitle: "Noticias Globales, Sync en la Nube y Scroll Infinito", menuTitle: "Buscar, Región, Tema y Fuentes", regionLabel: "🌍 Región de Noticias:",
+                themeTitle: "🎨 Temas", themes: { 'default': '🌑 Oscuro', 'glass': '🪟 Cristal', 'metallic': '⚙️ Metal', 'hologram': '🌈 Holo', 'animated': '🌊 Fluido', 'cyber': '⚡ Neón' },
+                layoutTitle: "📐 Tamaño de Vista", layouts: { 'list': '🔠 Lista', 'small': '≣ Pequeño', 'medium': '⊞ Medio', 'large': '🔲 Grande', 'shorts': '📱 Shorts' },
+                searchPlaceholder: "Buscar temas, fuentes...", catTitle: "📚 Filtros Rápidos", 
+                cats: { '': 'Todo', 'Arşiv': '💾 Archivo', 'News': '📰 Noticias', 'Tech': '💻 Tecno', 'Science': '🧬 Ciencia', 'Health': '⚕️ Salud', 'Sport': '⚽ Deporte', 'Finance': '📈 Finanzas', 'World': '🌍 Mundo', 'Philo': '🦉 Filo' },
+                hideReadText: "👁️ Ocultar Leídos", sourceTitle: "📰 Filtros de Fuentes", selectAllBtn: "Seleccionar Todo", addRssTitle: "➕ Añadir Fuente RSS",
+                addRssSearchHint: "🔍 Buscar Tema o URL:", addRssSearchBtn: "Buscar / Añadir", addRssManualHint: "📝 Añadir Manual:", addRssNamePlace: "Nombre de Fuente", addRssSaveBtn: "Guardar",
+                fetchBtnText: "ACTUALIZAR NOTICIAS", loadingText: "Cargando radar de noticias...", pullToRefresh: "Desliza para actualizar", login: "Entrar con Google", logout: "Salir",
+                manageSourcesTitle: "📰 Gestionar Fuentes", searchSourcesPh: "Buscar fuentes...", hideReadPopup: "Ocultar Leídos", refreshBtn: "🔄 Refrescar", applyCloseBtn: "Aplicar y Cerrar",
+                readerTab: "📖 Modo Lectura", originalTab: "🌐 Sitio Original", tripleTapHint: "Toca 3 veces para cerrar", loadingSite: "Cargando sitio original...", extracting: "Extrayendo texto...",
+                scrollLoading: "Cargando más...", checkingUpdates: "Buscando actualizaciones...", swipeArchive: "💾 Guardar", swipeArchived: "💾 Guardado", swipeHide: "👁️ Ocultar", readMore: "Leer →"
+            },
+            'DE': {
+                subtitle: "Globale News, Cloud Sync & Infinity Scroll", menuTitle: "Suche, Region, Theme & Quellen", regionLabel: "🌍 Nachrichtenregion:",
+                themeTitle: "🎨 Themes", themes: { 'default': '🌑 Dunkel', 'glass': '🪟 Glas', 'metallic': '⚙️ Metall', 'hologram': '🌈 Holo', 'animated': '🌊 Fließend', 'cyber': '⚡ Neon' },
+                layoutTitle: "📐 Ansichtsgröße", layouts: { 'list': '🔠 Liste', 'small': '≣ Klein', 'medium': '⊞ Mittel', 'large': '🔲 Groß', 'shorts': '📱 Shorts' },
+                searchPlaceholder: "Themen, Quellen suchen...", catTitle: "📚 Schnelle Filter", 
+                cats: { '': 'Alle', 'Arşiv': '💾 Archiv', 'News': '📰 News', 'Tech': '💻 Tech', 'Science': '🧬 Wissen', 'Health': '⚕️ Gesundheit', 'Sport': '⚽ Sport', 'Finance': '📈 Finanzen', 'World': '🌍 Welt', 'Philo': '🦉 Philo' },
+                hideReadText: "👁️ Gelesene ausblenden", sourceTitle: "📰 Quellenfilter", selectAllBtn: "Alle aus-/abwählen", addRssTitle: "➕ RSS-Quelle hinzufügen",
+                addRssSearchHint: "🔍 Thema oder URL suchen:", addRssSearchBtn: "Finden / Hinzufügen", addRssManualHint: "📝 Manuell:", addRssNamePlace: "Quellenname", addRssSaveBtn: "Speichern",
+                fetchBtnText: "NACHRICHTEN AKTUALISIEREN", loadingText: "Lade globales Radar...", pullToRefresh: "Zum Aktualisieren ziehen", login: "Google Login", logout: "Beenden",
+                manageSourcesTitle: "📰 Quellen verwalten", searchSourcesPh: "Quellen suchen...", hideReadPopup: "Gelesene ausblenden", refreshBtn: "🔄 Aktualisieren", applyCloseBtn: "Anwenden & Schließen",
+                readerTab: "📖 Lesemodus", originalTab: "🌐 Originalseite", tripleTapHint: "3x tippen zum Schließen", loadingSite: "Lade Originalseite...", extracting: "Textextraktion...",
+                scrollLoading: "Lade mehr...", checkingUpdates: "Suche nach Updates...", swipeArchive: "💾 Speichern", swipeArchived: "💾 Gespeichert", swipeHide: "👁️ Verbergen", readMore: "Lesen →"
+            },
+            'FR': {
+                subtitle: "Actualités Globales & Scroll Infini", menuTitle: "Recherche, Région, Thème & Sources", regionLabel: "🌍 Région d'Actualités:",
+                themeTitle: "🎨 Thèmes", themes: { 'default': '🌑 Sombre', 'glass': '🪟 Verre', 'metallic': '⚙️ Métal', 'hologram': '🌈 Holo', 'animated': '🌊 Fluide', 'cyber': '⚡ Néon' },
+                layoutTitle: "📐 Taille d'affichage", layouts: { 'list': '🔠 Liste', 'small': '≣ Petit', 'medium': '⊞ Moyen', 'large': '🔲 Grand', 'shorts': '📱 Shorts' },
+                searchPlaceholder: "Rechercher thèmes, sources...", catTitle: "📚 Filtres Rapides", 
+                cats: { '': 'Tout', 'Arşiv': '💾 Archive', 'News': '📰 Actus', 'Tech': '💻 Tech', 'Science': '🧬 Science', 'Health': '⚕️ Santé', 'Sport': '⚽ Sport', 'Finance': '📈 Finance', 'World': '🌍 Monde', 'Philo': '🦉 Philo' },
+                hideReadText: "👁️ Masquer les lus", sourceTitle: "📰 Filtres de sources", selectAllBtn: "Tout sélectionner", addRssTitle: "➕ Ajouter source RSS",
+                addRssSearchHint: "🔍 Chercher Thème ou URL:", addRssSearchBtn: "Trouver / Ajouter", addRssManualHint: "📝 Manuel:", addRssNamePlace: "Nom de la source", addRssSaveBtn: "Sauvegarder",
+                fetchBtnText: "ACTUALISER LES ACTUS", loadingText: "Chargement du radar...", pullToRefresh: "Tirer pour actualiser", login: "Connexion Google", logout: "Quitter",
+                manageSourcesTitle: "📰 Gérer les sources", searchSourcesPh: "Chercher sources...", hideReadPopup: "Masquer lus", refreshBtn: "🔄 Actualiser", applyCloseBtn: "Appliquer",
+                readerTab: "📖 Mode Lecture", originalTab: "🌐 Site Original", tripleTapHint: "Tapez 3 fois pour fermer", loadingSite: "Chargement...", extracting: "Extraction du texte...",
+                scrollLoading: "Chargement...", checkingUpdates: "Vérification réseau...", swipeArchive: "💾 Archiver", swipeArchived: "💾 Archivé", swipeHide: "👁️ Masquer", readMore: "Lire →"
+            },
+            'RU': {
+                subtitle: "Глобальные новости и бесконечный скроллинг", menuTitle: "Поиск, Регион, Тема", regionLabel: "🌍 Регион новостей:",
+                themeTitle: "🎨 Темы", themes: { 'default': '🌑 Темная', 'glass': '🪟 Стекло', 'metallic': '⚙️ Металл', 'hologram': '🌈 Голо', 'animated': '🌊 Поток', 'cyber': '⚡ Неон' },
+                layoutTitle: "📐 Размер вида", layouts: { 'list': '🔠 Список', 'small': '≣ Мал', 'medium': '⊞ Сред', 'large': '🔲 Большой', 'shorts': '📱 Shorts' },
+                searchPlaceholder: "Темы, источники...", catTitle: "📚 Быстрые фильтры", 
+                cats: { '': 'Все', 'Arşiv': '💾 Архив', 'News': '📰 Новости', 'Tech': '💻 Технологии', 'Science': '🧬 Наука', 'Health': '⚕️ Здоровье', 'Sport': '⚽ Спорт', 'Finance': '📈 Финансы', 'World': '🌍 Мир', 'Philo': '🦉 Филос.' },
+                hideReadText: "👁️ Скрыть прочитанное", sourceTitle: "📰 Фильтры источников", selectAllBtn: "Выбрать все", addRssTitle: "➕ Добавить RSS",
+                addRssSearchHint: "🔍 Тема или URL:", addRssSearchBtn: "Найти / Добавить", addRssManualHint: "📝 Вручную:", addRssNamePlace: "Название", addRssSaveBtn: "Сохранить",
+                fetchBtnText: "ОБНОВИТЬ НОВОСТИ", loadingText: "Загрузка радара...", pullToRefresh: "Потяните для обновления", login: "Войти через Google", logout: "Выйти",
+                manageSourcesTitle: "📰 Управление", searchSourcesPh: "Искать...", hideReadPopup: "Скрыть", refreshBtn: "🔄 Обновить", applyCloseBtn: "Применить",
+                readerTab: "📖 Чтение", originalTab: "🌐 Оригинал", tripleTapHint: "Тройное касание для закр.", loadingSite: "Загрузка...", extracting: "Извлечение текста...",
+                scrollLoading: "Загрузка...", checkingUpdates: "Проверка обновлений...", swipeArchive: "💾 В архив", swipeArchived: "💾 В архиве", swipeHide: "👁️ Скрыть", readMore: "Читать →"
+            },
+            'AR': {
+                subtitle: "أخبار عالمية، مزامنة سحابية وتمرير لا نهائي", menuTitle: "بحث، منطقة، مظهر ومصادر", regionLabel: "🌍 منطقة الأخبار:",
+                themeTitle: "🎨 المظاهر", themes: { 'default': '🌑 داكن', 'glass': '🪟 زجاج', 'metallic': '⚙️ معدني', 'hologram': '🌈 هولو', 'animated': '🌊 انسيابي', 'cyber': '⚡ نيون' },
+                layoutTitle: "📐 حجم العرض", layouts: { 'list': '🔠 قائمة', 'small': '≣ صغير', 'medium': '⊞ متوسط', 'large': '🔲 كبير', 'shorts': '📱 شورتس' },
+                searchPlaceholder: "ابحث في المواضيع والمصادر...", catTitle: "📚 فلاتر سريعة", 
+                cats: { '': 'الكل', 'Arşiv': '💾 الأرشيف', 'News': '📰 أخبار', 'Tech': '💻 تقنية', 'Science': '🧬 علوم', 'Health': '⚕️ صحة', 'Sport': '⚽ رياضة', 'Finance': '📈 مال', 'World': '🌍 عالم', 'Philo': '🦉 فلسفة' },
+                hideReadText: "👁️ إخفاء المقروء", sourceTitle: "📰 فلاتر المصادر", selectAllBtn: "تحديد الكل", addRssTitle: "➕ إضافة مصدر RSS",
+                addRssSearchHint: "🔍 ابحث عن موضوع أو رابط:", addRssSearchBtn: "بحث / إضافة", addRssManualHint: "📝 إضافة يدوية:", addRssNamePlace: "اسم المصدر", addRssSaveBtn: "حفظ",
+                fetchBtnText: "تحديث الأخبار", loadingText: "جارٍ تحميل الرادار...", pullToRefresh: "اسحب للتحديث", login: "الدخول عبر جوجل", logout: "خروج",
+                manageSourcesTitle: "📰 إدارة المصادر", searchSourcesPh: "ابحث عن مصادر...", hideReadPopup: "إخفاء المقروء", refreshBtn: "🔄 تحديث", applyCloseBtn: "تطبيق وإغلاق",
+                readerTab: "📖 وضع القراءة", originalTab: "🌐 الموقع الأصلي", tripleTapHint: "انقر 3 مرات للإغلاق", loadingSite: "جارٍ التحميل...", extracting: "جارٍ استخراج النص...",
+                scrollLoading: "تحميل المزيد...", checkingUpdates: "التحقق من التحديثات...", swipeArchive: "💾 حفظ", swipeArchived: "💾 محفوظ", swipeHide: "👁️ إخفاء", readMore: "اقرأ →"
+            },
+            'HI': {
+                subtitle: "वैश्विक समाचार, क्लाउड सिंक", menuTitle: "खोज, क्षेत्र, थीम", regionLabel: "🌍 समाचार क्षेत्र:",
+                themeTitle: "🎨 थीम्स", themes: { 'default': '🌑 डार्क', 'glass': '🪟 ग्लास', 'metallic': '⚙️ मेटल', 'hologram': '🌈 होलो', 'animated': '🌊 फ्लो', 'cyber': '⚡ नियॉन' },
+                layoutTitle: "📐 लेआउट", layouts: { 'list': '🔠 सूची', 'small': '≣ छोटा', 'medium': '⊞ मध्य', 'large': '🔲 बड़ा', 'shorts': '📱 शॉर्ट्स' },
+                searchPlaceholder: "विषय, स्रोत खोजें...", catTitle: "📚 त्वरित फ़िल्टर", 
+                cats: { '': 'सभी', 'Arşiv': '💾 आर्काइव', 'News': '📰 समाचार', 'Tech': '💻 टेक', 'Science': '🧬 विज्ञान', 'Health': '⚕️ स्वास्थ्य', 'Sport': '⚽ खेल', 'Finance': '📈 वित्त', 'World': '🌍 विश्व', 'Philo': '🦉 दर्शन' },
+                hideReadText: "👁️ पढ़े गए छिपाएं", sourceTitle: "📰 स्रोत फ़िल्टर", selectAllBtn: "सभी चुनें", addRssTitle: "➕ RSS स्रोत जोड़ें",
+                addRssSearchHint: "🔍 विषय या URL खोजें:", addRssSearchBtn: "खोजें / जोड़ें", addRssManualHint: "📝 मैन्युअल:", addRssNamePlace: "स्रोत का नाम", addRssSaveBtn: "सहेजें",
+                fetchBtnText: "समाचार अपडेट करें", loadingText: "लोड हो रहा है...", pullToRefresh: "ताज़ा करने के लिए खींचें", login: "Google लॉगिन", logout: "बाहर",
+                manageSourcesTitle: "📰 स्रोत प्रबंधित करें", searchSourcesPh: "स्रोत खोजें...", hideReadPopup: "छिपाएं", refreshBtn: "🔄 रीफ़्रेश", applyCloseBtn: "लागू करें",
+                readerTab: "📖 रीडर मोड", originalTab: "🌐 मूल साइट", tripleTapHint: "बंद करने के लिए 3 बार टैप करें", loadingSite: "लोड हो रहा है...", extracting: "टेक्स्ट निकाला जा रहा है...",
+                scrollLoading: "और लोड हो रहा है...", checkingUpdates: "अपडेट की जाँच...", swipeArchive: "💾 सहेजें", swipeArchived: "💾 सहेजा गया", swipeHide: "👁️ छिपाएं", readMore: "पढ़ें →"
+            }
+        };
+
+        // FIREBASE KURULUMU
+        const firebaseConfig = { apiKey: "AIzaSyC-s9FU-wjenKoke_GFDfbqQ8voHZF1btY", authDomain: "haber-portali-pro.firebaseapp.com", projectId: "haber-portali-pro", storageBucket: "haber-portali-pro.firebasestorage.app", messagingSenderId: "956145944082", appId: "1:956145944082:web:f13c5003d5ffc1fe477acb" };
+        firebase.initializeApp(firebaseConfig); const auth = firebase.auth(); const db = firebase.firestore(); const provider = new firebase.auth.GoogleAuthProvider();
+
+        const GLOBAL_RSS_DB = {
+            'EN': [ { id: 'bbc_en', name: 'BBC Global', url: 'http://feeds.bbci.co.uk/news/rss.xml', cat: 'News' }, { id: 'cnn', name: 'CNN', url: 'http://rss.cnn.com/rss/edition.rss', cat: 'News' }, { id: 'wired', name: 'Wired', url: 'https://www.wired.com/feed/rss', cat: 'Tech' }, { id: 'nature', name: 'Nature', url: 'https://www.nature.com/nature.rss', cat: 'Science' }, { id: 'mednewstoday', name: 'Medical News', url: 'https://www.medicalnewstoday.com/feed', cat: 'Health' }, { id: 'espn', name: 'ESPN', url: 'https://www.espn.com/espn/rss/news', cat: 'Sport' }, { id: 'ft', name: 'Financial Times', url: 'https://www.ft.com/rss/home/us', cat: 'Finance' }, { id: 'aeon', name: 'Aeon', url: 'https://aeon.co/feed.rss', cat: 'Philo' } ],
+            'TR': [ { id: 'sozcu', name: 'Sözcü', url: 'https://www.sozcu.com.tr/rss/tum-haberler.xml', cat: 'News' }, { id: 'cumhuriyet', name: 'Cumhuriyet', url: 'https://www.cumhuriyet.com.tr/rss', cat: 'News' }, { id: 'sabah', name: 'Sabah', url: 'https://www.sabah.com.tr/rss/sondakika.xml', cat: 'News' }, { id: 'webtekno', name: 'Webtekno', url: 'https://www.webtekno.com/rss.xml', cat: 'Tech' }, { id: 'evrimagaci', name: 'Evrim Ağacı', url: 'https://evrimagaci.org/rss.xml', cat: 'Science' }, { id: 'saglik', name: 'Sağlık Aktüel', url: 'https://www.saglikaktuel.com/rss.php', cat: 'Health' }, { id: 'ntvspor', name: 'NTV Spor', url: 'https://www.ntvspor.net/rss', cat: 'Sport' }, { id: 'bloomberght', name: 'Bloomberg HT', url: 'https://www.bloomberght.com/rss', cat: 'Finance' }, { id: 'dusunbil', name: 'Düşünbil', url: 'https://dusunbil.com/feed/', cat: 'Philo' } ],
+            'ES': [ { id: 'elpais', name: 'El País', url: 'https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada', cat: 'News' }, { id: 'elmundo', name: 'El Mundo', url: 'https://e00-elmundo.uecdn.es/elmundo/rss/portada.xml', cat: 'News' }, { id: 'xataka', name: 'Xataka', url: 'https://www.xataka.com/feed.xml', cat: 'Tech' }, { id: 'muyinteresante', name: 'Muy Interesante', url: 'https://www.muyinteresante.es/feed', cat: 'Science' }, { id: 'infosalus', name: 'InfoSalus', url: 'https://www.infosalus.com/rss/', cat: 'Health' }, { id: 'marca', name: 'Marca', url: 'https://e00-marca.uecdn.es/rss/futbol/primera-division.xml', cat: 'Sport' }, { id: 'expansion', name: 'Expansión', url: 'https://e00-expansion.uecdn.es/rss/empresas.xml', cat: 'Finance' }, { id: 'filosofia', name: 'Filosofía&Co', url: 'https://filco.es/feed/', cat: 'Philo' } ],
+            'DE': [ { id: 'spiegel', name: 'Der Spiegel', url: 'https://www.spiegel.de/schlagzeilen/tops/index.rss', cat: 'News' }, { id: 'tagesschau', name: 'Tagesschau', url: 'https://www.tagesschau.de/xml/rss2/', cat: 'News' }, { id: 'heise', name: 'Heise', url: 'https://www.heise.de/rss/heise-atom.xml', cat: 'Tech' }, { id: 'spektrum', name: 'Spektrum', url: 'https://www.spektrum.de/rss/alles', cat: 'Science' }, { id: 'apotheken', name: 'Apotheken', url: 'https://www.apotheken-umschau.de/rss/', cat: 'Health' }, { id: 'kicker', name: 'Kicker', url: 'https://rss.kicker.de/news/aktuell', cat: 'Sport' }, { id: 'wiwo', name: 'WirtschaftsWoche', url: 'https://www.wiwo.de/contentexport/feed/rss/schlagzeilen', cat: 'Finance' }, { id: 'philomag', name: 'Philo Magazin', url: 'https://www.philomag.de/rss.xml', cat: 'Philo' } ],
+            'FR': [ { id: 'lemonde', name: 'Le Monde', url: 'https://www.lemonde.fr/rss/une.xml', cat: 'News' }, { id: 'lefigaro', name: 'Le Figaro', url: 'https://www.lefigaro.fr/rss/figaro_actualites.xml', cat: 'News' }, { id: 'numerama', name: 'Numerama', url: 'https://www.numerama.com/feed/', cat: 'Tech' }, { id: 'futura', name: 'Futura Sciences', url: 'https://www.futura-sciences.com/rss/actualites.xml', cat: 'Science' }, { id: 'doctissimo', name: 'Doctissimo', url: 'https://www.doctissimo.fr/rss/news.xml', cat: 'Health' }, { id: 'lequipe', name: 'L\'Équipe', url: 'https://dwh.lequipe.fr/api/edito/rss?path=/', cat: 'Sport' }, { id: 'lesechos', name: 'Les Echos', url: 'https://services.lesechos.fr/rss/les-echos-accueil.xml', cat: 'Finance' }, { id: 'philomag_fr', name: 'Philosophie Mag', url: 'https://www.philomag.com/rss.xml', cat: 'Philo' } ],
+            'RU': [ { id: 'rt_ru', name: 'RT', url: 'https://russian.rt.com/rss', cat: 'News' }, { id: 'meduza', name: 'Meduza', url: 'https://meduza.io/rss/all', cat: 'News' }, { id: 'habr', name: 'Habr', url: 'https://habr.com/ru/rss/all/all/', cat: 'Tech' }, { id: 'nplus1', name: 'N+1', url: 'https://nplus1.ru/rss', cat: 'Science' }, { id: 'rbc', name: 'RBC', url: 'https://rssexport.rbc.ru/rbcnews/news/30/full.rss', cat: 'Finance' }, { id: 'sportexpress', name: 'Sport Express', url: 'https://www.sport-express.ru/services/materials/news/se/', cat: 'Sport' } ],
+            'AR': [ { id: 'aljazeera_ar', name: 'Al Jazeera', url: 'https://www.aljazeera.net/aljazeerarss/a7c186be-1baa-4bd4-9d80-a84db769f779/73d0e1b4-532f-45ef-b135-bfdff8b8cab9', cat: 'News' }, { id: 'alarabiya', name: 'Al Arabiya', url: 'https://www.alarabiya.net/.mrss/ar', cat: 'News' }, { id: 'aitnews', name: 'AIT News', url: 'https://aitnews.com/feed/', cat: 'Tech' }, { id: 'scientificarab', name: 'Scientific Arab', url: 'https://scientificarab.com/feed/', cat: 'Science' }, { id: 'webteb', name: 'WebTeb', url: 'https://www.webteb.com/rss/health', cat: 'Health' }, { id: 'kooora', name: 'Kooora', url: 'https://www.kooora.com/rss/news.xml', cat: 'Sport' }, { id: 'cnbcarabia', name: 'CNBC Arabia', url: 'https://www.cnbcarabia.com/rss', cat: 'Finance' } ],
+            'HI': [ { id: 'ndtv_hi', name: 'NDTV India', url: 'https://feeds.feedburner.com/ndtvkhabar-latest', cat: 'News' }, { id: 'aajtak', name: 'Aaj Tak', url: 'https://feeds.feedburner.com/aajtak/home', cat: 'News' }, { id: 'techinhindi', name: 'Tech in Hindi', url: 'https://www.techinhindi.com/feed/', cat: 'Tech' }, { id: 'onlymyhealth_hi', name: 'OnlyMyHealth', url: 'https://www.onlymyhealth.com/rss/hindi.xml', cat: 'Health' }, { id: 'sportskeeda_hi', name: 'Sportskeeda', url: 'https://hindi.sportskeeda.com/feed', cat: 'Sport' }, { id: 'moneycontrol_hi', name: 'Moneycontrol', url: 'https://hindi.moneycontrol.com/rss/latest-news.xml', cat: 'Finance' } ]
+        };
+
+        let currentUser = null; let currentRegion = 'EN'; let currentCategory = ''; let isArchiveView = false;
+        let RSS_FEEDS = []; let allArticles = []; let filteredArticles = []; let activeSources = []; 
+        let archivedArticles = JSON.parse(localStorage.getItem('archivedArticlesList')) || [];
+        let readArticles = JSON.parse(localStorage.getItem('readArticlesList')) || [];
+        let showReadArticles = false; let displayedCount = 0; let isFetchingRefresh = false; const ITEMS_PER_PAGE = 20;
+        let currentTheme = localStorage.getItem('appTheme') || 'default';
+        let currentLayout = localStorage.getItem('appLayout') || 'medium';
+
+        // 🌍 ÇOKLU DİL (i18n) MOTORU
+        function applyTranslations(regionCode) {
+            const t = TRANSLATIONS[regionCode] || TRANSLATIONS['EN'];
+            
+            // Sabit metinler
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n'); if(t[key]) el.innerText = t[key];
+            });
+            // Placeholder metinleri
+            document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+                const key = el.getAttribute('data-i18n-ph'); if(t[key]) el.placeholder = t[key];
+            });
+
+            // Dinamik Temalar
+            const tWrap = document.getElementById('themeBtnsWrapper'); tWrap.innerHTML = '';
+            for (const [key, val] of Object.entries(t.themes)) {
+                tWrap.innerHTML += `<button class="view-btn theme-btn ${currentTheme === key ? 'active' : ''}" onclick="changeTheme('${key}', this)">${val}</button>`;
+            }
+
+            // Dinamik Görünümler
+            const lWrap = document.getElementById('layoutBtnsWrapper'); lWrap.innerHTML = '';
+            for (const [key, val] of Object.entries(t.layouts)) {
+                lWrap.innerHTML += `<button class="view-btn ${currentLayout === key ? 'active' : ''}" onclick="setGridSize('${key}', this)">${val}</button>`;
+            }
+
+            // Dinamik Kategoriler
+            const cWrap = document.getElementById('catWrapper'); cWrap.innerHTML = '';
+            for (const [key, val] of Object.entries(t.cats)) {
+                const isArc = key === 'Arşiv';
+                cWrap.innerHTML += `<button class="cat-btn ${isArc ? 'cat-btn-archive' : ''} ${currentCategory === key ? 'active' : ''}" onclick="filterCategory('${key}', this)">${val}</button>`;
+            }
+            
+            if(currentRegion === 'AR') document.body.style.direction = 'rtl'; else document.body.style.direction = 'ltr';
+            renderNextBatch(true); // Kart içindeki metinleri çevirmek için listeyi yenile
+        }
+
+        function detectUserRegion() {
+            const savedRegion = localStorage.getItem('scrollaryRegion'); if (savedRegion) return savedRegion;
+            const shortLang = (navigator.language || navigator.userLanguage).substring(0, 2).toUpperCase();
+            return ['TR', 'EN', 'ES', 'DE', 'FR', 'RU', 'AR', 'HI'].includes(shortLang) ? shortLang : 'EN';
+        }
+
+        function switchGlobalRegion(regionCode) {
+            currentRegion = regionCode; document.getElementById('regionSelect').value = regionCode; localStorage.setItem('scrollaryRegion', regionCode);
+            applyTranslations(currentRegion);
+            localStorage.removeItem('activeSourcesList'); loadCustomFeeds(); fetchAllRSS(true); 
+        }
+
+        window.onload = () => {
+            currentRegion = detectUserRegion(); document.getElementById('regionSelect').value = currentRegion;
+            applyTranslations(currentRegion); loadCustomFeeds(); changeTheme(currentTheme); setGridSize(currentLayout, null, true);
+            const savedData = JSON.parse(localStorage.getItem('savedNewsArticles')) || [];
+            if(savedData.length > 0) { allArticles = savedData.map(a => { a.date = new Date(a.timestamp); return a; }); handleSearch(true); setTimeout(() => { checkNewArticlesInBackground(true); }, 1500); } 
+            else { fetchAllRSS(true); }
+        };
+
+        // KULLANICI YÖNETİMİ
+        auth.onAuthStateChanged(user => {
+            if (user) { currentUser = user; document.getElementById('loginBtn').style.display = 'none'; document.getElementById('userInfo').style.display = 'flex'; document.getElementById('userPic').src = user.photoURL; document.getElementById('userName').innerText = user.displayName.split(' ')[0]; loadFromCloud(); } 
+            else { currentUser = null; document.getElementById('loginBtn').style.display = 'flex'; document.getElementById('userInfo').style.display = 'none'; readArticles = JSON.parse(localStorage.getItem('readArticlesList')) || []; archivedArticles = JSON.parse(localStorage.getItem('archivedArticlesList')) || []; loadCustomFeeds(); handleSearch(true); }
+        });
+        function signInWithGoogle() { auth.signInWithPopup(provider).catch(err => { alert("Login failed."); }); }
+        function signOut() { auth.signOut(); }
+
+        async function syncToCloud() {
+            if (!currentUser) return;
+            try { await db.collection('users').doc(currentUser.uid).set({ readArticles: readArticles, archivedArticles: archivedArticles, customRSSFeeds: JSON.parse(localStorage.getItem('customRSSFeeds')) || [], appTheme: currentTheme, activeSources: activeSources, scrollaryRegion: currentRegion }, { merge: true }); } catch (e) {}
+        }
+        async function loadFromCloud() {
+            if (!currentUser) return;
+            try {
+                const doc = await db.collection('users').doc(currentUser.uid).get();
+                if (doc.exists) {
+                    const data = doc.data();
+                    if (data.readArticles) { readArticles = data.readArticles; localStorage.setItem('readArticlesList', JSON.stringify(readArticles)); }
+                    if (data.archivedArticles) { archivedArticles = data.archivedArticles; localStorage.setItem('archivedArticlesList', JSON.stringify(archivedArticles)); }
+                    if (data.customRSSFeeds) { localStorage.setItem('customRSSFeeds', JSON.stringify(data.customRSSFeeds)); }
+                    if (data.appTheme) { changeTheme(data.appTheme); }
+                    if (data.scrollaryRegion) { currentRegion = data.scrollaryRegion; document.getElementById('regionSelect').value = currentRegion; localStorage.setItem('scrollaryRegion', currentRegion); applyTranslations(currentRegion); }
+                    if (data.activeSources) { activeSources = data.activeSources; localStorage.setItem('activeSourcesList', JSON.stringify(activeSources)); }
+                    loadCustomFeeds(); renderChips(); handleSearch(true);
+                }
+            } catch (e) {}
+        }
+
+        // GUI
+        document.addEventListener('click', (e) => { const wrapper = document.getElementById('controlsWrapper'); if (!wrapper.classList.contains('collapsed')) { if (!wrapper.contains(e.target) && e.target.id !== 'loginBtn') { wrapper.classList.add('collapsed'); document.getElementById('toggleIcon').innerText = '▼'; } } });
+        function toggleControls(event) { if(event) event.stopPropagation(); const wrapper = document.getElementById('controlsWrapper'); const icon = document.getElementById('toggleIcon'); if (wrapper.classList.contains('collapsed')) { wrapper.classList.remove('collapsed'); icon.innerText = '▲'; } else { wrapper.classList.add('collapsed'); icon.innerText = '▼'; } }
+        function changeTheme(themeName, btnElement) { document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active')); if(btnElement) btnElement.classList.add('active'); else { Array.from(document.querySelectorAll('.theme-btn')).find(b => b.getAttribute('onclick').includes(themeName))?.classList.add('active'); } document.body.setAttribute('data-theme', themeName); currentTheme = themeName; localStorage.setItem('appTheme', themeName); syncToCloud(); }
+        function toggleReadVisibility(show) { showReadArticles = show; document.getElementById('showReadMain').checked = show; document.getElementById('showReadPopup').checked = show; handleSearch(); }
+        function markAsRead(link, fromSwipe = false) { if (!readArticles.includes(link)) { readArticles.push(link); localStorage.setItem('readArticlesList', JSON.stringify(readArticles)); syncToCloud(); if (!fromSwipe && !showReadArticles) handleSearch(true); else if (!fromSwipe) handleSearch(true); } }
+        function archiveArticleByLink(link) { const art = allArticles.find(a => a.link === link) || archivedArticles.find(a => a.link === link); if(!art) return; if(!archivedArticles.find(a => a.link === link)) { archivedArticles.push(art); localStorage.setItem('archivedArticlesList', JSON.stringify(archivedArticles)); syncToCloud(); } document.getElementById('toastText').innerText = TRANSLATIONS[currentRegion].swipeArchived; document.getElementById('toastNotification').classList.add('show'); setTimeout(() => { document.getElementById('toastNotification').classList.remove('show'); }, 3000); }
+        
+        function setGridSize(size, btnElement, skipSave = false) {
+            document.querySelectorAll('.view-btn:not(.theme-btn)').forEach(b => b.classList.remove('active'));
+            if(btnElement) btnElement.classList.add('active'); else { Array.from(document.querySelectorAll('.view-btn:not(.theme-btn)')).find(b => b.getAttribute('onclick').includes(size))?.classList.add('active'); }
+            const grid = document.getElementById('newsGrid'); grid.className = 'news-grid grid-' + size;
+            if (size === 'shorts') document.body.classList.add('shorts-mode'); else document.body.classList.remove('shorts-mode');
+            if(!skipSave) { currentLayout = size; localStorage.setItem('appLayout', size); }
+        }
+
+        function syncSearchInputs(val) { document.getElementById('searchInput').value = val; handleSearch(); }
+        function popupRefresh() { document.getElementById('popupFilterList').innerHTML = '🔄 Scanning...'; checkNewArticlesInBackground(true).then(() => { renderChips(); }); }
+        function filterCategory(cat, btnElement) { isArchiveView = (cat === 'Arşiv' || cat === 'Archive'); document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active')); if(btnElement) btnElement.classList.add('active'); currentCategory = cat; document.getElementById('searchInput').value = isArchiveView ? "" : cat; document.getElementById('popupSearchInput').value = isArchiveView ? "" : cat; handleSearch(); }
+        function openSourceFilterModal(event) { if(event) event.stopPropagation(); document.getElementById('sourceFilterModal').style.display = 'flex'; document.getElementById('popupSearchInput').value = document.getElementById('searchInput').value; renderChips(); }
+        function closeSourceModal() { document.getElementById('sourceFilterModal').style.display = 'none'; handleSearch(); }
+
+        // KAYNAK BÖLÜMÜ
+        function loadCustomFeeds() {
+            RSS_FEEDS = [...(GLOBAL_RSS_DB[currentRegion] || GLOBAL_RSS_DB['EN'])];
+            const savedFeeds = JSON.parse(localStorage.getItem('customRSSFeeds')) || [];
+            const regionFeeds = savedFeeds.filter(f => (f.lang || 'EN') === currentRegion);
+            RSS_FEEDS.push(...regionFeeds);
+            const savedActive = JSON.parse(localStorage.getItem('activeSourcesList'));
+            if (savedActive && savedActive.length > 0) { activeSources = savedActive; } else { activeSources = RSS_FEEDS.map(f => f.name); }
+            renderChips();
+        }
+        function saveActiveSources() { localStorage.setItem('activeSourcesList', JSON.stringify(activeSources)); syncToCloud(); }
+        function addCustomRSS() {
+            const nameInput = document.getElementById('newRssName'); const urlInput = document.getElementById('newRssUrl'); const name = nameInput.value.trim(); const url = urlInput.value.trim();
+            if(!name || !url) return;
+            const newFeed = { id: 'custom_' + Date.now(), name: name, url: url, isCustom: true, lang: currentRegion, cat: 'News' };
+            const savedFeeds = JSON.parse(localStorage.getItem('customRSSFeeds')) || []; savedFeeds.push(newFeed); localStorage.setItem('customRSSFeeds', JSON.stringify(savedFeeds));
+            activeSources.push(name); saveActiveSources(); loadCustomFeeds(); nameInput.value = ''; urlInput.value = ''; document.getElementById('addRssForm').classList.remove('show'); syncToCloud(); fetchAllRSS(true); 
+        }
+        function deleteCustomRSS(id, event) { event.stopPropagation(); let savedFeeds = JSON.parse(localStorage.getItem('customRSSFeeds')) || []; savedFeeds = savedFeeds.filter(f => f.id !== id); localStorage.setItem('customRSSFeeds', JSON.stringify(savedFeeds)); syncToCloud(); loadCustomFeeds(); handleSearch(); }
+        function toggleSourceState(sourceName) { if(activeSources.includes(sourceName)) { activeSources = activeSources.filter(s => s !== sourceName); } else { activeSources.push(sourceName); } saveActiveSources(); renderChips(); handleSearch(); }
+        function toggleAllSourcesState(event) { if(event) event.stopPropagation(); if(activeSources.length === RSS_FEEDS.length) { activeSources = []; } else { activeSources = RSS_FEEDS.map(f => f.name); } saveActiveSources(); renderChips(); handleSearch(); }
+        function renderChips() {
+            const listMain = document.getElementById('filterList'); const listPopup = document.getElementById('popupFilterList'); if(listMain) listMain.innerHTML = ''; if(listPopup) listPopup.innerHTML = '';
+            RSS_FEEDS.forEach(feed => {
+                const isActive = activeSources.includes(feed.name); let deleteBtn = feed.isCustom ? `<span class="chip-delete" onclick="deleteCustomRSS('${feed.id}', event)">✕</span>` : '';
+                const htmlStr = `<input type="checkbox" value="${feed.name}" ${isActive ? 'checked' : ''} onchange="toggleSourceState('${feed.name}')"> ${feed.name} ${deleteBtn}`;
+                const labelMain = document.createElement('label'); labelMain.className = `chip ${isActive ? 'active' : ''}`; labelMain.innerHTML = htmlStr; if(listMain) listMain.appendChild(labelMain);
+                const labelPopup = document.createElement('label'); labelPopup.className = `chip ${isActive ? 'active' : ''}`; labelPopup.innerHTML = htmlStr; if(listPopup) listPopup.appendChild(labelPopup);
+            });
+        }
+
+        // ÇEKİM MOTORU
+        const PLACEHOLDER_IMG = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='200' viewBox='0 0 400 200'%3E%3Crect width='400' height='200' fill='%231e293b'/%3E%3Ctext x='50%25' y='50%25' font-family='sans-serif' font-size='16' fill='%2394a3b8' text-anchor='middle' dy='.3em'%3ENo Image%3C/text%3E%3C/svg%3E";
+        function getDomain(urlStr) { try { return new URL(urlStr).hostname.replace('www.', ''); } catch(e) { return ''; } }
+        const fetchWithTimeout = (url, timeout = 7000) => { return Promise.race([fetch(url), new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeout))]); };
+
+        async function fetchFeedData(feed) {
+            let articles = []; const domain = getDomain(feed.url);
+            const cb = `_cb=${Date.now()}`; const urlWithCb = feed.url.includes('?') ? `${feed.url}&${cb}` : `${feed.url}?${cb}`;
+            const proxies = [ `https://api.allorigins.win/get?url=${encodeURIComponent(urlWithCb)}`, `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(urlWithCb)}` ];
+            for (let proxy of proxies) {
+                try {
+                    const res = await fetchWithTimeout(proxy, 6000); if (!res.ok) continue;
+                    if (proxy.includes('allorigins')) {
+                        const data = await res.json();
+                        if (data.contents && data.contents.includes('<rss')) { articles = parseXMLToArticles(data.contents, feed); if (articles.length > 0) return articles; }
+                    } else { const text = await res.text(); if (text.includes("<rss") || text.includes("<feed")) { articles = parseXMLToArticles(text, feed); if (articles.length > 0) return articles; } }
+                } catch(e) { } 
+            } return [];
+        }
+
+        function parseXMLToArticles(textData, feed) {
+            const parser = new DOMParser(); const xmlDoc = parser.parseFromString(textData, "text/xml"); const items = xmlDoc.querySelectorAll("item, entry"); 
+            let result = []; let baseUrl = ""; try { baseUrl = new URL(feed.url).origin; } catch(e){}
+            items.forEach(item => {
+                const title = item.querySelector("title")?.textContent || "Untitled";
+                let link = "#"; const linkNode = item.querySelector("link"); if (linkNode) { link = linkNode.textContent.trim(); if(!link) link = linkNode.getAttribute("href") || "#"; }
+                let desc = item.querySelector("description, summary")?.textContent || "";
+                let contentEnc = item.getElementsByTagName("content:encoded"); if (contentEnc.length === 0) contentEnc = item.getElementsByTagNameNS("*", "encoded");
+                let fullText = desc + " " + (contentEnc.length > 0 ? contentEnc[0].textContent : "");
+                let pubDate = new Date(); const pubNodes = item.getElementsByTagName('pubDate'); if(pubNodes.length > 0) { const parsed = new Date(pubNodes[0].textContent); if(!isNaN(parsed.getTime())) pubDate = parsed; }
+                if (pubDate.getTime() > Date.now() + 3600000) { pubDate = new Date(); }
+                let image = ""; const enclosure = item.querySelector("enclosure"); let mediaContent = item.getElementsByTagName("media:content"); if(mediaContent.length === 0) mediaContent = item.getElementsByTagNameNS("*", "content"); let mediaThumbnail = item.getElementsByTagName("media:thumbnail"); if(mediaThumbnail.length === 0) mediaThumbnail = item.getElementsByTagNameNS("*", "thumbnail"); const imageTag = item.querySelector("image url");
+                if (enclosure && enclosure.getAttribute("url")) { image = enclosure.getAttribute("url"); } else if (mediaContent.length > 0 && mediaContent[0].getAttribute("url")) { image = mediaContent[0].getAttribute("url"); } else if (mediaThumbnail.length > 0 && mediaThumbnail[0].getAttribute("url")) { image = mediaThumbnail[0].getAttribute("url"); } else if (imageTag) { image = imageTag.textContent; } else { const imgMatch = fullText.match(/<img[^>]+src=["']([^"']+)["']/i); if (imgMatch && imgMatch[1]) image = imgMatch[1]; }
+                if (image && image.startsWith('/')) image = baseUrl + image; if (image && image.startsWith('http:')) image = image.replace('http:', 'https:'); if (!image) image = PLACEHOLDER_IMG;
+                let categories = feed.cat ? [feed.cat] : []; 
+                desc = desc.replace(/<[^>]*>?/gm, '').trim().substring(0, 180) + '...';
+                result.push({ title, description: desc, link, image, source: feed.name, date: pubDate, timestamp: pubDate.getTime(), categories });
+            }); return result;
+        }
+
+        function saveToLocalMemory() { const toSave = allArticles.slice(0, 300); localStorage.setItem('savedNewsArticles', JSON.stringify(toSave)); }
+
+        async function fetchAllRSS(isInitialLoad = false) {
+            const grid = document.getElementById('newsGrid'); const btn = document.getElementById('fetchBtn'); btn.disabled = true; 
+            btn.innerText = TRANSLATIONS[currentRegion].loadingText;
+            
+            // YENİ: GETİR BUTONUNA BASINCA MENÜYÜ OTOMATİK KAPAT
+            if (!isInitialLoad) {
+                document.getElementById('controlsWrapper').classList.add('collapsed');
+                document.getElementById('toggleIcon').innerText = '▼';
+            }
+
+            if(!isInitialLoad) { grid.innerHTML = `<div class="status-msg"><span id="loadingText" style="color:white; font-weight:600;">${TRANSLATIONS[currentRegion].loadingText}</span><div class="loading-bar"><div class="loading-fill" id="loadingFill"></div></div></div>`; }
+            allArticles = []; let completedCount = 0;
+            const fetchPromises = RSS_FEEDS.map(async (feed) => {
+                try { const feedArticles = await fetchFeedData(feed); if (feedArticles.length > 0) allArticles.push(...feedArticles); } catch (error) {} finally {
+                    completedCount++; const fillObj = document.getElementById('loadingFill'); const textObj = document.getElementById('loadingText');
+                    if(fillObj) fillObj.style.width = `${(completedCount / RSS_FEEDS.length) * 100}%`; if(textObj) textObj.innerText = `${feed.name} (${completedCount}/${RSS_FEEDS.length})`;
+                }
+            });
+            await Promise.all(fetchPromises); allArticles.sort((a, b) => b.timestamp - a.timestamp); saveToLocalMemory(); btn.disabled = false; btn.innerText = TRANSLATIONS[currentRegion].fetchBtnText; handleSearch(); 
+        }
+
+        async function checkNewArticlesInBackground(isTopRefresh = false) {
+            isFetchingRefresh = true; const endSpinner = document.getElementById('endRefreshSpinner'); let newCount = 0;
+            const fetchPromises = RSS_FEEDS.map(async (feed) => { try { const feedArticles = await fetchFeedData(feed); feedArticles.forEach(newArt => { const exists = allArticles.find(a => a.link === newArt.link); if(!exists) { allArticles.push(newArt); newCount++; } }); } catch(e) {} });
+            await Promise.all(fetchPromises);
+            if (newCount > 0) { allArticles.sort((a, b) => b.timestamp - a.timestamp); saveToLocalMemory(); handleSearch(true); document.getElementById('toastText').innerText = `+${newCount}`; document.getElementById('toastNotification').classList.add('show'); setTimeout(() => { document.getElementById('toastNotification').classList.remove('show'); }, 6000); } 
+            else if (isTopRefresh) { document.getElementById('toastText').innerText = `✔️`; document.getElementById('toastNotification').classList.add('show'); setTimeout(() => { document.getElementById('toastNotification').classList.remove('show'); }, 3000); }
+            if (isTopRefresh) { resetPullToRefresh(); } else { endSpinner.innerText = "..."; setTimeout(() => { endSpinner.style.display = 'none'; }, 4000); }
+            isFetchingRefresh = false;
+        }
+
+        function handleSearch(isSilentRefresh = false) {
+            const searchText = (document.getElementById('searchInput').value.trim()).toLowerCase(); const searchTerms = searchText.split(' ').filter(t => t.length > 0);
+            document.getElementById('popupSearchInput').value = document.getElementById('searchInput').value; 
+            let sourceArray = isArchiveView ? archivedArticles : allArticles;
+            filteredArticles = sourceArray.filter(art => {
+                if (!isArchiveView && !showReadArticles && readArticles.includes(art.link)) return false;
+                const sourceMatch = isArchiveView ? true : activeSources.includes(art.source); if(!sourceMatch) return false;
+                const searchSpace = (art.title + " " + art.description + " " + (art.categories ? art.categories.join(' ') : "") + " " + art.source).toLowerCase();
+                return searchTerms.length === 0 || searchTerms.every(term => searchSpace.includes(term)); 
+            });
+            if (!isSilentRefresh) { document.getElementById('newsGrid').innerHTML = ''; displayedCount = 0; } else { document.getElementById('newsGrid').innerHTML = ''; displayedCount = 0; }
+            if (filteredArticles.length === 0) { document.getElementById('newsGrid').innerHTML = `<div class="status-msg"><div style="font-size:3rem; margin-bottom:15px;">🔍</div>...</div>`; return; }
+            renderNextBatch();
+        }
+
+        function renderNextBatch(forceClear = false) {
+            const grid = document.getElementById('newsGrid'); 
+            if(forceClear) { grid.innerHTML = ''; displayedCount = 0; }
+            const nextBatch = filteredArticles.slice(displayedCount, displayedCount + ITEMS_PER_PAGE);
+            const t = TRANSLATIONS[currentRegion];
+
+            nextBatch.forEach(art => {
+                const wrapper = document.createElement('div'); wrapper.className = 'swipe-wrapper'; wrapper.dataset.link = art.link;
+                const isRead = readArticles.includes(art.link); const isArchived = !!archivedArticles.find(a=> a.link === art.link);
+                const dateObj = new Date(art.date); const today = new Date(); let dateStr = (dateObj.getDate() === today.getDate() && dateObj.getMonth() === today.getMonth()) ? dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : dateObj.toLocaleDateString([], { day: '2-digit', month: 'short' }) + " " + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                let catText = "";
+                if(art.categories && art.categories.length > 0) {
+                    let rawCat = art.categories[0];
+                    catText = t.cats[rawCat] || rawCat; 
+                }
+
+                wrapper.innerHTML = `
+                    <div class="swipe-bg swipe-bg-left">${isArchived ? t.swipeArchived : t.swipeArchive}</div><div class="swipe-bg swipe-bg-right">${t.swipeHide}</div>
+                    <div class="news-card ${isRead && !isArchiveView ? 'read-article' : ''}">
+                        <a href="${art.link}" target="_blank" class="external-link-btn" onclick="event.stopPropagation(); markAsRead('${art.link}');">↗️</a>
+                        <div class="card-img-wrapper img-skeleton"><div class="source-badge" onclick="openSourceFilterModal(event)">${art.source} ${catText ? '• '+catText : ''}</div><img src="${art.image}" onload="this.style.opacity=1; this.parentElement.classList.remove('img-skeleton');" onerror="this.src='${PLACEHOLDER_IMG}'; this.style.opacity=1; this.parentElement.classList.remove('img-skeleton');"></div>
+                        <div class="news-content"><h3>${art.title}</h3><div class="meta"><span>🕒 ${dateStr}</span><span class="read-more">${t.readMore}</span></div></div>
+                    </div>
+                `;
+                const card = wrapper.querySelector('.news-card'); let clickTimer = null;
+                card.onclick = (e) => { if(e.target.tagName === 'A' || e.target.closest('.source-badge')) return; if(e.detail === 1) { clickTimer = setTimeout(() => { markAsRead(art.link); openModal(art); }, 250); } else if(e.detail === 2) { clearTimeout(clickTimer); markAsRead(art.link); window.open(art.link, '_blank'); } };
+                grid.appendChild(wrapper);
+            }); displayedCount += nextBatch.length;
+        }
+
+        // MODAL VE ZEKİ YÖNLENDİRME 
+        function switchTab(tab) { document.getElementById('tabReader').classList.remove('active'); document.getElementById('tabWeb').classList.remove('active'); if(tab === 'reader') { document.getElementById('tabReader').classList.add('active'); document.getElementById('readerView').style.display = 'block'; document.getElementById('iframeView').style.display = 'none'; } else { document.getElementById('tabWeb').classList.add('active'); document.getElementById('readerView').style.display = 'none'; document.getElementById('iframeView').style.display = 'flex'; } }
+
+        async function openModal(art) {
+            const modal = document.getElementById('newsModal'); const t = TRANSLATIONS[currentRegion];
+            document.getElementById('modalSource').innerText = art.source; document.getElementById('modalLinkExt').href = art.link; document.getElementById('modalTitle').innerText = art.title; document.getElementById('modalDesc').innerText = art.description;
+            const imgEl = document.getElementById('modalImg'); imgEl.src = art.image; imgEl.style.display = art.image.includes('svg+xml') ? 'none' : 'block';
+            switchTab('reader'); modal.style.display = 'flex'; document.body.style.overflow = 'hidden'; 
+            
+            const textContainer = document.getElementById('fullTextContainer'); textContainer.innerHTML = `<div class="loading-pulse">${t.extracting}</div>`;
+            const iframe = document.getElementById('modalIframe'); const banner = document.getElementById('iframeBanner'); iframe.removeAttribute('srcdoc'); iframe.src = 'about:blank'; banner.innerHTML = `<span style="animation: pulse 1.5s infinite;">⏳</span> ${t.loadingSite}`;
+
+            // YENİ: Akıllı Yönlendirme (Zaman aşımı veya hata anında otomatik yeni sekme açar)
+            try {
+                if(art.link.includes('news.google.com')) throw new Error("Redirect");
+                const proxies = [ `https://api.allorigins.win/raw?url=${encodeURIComponent(art.link)}`, `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(art.link)}` ];
+                let html = null; for (let proxy of proxies) { try { const res = await fetchWithTimeout(proxy, 6000); if (res.ok) { const text = await res.text(); if (text && !text.includes('security service to protect itself')) { html = text; break; } } } catch(e) {} }
+                if (!html) throw new Error("Fetch failed");
+                const parser = new DOMParser(); const doc = parser.parseFromString(html, 'text/html'); const paragraphs = Array.from(doc.querySelectorAll('p, .content p, .news-text p, article p'));
+                const validText = paragraphs.map(p => p.textContent.trim()).filter(txt => txt.length > 70); const uniqueText = [...new Set(validText)];
+                
+                if (uniqueText.length > 0) { textContainer.innerHTML = uniqueText.map(txt => `<p>${txt}</p>`).join(''); } 
+                else { throw new Error("No readable text"); } // Metin yoksa direk fırlat, siteye gitsin.
+
+                html = html.replace(/<meta[^>]+http-equiv=['"]?refresh['"]?[^>]*>/gi, ''); html = html.replace(/window\.location\.replace/gi, 'console.log'); html = html.replace(/window\.location\.href\s*=/gi, 'console.log=');
+                const urlObj = new URL(art.link); const baseUrl = urlObj.protocol + "//" + urlObj.host + "/";
+                if (html.toLowerCase().includes('<head>')) { html = html.replace(/<head>/i, `<head><base href="${baseUrl}">`); } else { html = `<base href="${baseUrl}">` + html; }
+                const scriptFix = `<script> window.onload = function() { const links = document.querySelectorAll('a'); links.forEach(l => l.setAttribute('target', '_blank')); }; <\/script>`;
+                html = html.replace(/<\/body>/i, scriptFix + '</body>'); iframe.srcdoc = html; iframe.onload = () => { banner.innerHTML = `✅`; setTimeout(()=>{ banner.style.display='none'; }, 2000); };
+            } catch (err) {
+                // BAŞARISIZ OLURSA BEKLETMEDEN ORİJİNAL SİTEYE YENİ SEKMEYE YOLLA
+                closeModal();
+                window.open(art.link, '_blank');
+            }
+        }
+
+        function closeModal() { document.getElementById('newsModal').style.display = 'none'; document.body.style.overflow = 'auto'; document.getElementById('fullTextContainer').innerHTML = ''; const iframe = document.getElementById('modalIframe'); iframe.removeAttribute('srcdoc'); iframe.src = 'about:blank'; document.getElementById('iframeBanner').style.display = 'flex'; }
+        let tapCount = 0; let tapTimeout; document.getElementById('modalBodyArea').addEventListener('click', (e) => { if(e.target.tagName === 'A' || e.target.tagName === 'BUTTON') return; tapCount++; clearTimeout(tapTimeout); if(tapCount >= 3) { closeModal(); tapCount = 0; } else { tapTimeout = setTimeout(() => { tapCount = 0; }, 600); } });
+        window.onclick = (e) => { if(e.target.className === 'modal') closeModal(); if(e.target.id === 'sourceFilterModal') closeSourceModal(); };
+
+        // SWIPE & DRAG MOTORU
+        let isDragging = false; let touchStartX = 0; let touchStartY = 0; let pullDistance = 0; let swipingCard = null; let swipeCurrentX = 0; let isVerticalScroll = false;
+        function handleDragStart(clientX, clientY, target) { if (window.scrollY <= 5) touchStartY = clientY; const card = target.closest('.news-card'); if(card) { swipingCard = card; touchStartX = clientX; touchStartY = clientY; swipeCurrentX = 0; isVerticalScroll = false; card.classList.add('swiping'); } }
+        function handleDragMove(clientX, clientY) {
+            if (window.scrollY <= 5 && touchStartY > 0 && !swipingCard) { pullDistance = clientY - touchStartY; if (pullDistance > 0 && pullDistance < 150) { ptrEl.style.opacity = Math.min(pullDistance / 80, 1); ptrEl.style.transform = `translateX(-50%) translateY(${pullDistance * 0.5}px)`; if (pullDistance > 80) { ptrIcon.innerText = "🔄"; ptrText.innerText = "..."; } else { ptrIcon.innerText = "⬇️"; ptrText.innerText = TRANSLATIONS[currentRegion].pullToRefresh; } } }
+            if (swipingCard) { const diffX = clientX - touchStartX; const diffY = clientY - touchStartY; if(!isVerticalScroll && Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > 10) { isVerticalScroll = true; swipingCard.style.transform = `translateX(0px)`; swipingCard.classList.remove('swiping'); swipingCard = null; return; } if(isVerticalScroll) return; swipeCurrentX = diffX; swipingCard.style.transform = `translateX(${swipeCurrentX}px)`; }
+        }
+        function handleDragEnd() {
+            if (pullDistance > 80 && !isFetchingRefresh && !swipingCard) { ptrIcon.innerText = "⏳"; ptrText.innerText = "..."; checkNewArticlesInBackground(true); } else { resetPullToRefresh(); }
+            if (swipingCard) { const wrapper = swipingCard.closest('.swipe-wrapper'); const link = wrapper.dataset.link; swipingCard.classList.remove('swiping'); if(swipeCurrentX > 100) { swipingCard.style.transform = `translateX(100%)`; setTimeout(() => { archiveArticleByLink(link); wrapper.style.display = 'none'; }, 300); } else if(swipeCurrentX < -100) { swipingCard.style.transform = `translateX(-100%)`; setTimeout(() => { markAsRead(link, true); wrapper.style.display = 'none'; }, 300); } else { swipingCard.style.transform = `translateX(0px)`; } swipingCard = null; }
+        }
+        document.addEventListener('touchstart', e => handleDragStart(e.touches[0].clientX, e.touches[0].clientY, e.target), {passive: true}); document.addEventListener('touchmove', e => handleDragMove(e.touches[0].clientX, e.touches[0].clientY), {passive: true}); document.addEventListener('touchend', e => handleDragEnd()); document.addEventListener('mousedown', e => { const card = e.target.closest('.news-card'); if(card) { isDragging = true; handleDragStart(e.clientX, e.clientY, e.target); } }); document.addEventListener('mousemove', e => { if (!isDragging) return; handleDragMove(e.clientX, e.clientY); }); document.addEventListener('mouseup', e => { if (!isDragging) return; isDragging = false; handleDragEnd(); }); function resetPullToRefresh() { ptrEl.style.transform = `translateX(-50%) translateY(0)`; ptrEl.style.opacity = 0; touchStartY = 0; pullDistance = 0; setTimeout(() => { ptrIcon.innerText = "⬇️"; ptrText.innerText = TRANSLATIONS[currentRegion].pullToRefresh; }, 300); }
+        window.addEventListener('scroll', () => { if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 400) { if (displayedCount < filteredArticles.length) { const spinner = document.getElementById('scrollSpinner'); spinner.style.display = 'block'; setTimeout(() => { renderNextBatch(); spinner.style.display = 'none'; }, 100); } else if (filteredArticles.length > 0 && !isFetchingRefresh) { isFetchingRefresh = true; document.getElementById('endRefreshSpinner').style.display = 'block'; checkNewArticlesInBackground(false); } } });
+        document.addEventListener('DOMContentLoaded', () => { const newsGrid = document.getElementById('newsGrid'); newsGrid.addEventListener('scroll', () => { if(document.body.classList.contains('shorts-mode')) { if ((newsGrid.scrollTop + newsGrid.clientHeight) >= newsGrid.scrollHeight - 600) { if (displayedCount < filteredArticles.length) { renderNextBatch(); } else if (filteredArticles.length > 0 && !isFetchingRefresh) { checkNewArticlesInBackground(false); } } } }); });
+    </script>
+</body>
+</html>
