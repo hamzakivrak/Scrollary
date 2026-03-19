@@ -643,7 +643,10 @@
                 let catText = ""; if(art.categories && art.categories.length > 0) { let rawCat = art.categories[0]; catText = t.cats[rawCat] || rawCat; }
 
                 let isDefault = !art.image;
-                let imgHtml = !isDefault ? `<img src="${art.image}" onload="this.style.opacity=1; this.parentElement.classList.remove('img-skeleton');" onerror="this.style.display='none'; this.parentElement.innerHTML='&lt;div class=&quot;default-globe&quot;&gt;🌐&lt;/div&gt;'; this.parentElement.setAttribute('data-default-img', 'true'); this.parentElement.classList.remove('img-skeleton');">` : DEFAULT_GLOBE_HTML;
+                let safeImgUrl = art.image ? art.image.replace(/"/g, '&quot;') : '';
+                
+                // HATA DÜZELTİLDİ: Hem tırnak sorunları giderildi hem de kaynak rozetinin silinmesi engellendi
+                let imgHtml = !isDefault ? `<img src="${safeImgUrl}" onload="this.style.opacity=1; this.parentElement.classList.remove('img-skeleton');" onerror="this.onerror=null; this.style.display='none'; this.parentElement.insertAdjacentHTML('beforeend', '<div class=\\'default-globe\\'>🌐</div>'); this.parentElement.setAttribute('data-default-img', 'true'); this.parentElement.classList.remove('img-skeleton');">` : DEFAULT_GLOBE_HTML;
 
                 wrapper.innerHTML = `
                     <div class="swipe-bg swipe-bg-left">${isArchived ? t.swipeArchived : t.swipeArchive}</div><div class="swipe-bg swipe-bg-right">${t.swipeHide}</div>
@@ -656,8 +659,6 @@
                         <div class="news-content"><h3>${art.title}</h3><div class="meta"><span>🕒 ${dateStr}</span><span class="read-more">${t.readMore}</span></div></div>
                     </div>
                 `;
-                // imgHtml içindeki HTML taglerini düzeltmek için (Tırnak sorunu olmaması adına)
-                wrapper.innerHTML = wrapper.innerHTML.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
 
                 const card = wrapper.querySelector('.news-card'); let clickTimer = null;
                 card.onclick = (e) => { if(e.target.tagName === 'A' || e.target.closest('.source-badge')) return; if(e.detail === 1) { clickTimer = setTimeout(() => { markAsRead(art.link); openModal(art); }, 250); } else if(e.detail === 2) { clearTimeout(clickTimer); markAsRead(art.link); window.open(art.link, '_blank'); } };
