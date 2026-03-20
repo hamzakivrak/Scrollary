@@ -1078,8 +1078,25 @@
             try {
                 if(art.link.includes('news.google.com')) throw new Error("Redirect");
                 const proxies = [`https://corsproxy.io/?${encodeURIComponent(art.link)}`,`https://api.allorigins.win/raw?url=${encodeURIComponent(art.link)}`, `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(art.link)}`];
-                let html = null; 
-                for (let proxy of proxies) { try { const res = await fetchWithTimeout(proxy, 6000); if (res.ok) { const text = await res.text(); if (text && !text.includes('security service to protect itself')) { html = text; break; } } } catch(e) {} }
+                 // YENİ HIZLANDIRILMIŞ KISIM:
+let html = null;
+try {
+    // 3 sunucuya aynı anda istek at ve yarıştır
+    const fetchPromises = proxies.map(proxy =>
+        fetchWithTimeout(proxy, 6000).then(async res => {
+            if (!res.ok) throw new Error("Sunucu hatasi");
+            const text = await res.text();
+            if (!text || text.includes('security service to protect itself')) throw new Error("Engellendi");
+            return text;
+        })
+    );
+    // Hangi sunucu ilk cevabı verirse onu kabul et
+    html = await Promise.any(fetchPromises);
+} catch (e) {
+    // Üçü de 6 saniye içinde cevap veremezse
+    html = null;
+}
+
                 if (!html) throw new Error("Fetch failed");
                 const parser = new DOMParser(); const doc = parser.parseFromString(html, 'text/html'); const paragraphs = Array.from(doc.querySelectorAll('p, .content p, .news-text p, article p'));
                 const validText = paragraphs.map(p => p.textContent.trim()).filter(txt => txt.length > 70); const uniqueText = [...new Set(validText)];
