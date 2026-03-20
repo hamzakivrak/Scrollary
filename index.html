@@ -229,6 +229,17 @@
         .view-controls { display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; }
         .view-btn { padding: 6px 12px; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--surface-light); color: var(--text-muted); border-radius: 8px; font-size: 0.85rem; cursor: pointer; transition: 0.2s; font-weight: 600; }
         .view-btn.active { background: var(--surface-light); color: white; border-color: var(--accent); }
+        /* Ayarlar Akordeon Stilleri */
+.setting-item { border: 1px solid var(--surface-light); border-radius: 8px; margin-bottom: 10px; overflow: hidden; transition: all 0.3s ease; background: rgba(15, 23, 42, 0.4); }
+.setting-item summary { padding: 15px; font-weight: 600; color: var(--text-main); cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; user-select: none; }
+.setting-item summary::-webkit-details-marker { display: none; }
+.setting-item summary::after { content: "▼"; font-size: 0.8rem; color: var(--text-muted); transition: transform 0.3s ease; }
+.setting-item[open] summary::after { transform: rotate(180deg); color: var(--primary); }
+.setting-detail { padding: 15px; border-top: 1px solid var(--surface-light); background: rgba(0,0,0,0.2); display: flex; flex-direction: column; gap: 10px;}
+.btn-login { background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+.btn-login:hover { background: var(--primary-hover); }
+.btn-logout { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold;}
+    
     </style>
 </head>
 <body>
@@ -307,26 +318,64 @@
     </div>
 
     <div id="settingsModal" class="modal" style="z-index: 2500;">
-        <div class="modal-content" style="max-width: 500px; height: auto; max-height: 85vh;">
-            <div class="modal-header"><div class="modal-top-row"><h3 style="color:white; margin:0;">⚙️ Ayarlar</h3><button class="btn-icon btn-close" onclick="closeModalSafe('settingsModal')" title="Kapat">✕</button></div></div>
-            <div class="modal-body" style="padding: 20px; cursor: default;">
-                <div style="margin-bottom:25px; padding-bottom:20px; border-bottom:1px solid var(--surface-light);">
-                    <button id="loginBtn" class="btn-login" style="width:100%; justify-content:center; padding:12px;" onclick="signInWithGoogle()" data-i18n="login">Google ile Giriş Yap</button>
-                    <div id="userInfo" class="user-profile" style="display:none; justify-content:space-between; padding:10px 15px;">
-                        <div style="display:flex; align-items:center; gap:10px;">
-                            <img id="userPic" src="" alt="User" style="width:40px; height:40px;">
-                            <span id="userName" style="font-size:1rem;">User</span>
-                        </div>
-                        <button class="btn-logout" onclick="signOut()" data-i18n="logout" style="font-size:0.9rem;">Çıkış</button>
-                    </div>
-                </div>
-                <div class="filter-section-title"><span data-i18n="themeTitle">🎨 Temalar</span></div>
-                <div class="view-controls" id="themeBtnsWrapper" style="margin-bottom:25px;"></div>
-                <div class="filter-section-title"><span data-i18n="layoutTitle">📐 Görünüm Boyutu</span></div>
-                <div class="view-controls" id="layoutBtnsWrapper"></div>
+    <div class="modal-content" style="max-width: 500px; height: auto; max-height: 85vh;">
+        <div class="modal-header">
+            <div class="modal-top-row">
+                <h3 style="color:white; margin:0;">⚙️ Ayarlar</h3>
+                <button class="btn-icon btn-close" onclick="closeModalSafe('settingsModal')" title="Kapat">✕</button>
             </div>
         </div>
+        <div class="modal-body" style="padding: 20px; cursor: default; overflow-y: auto;">
+            
+            <details class="setting-item" open>
+                <summary>Hesap Girişi</summary>
+                <div class="setting-detail">
+                    <button id="loginBtn" class="btn-login" style="width:100%; justify-content:center; padding:12px;" onclick="signInWithGoogle()" data-i18n="login">Google ile Giriş Yap</button>
+                    <div id="userInfo" class="user-profile" style="display:none; justify-content:space-between; align-items:center; padding:10px 15px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <img id="userPic" src="" alt="User" style="width:40px; height:40px; border-radius:50%;">
+                            <span id="userName" style="font-size:1rem; color: white;">User</span>
+                        </div>
+                        <button class="btn-logout" onclick="signOut()" data-i18n="logout">Çıkış</button>
+                    </div>
+                </div>
+            </details>
+
+            <details class="setting-item">
+                <summary data-i18n="themeTitle">🎨 Tema Seçimi</summary>
+                <div class="setting-detail">
+                    <div class="view-controls" id="themeBtnsWrapper" style="margin-bottom:0;"></div>
+                </div>
+            </details>
+
+            <details class="setting-item">
+                <summary data-i18n="layoutTitle">📐 Görünüm Boyutu</summary>
+                <div class="setting-detail">
+                    <div class="view-controls" id="layoutBtnsWrapper"></div>
+                </div>
+            </details>
+
+            <details class="setting-item">
+                <summary>Destek & Geri Bildirim</summary>
+                <div class="setting-detail">
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin:0;">Uygulamayla ilgili bir hata mı buldunuz veya öneriniz mi var?</p>
+                    <textarea placeholder="Görüşlerinizi buraya yazın..." style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--surface-light); background:var(--bg-dark); color:white; resize:vertical; min-height:80px; outline:none; font-family:inherit;"></textarea>
+                    <button class="btn-login" style="padding:10px;">Gönder</button>
+                </div>
+            </details>
+
+            <details class="setting-item">
+                <summary>Hakkında</summary>
+                <div class="setting-detail" style="color: var(--text-muted); font-size: 0.9rem;">
+                    <p style="margin:0;"><strong>Scrollary News Radar</strong></p>
+                    <p style="margin:0;">Sürüm: 2.1.0</p>
+                    <p style="margin:0;">Tüm hakları saklıdır © 2026</p>
+                </div>
+            </details>
+
+        </div>
     </div>
+</div>
 
     <div id="sourceFilterModal" class="modal" style="z-index: 2500;">
         <div class="modal-content" style="max-width: 600px; height: auto; max-height: 85vh;">
@@ -388,6 +437,24 @@
         let archivedArticles = JSON.parse(localStorage.getItem('archivedArticlesList')) || [];
         let readArticles = JSON.parse(localStorage.getItem('readArticlesList')) || [];
         let showReadArticles = false; let displayedCount = 0; let isFetchingRefresh = false; const ITEMS_PER_PAGE = 20;
+        // EKSİK OLAN DOM ELEMENTLERİ
+const ptrEl = document.getElementById('pullToRefresh');
+const ptrIcon = document.getElementById('ptrIcon');
+const ptrText = document.getElementById('ptrText');
+
+// EKSİK OLAN ZAMAN AŞIMI FONKSİYONU (Haberlerin takılıp kalmasını önler)
+async function fetchWithTimeout(resource, timeout = 6000) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    try {
+        const response = await fetch(resource, { signal: controller.signal });
+        clearTimeout(id);
+        return response;
+    } catch (error) {
+        clearTimeout(id);
+        throw error;
+    }
+}
         
         let currentTheme = localStorage.getItem('appTheme') || 'hologram';
         let currentLayout = localStorage.getItem('appLayout') || 'medium';
