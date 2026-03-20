@@ -728,25 +728,34 @@
         }
 
         // RSS VE ATOM FEED GÜVENLİK DÜZELTMESİ (includes('<rss') || includes('<feed'))
+        // 1. GÜÇLENDİRİLMİŞ HABER ÇEKİCİ (PROXY ÇEŞİTLİLİĞİ EKLENDİ)
         async function fetchFeedData(feed) {
             let articles = []; const cb = `_cb=${Date.now()}`; const urlWithCb = feed.url.includes('?') ? `${feed.url}&${cb}` : `${feed.url}?${cb}`;
+            
+            // 4 Farklı Aracı (Proxy) Sunucu eklendi. Biri engellerse diğeri devreye girer.
             const proxies = [ 
-                { url: `https://api.allorigins.win/get?url=${encodeURIComponent(urlWithCb)}`, type: 'json_contents' },
-                { url: `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(urlWithCb)}`, type: 'rss2json' },
-                { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(urlWithCb)}`, type: 'raw' }
+                { url: `https://api.allorigins.win/raw?url=${encodeURIComponent(urlWithCb)}`, type: 'raw' },
+                { url: `https://corsproxy.io/?${encodeURIComponent(urlWithCb)}`, type: 'raw' },
+                { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(urlWithCb)}`, type: 'raw' },
+                { url: `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(urlWithCb)}`, type: 'rss2json' }
             ];
+
             for (let proxy of proxies) {
                 try {
-                    const res = await fetchWithTimeout(proxy.url, 10000); if (!res.ok) continue;
-                    if (proxy.type === 'json_contents') {
-                        const data = await res.json();
-                        // DÜZELTME: Hem RSS hem ATOM formatlarına izin ver
-                        if (data.contents && (data.contents.includes('<rss') || data.contents.includes('<feed') || data.contents.includes('<?xml'))) { 
-                            articles = parseXMLToArticles(data.contents, feed); if (articles.length > 0) return articles; 
+                    const res = await fetchWithTimeout(proxy.url, 8000); 
+                    if (!res.ok) continue;
+                    
+                    if (proxy.type === 'raw') {
+                        const text = await res.text(); 
+                        const tLower = text.trim().toLowerCase();
+                        // HEM RSS HEM ATOM FORMATI KABUL EDİLDİ (Google Haberler Sorunu Çözüldü)
+                        if (tLower.includes("<rss") || tLower.includes("<feed") || tLower.includes("<?xml") || tLower.includes("<rdf")) { 
+                            articles = parseXMLToArticles(text, feed); 
+                            if (articles.length > 0) return articles; 
                         }
                     } else if (proxy.type === 'rss2json') { 
                         const data = await res.json(); 
-                        if (data.items && data.items.length > 0) { 
+                        if (data.status === "ok" && data.items && data.items.length > 0) { 
                             articles = data.items.map(item => {
                                 let img = item.thumbnail || item.enclosure?.link || "";
                                 if(!img) { const dMatch = (item.description||"").match(/<img[^>]+src=["']([^"']+)["']/i); if(dMatch) img = dMatch[1]; }
@@ -755,38 +764,61 @@
                             });
                             if (articles.length > 0) return articles;
                         } 
-                    } else if (proxy.type === 'raw') {
-                        const text = await res.text(); 
-                        if (text.includes("<rss") || text.includes("<feed") || text.includes("<?xml")) { 
-                            articles = parseXMLToArticles(text, feed); if (articles.length > 0) return articles; 
-                        }
                     }
-                } catch(e) { } 
-            } return [];
+                } catch(e) { console.log("Proxy engellendi, diğerine geçiliyor: " + proxy.url); } 
+            } 
+            return [];
         }
 
+        // 2. GELİŞMİŞ XML OKUYUCU (AÇIKLAMA VE TARİH EKSİKLİĞİ ÇÖZÜLDÜ)
         function parseXMLToArticles(textData, feed) {
-            const parser = new DOMParser(); const xmlDoc = parser.parseFromString(textData, "text/xml"); const items = xmlDoc.querySelectorAll("item, entry"); 
+            const parser = new DOMParser(); const xmlDoc = parser.parseFromString(textData, "text/xml"); 
+            const items = xmlDoc.querySelectorAll("item, entry"); 
             let result = []; let baseUrl = ""; try { baseUrl = new URL(feed.url).origin; } catch(e){}
+            
             items.forEach(item => {
                 const title = item.querySelector("title")?.textContent || "Untitled";
-                let link = "#"; const linkNode = item.querySelector("link"); if (linkNode) { link = linkNode.textContent.trim(); if(!link) link = linkNode.getAttribute("href") || "#"; }
-                let desc = item.querySelector("description, summary")?.textContent || "";
+                
+                let link = "#"; const linkNode = item.querySelector("link"); 
+                if (linkNode) { link = linkNode.textContent.trim(); if(!link) link = linkNode.getAttribute("href") || "#"; }
+                
+                // Description, summary veya content hepsine bak
+                let desc = item.querySelector("description, summary, content")?.textContent || "";
                 let contentEnc = item.getElementsByTagName("content:encoded"); if (contentEnc.length === 0) contentEnc = item.getElementsByTagNameNS("*", "encoded");
+                
+                // Eğer açıklama etiketi boşsa ama içeriği varsa onu kurtar
+                if(!desc && contentEnc.length > 0) desc = contentEnc[0].textContent;
+                
                 let fullText = desc + " " + (contentEnc.length > 0 ? contentEnc[0].textContent : "");
-                let pubDate = new Date(); const pubNodes = item.getElementsByTagName('pubDate'); if(pubNodes.length > 0) { const parsed = new Date(pubNodes[0].textContent); if(!isNaN(parsed.getTime())) pubDate = parsed; }
+                
+                // Google Haberler (ATOM) için "published" veya "updated" tarih yakalama eklendi
+                let pubDate = new Date(); 
+                const pubNodes = item.querySelector("pubDate, published, updated, date");
+                if(pubNodes) { const parsed = new Date(pubNodes.textContent); if(!isNaN(parsed.getTime())) pubDate = parsed; }
                 if (pubDate.getTime() > Date.now() + 3600000) { pubDate = new Date(); }
-                let image = ""; const enclosure = item.querySelector("enclosure"); let mediaContent = item.getElementsByTagName("media:content"); if(mediaContent.length === 0) mediaContent = item.getElementsByTagNameNS("*", "content"); let mediaThumbnail = item.getElementsByTagName("media:thumbnail"); if(mediaThumbnail.length === 0) mediaThumbnail = item.getElementsByTagNameNS("*", "thumbnail"); const imageTag = item.querySelector("image url");
-                if (enclosure && enclosure.getAttribute("url")) { image = enclosure.getAttribute("url"); } else if (mediaContent.length > 0 && mediaContent[0].getAttribute("url")) { image = mediaContent[0].getAttribute("url"); } else if (mediaThumbnail.length > 0 && mediaThumbnail[0].getAttribute("url")) { image = mediaThumbnail[0].getAttribute("url"); } else if (imageTag) { image = imageTag.textContent; } else { const imgMatch = fullText.match(/<img[^>]+src=["']([^"']+)["']/i); if (imgMatch && imgMatch[1]) image = imgMatch[1]; }
+                
+                let image = ""; const enclosure = item.querySelector("enclosure"); 
+                let mediaContent = item.getElementsByTagName("media:content"); if(mediaContent.length === 0) mediaContent = item.getElementsByTagNameNS("*", "content"); 
+                let mediaThumbnail = item.getElementsByTagName("media:thumbnail"); if(mediaThumbnail.length === 0) mediaThumbnail = item.getElementsByTagNameNS("*", "thumbnail"); 
+                const imageTag = item.querySelector("image url");
+                
+                if (enclosure && enclosure.getAttribute("url")) { image = enclosure.getAttribute("url"); } 
+                else if (mediaContent.length > 0 && mediaContent[0].getAttribute("url")) { image = mediaContent[0].getAttribute("url"); } 
+                else if (mediaThumbnail.length > 0 && mediaThumbnail[0].getAttribute("url")) { image = mediaThumbnail[0].getAttribute("url"); } 
+                else if (imageTag) { image = imageTag.textContent; } 
+                else { const imgMatch = fullText.match(/<img[^>]+src=["']([^"']+)["']/i); if (imgMatch && imgMatch[1]) image = imgMatch[1]; }
+                
                 if (image && image.startsWith('/')) image = baseUrl + image; if (image && image.startsWith('http:')) image = image.replace('http:', 'https:');
-                let categories = feed.cat ? [feed.cat] : []; desc = desc.replace(/<[^>]*>?/gm, '').trim().substring(0, 180) + '...';
+                
+                let categories = feed.cat ? [feed.cat] : []; 
+                desc = desc.replace(/<[^>]*>?/gm, '').trim().substring(0, 180) + '...';
+                
                 result.push({ title, description: desc, link, image: image || '', source: feed.name, date: pubDate, timestamp: pubDate.getTime(), categories });
-            }); return result;
+            }); 
+            return result;
         }
 
-        function saveToLocalMemory() { const toSave = allArticles.slice(0, 300); localStorage.setItem('savedNewsArticles', JSON.stringify(toSave)); }
-
-        // DARBOĞAZI ÖNLEYEN GECİKMELİ (STAGGERED) YÜKLEME
+        // 3. OPTİMİZE EDİLMİŞ TOPLU İSTEK (SUNUCULARI KİLİTLEMEYİ ENGELLER)
         async function fetchAllRSS(isSilent = false) {
             const grid = document.getElementById('newsGrid'); const btn = document.getElementById('fetchBtn'); btn.disabled = true; btn.innerText = TRANSLATIONS[currentRegion].loadingText;
             document.getElementById('controlsWrapper').classList.add('collapsed'); document.getElementById('toggleIcon').innerText = '▼'; 
@@ -796,8 +828,8 @@
             allArticles = []; let completedCount = 0;
             
             const fetchPromises = feedsToFetch.map(async (feed, index) => {
-                // 300ms gecikme eklendi (Proxy Çökmesini ve Rate Limit'i engeller)
-                await new Promise(resolve => setTimeout(resolve, index * 300));
+                // EKSİĞİ GİDEREN KISIM: İstekler arasına 400ms Gecikme eklendi (Cloudflare engelini aşar)
+                await new Promise(resolve => setTimeout(resolve, index * 400));
                 try { 
                     const feedArticles = await fetchFeedData(feed); 
                     if (feedArticles && feedArticles.length > 0) allArticles.push(...feedArticles); 
