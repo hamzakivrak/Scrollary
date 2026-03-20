@@ -538,13 +538,21 @@
             history.pushState({ modal: modalId }, '');
         }
 
-        window.addEventListener('popstate', (e) => {
+window.addEventListener('popstate', (e) => {
+    // Mevcut modal kapatma kodların...
     document.getElementById('newsModal').style.display = 'none';
     document.getElementById('settingsModal').style.display = 'none';
     document.getElementById('sourceFilterModal').style.display = 'none';
-    document.getElementById('guideModal').style.display = 'none'; // Bu satırı ekledik
+    document.getElementById('guideModal').style.display = 'none';
+    
+    // YENİ: Arama/Filtre bloğunu geri tuşuyla kapat
+    const wrapper = document.getElementById('controlsWrapper');
+    if (wrapper && !wrapper.classList.contains('collapsed')) {
+        wrapper.classList.add('collapsed');
+        document.getElementById('toggleIcon').innerText = '▼';
+    }
+
     document.body.style.overflow = 'auto';
-    // ... (varsa diğer satırlar kalsın)
 });
 
         function closeModalSafe(modalId) {
@@ -624,27 +632,42 @@
             loadCustomFeeds();
         }
 
-        document.addEventListener('click', (e) => {
-    // Mevcut kodların (controlsWrapper vb.) burada duruyor olmalı, onların altına ekle:
+document.addEventListener('click', (e) => {
+    const wrapper = document.getElementById('controlsWrapper');
+    const icon = document.getElementById('toggleIcon');
     
-    const guideModal = document.getElementById('guideModal');
-    if (e.target === guideModal) {
-        closeModalSafe('guideModal');
+    // Eğer menü açıksa ve tıklanan yer menünün kendisi veya açma butonu değilse kapat
+    if (!wrapper.classList.contains('collapsed') && !wrapper.contains(e.target)) {
+        wrapper.classList.add('collapsed');
+        icon.innerText = '▼';
+        // Geri tuşu geçmişini temizlemek için (isteğe bağlı)
+        if(history.state && history.state.menu === 'controls') history.back();
     }
+
+    // Diğer modallar için mevcut kodların (guideModal vb.) burada kalmaya devam etsin
+    const guideModal = document.getElementById('guideModal');
+    if (e.target === guideModal) closeModalSafe('guideModal');
+});
 
     // ... (diğer mevcut tıklama kodların)
 });
-        function toggleControls(event) { 
-            if(event) event.stopPropagation(); 
-            const wrapper = document.getElementById('controlsWrapper'); 
-            const icon = document.getElementById('toggleIcon'); 
-            if (wrapper.classList.contains('collapsed')) { 
-                wrapper.classList.remove('collapsed'); icon.innerText = '▲'; 
-                history.pushState({ menu: 'controls' }, '');
-            } else { 
-                wrapper.classList.add('collapsed'); icon.innerText = '▼'; 
-            } 
-        }
+      function toggleControls(event) {
+    if(event) event.stopPropagation();
+    const wrapper = document.getElementById('controlsWrapper');
+    const icon = document.getElementById('toggleIcon');
+    
+    if (wrapper.classList.contains('collapsed')) {
+        wrapper.classList.remove('collapsed');
+        icon.innerText = '▲';
+        // Menü açıldığında geri tuşu için iz bırakıyoruz
+        history.pushState({ menu: 'controls' }, '');
+    } else {
+        wrapper.classList.add('collapsed');
+        icon.innerText = '▼';
+        // Elimizle kapatırsak o izi geri alıyoruz
+        if(history.state && history.state.menu === 'controls') history.back();
+    }
+}
         function changeTheme(themeName, btnElement) { document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active')); if(btnElement) btnElement.classList.add('active'); else { Array.from(document.querySelectorAll('.theme-btn')).find(b => b.getAttribute('onclick').includes(themeName))?.classList.add('active'); } document.body.setAttribute('data-theme', themeName); currentTheme = themeName; localStorage.setItem('appTheme', themeName); syncToCloud(); }
         function toggleReadVisibility(show) { showReadArticles = show; document.getElementById('showReadMain').checked = show; handleSearch(); }
         function markAsRead(link, fromSwipe = false) { if (!readArticles.includes(link)) { readArticles.push(link); localStorage.setItem('readArticlesList', JSON.stringify(readArticles)); syncToCloud(); if (!fromSwipe && !showReadArticles) handleSearch(true); else if (!fromSwipe) handleSearch(true); } }
