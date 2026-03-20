@@ -46,8 +46,6 @@
         body[data-theme="animated"] { background: linear-gradient(-45deg, #1e3a8a, #4c1d95, #0f172a, #064e3b); background-size: 400% 400%; animation: gradientBG 15s ease infinite; }
         body[data-theme="animated"] .news-card, body[data-theme="animated"] .controls-wrapper, body[data-theme="animated"] .guide-wrapper, body[data-theme="animated"] .global-region-wrapper, body[data-theme="animated"] .modal-content { background: rgba(0,0,0,0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
         body[data-theme="animated"] .news-content { background: transparent; }
-        
-        /* GELİŞMİŞ CYBER/NEON TEMA */
         body[data-theme="cyber"] { --bg-dark: #09090b; background-color: #09090b; background-image: linear-gradient(rgba(0, 255, 255, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 255, 255, 0.05) 1px, transparent 1px); background-size: 20px 20px; box-shadow: inset 0 0 100px rgba(255, 0, 255, 0.1); }
         body[data-theme="cyber"] .news-card, body[data-theme="cyber"] .controls-wrapper, body[data-theme="cyber"] .guide-wrapper, body[data-theme="cyber"] .global-region-wrapper, body[data-theme="cyber"] .modal-content { background: rgba(10, 10, 15, 0.85); border: 1px solid #0ff; box-shadow: 0 0 10px rgba(0, 255, 255, 0.2), inset 0 0 10px rgba(255, 0, 255, 0.1); backdrop-filter: blur(5px); }
         body[data-theme="cyber"] .source-badge { background: #f0f; color: #fff; text-shadow: 0 0 5px #fff; box-shadow: 0 0 10px #f0f; }
@@ -56,12 +54,10 @@
 
         .pull-to-refresh { position: fixed; top: -60px; left: 50%; transform: translateX(-50%); background: var(--surface); color: var(--primary); padding: 10px 20px; border-radius: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid var(--surface-light); font-weight: 700; font-size: 0.95rem; z-index: 2000; opacity: 0; display: flex; align-items: center; gap: 10px; pointer-events: none; transition: opacity 0.2s ease; }
         header { text-align: center; padding: 60px 0 20px; position: relative; transition: all 0.3s; }
-        
-        /* AYARLAR BUTONU - EN SOL ÜSTTE */
         .settings-btn { position: absolute; top: 15px; left: 15px; background: rgba(30, 41, 59, 0.9); border: 1px solid var(--surface-light); color: white; border-radius: 50%; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.2rem; transition: 0.3s; z-index: 1000; box-shadow: var(--shadow-card); }
         .settings-btn:hover { background: var(--surface-light); transform: rotate(45deg); }
 
-        header h1 { font-size: clamp(2.5rem, 6vw, 3.5rem); font-weight: 900; letter-spacing: -1px; margin-bottom: 5px; text-shadow: var(--shadow-glow); }
+        header h1 { font-size: clamp(2.5rem, 6vw, 3.5rem); font-weight: 900; letter-spacing: -1px; margin-bottom: 5px; text-shadow: var(--shadow-glow); display: flex; justify-content: center; align-items: center; gap: 5px; }
         header h1 span { color: var(--primary); }
         header p { color: var(--text-muted); font-size: clamp(0.9rem, 3vw, 1.1rem); font-weight: 500; letter-spacing: 0.5px; margin-bottom: 20px; }
 
@@ -224,7 +220,6 @@
         .toast-notification { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(150px); background: var(--primary); color: white; padding: 12px 25px; border-radius: 30px; font-weight: 700; font-size: 1rem; box-shadow: 0 10px 25px rgba(225, 29, 72, 0.5); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 3000; cursor: pointer; display: flex; align-items: center; gap: 10px; }
         .toast-notification.show { transform: translateX(-50%) translateY(0); }
         
-        /* AYARLAR MENÜSÜ DÜZENİ */
         .view-controls { display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; }
         .view-btn { padding: 6px 12px; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--surface-light); color: var(--text-muted); border-radius: 8px; font-size: 0.85rem; cursor: pointer; transition: 0.2s; font-weight: 600; }
         .view-btn.active { background: var(--surface-light); color: white; border-color: var(--accent); }
@@ -237,7 +232,8 @@
         <header id="mainHeader">
             <button onclick="openModalSafe('settingsModal')" class="settings-btn" title="Ayarlar">⚙️</button>
             
-            <h1>Scrollary <span>.</span></h1><p id="headerDesc" data-i18n="subtitle">Global News, Cloud Sync & Infinity Scroll</p>
+            <h1><img src="icon.png" alt="S" style="height: 0.9em; vertical-align: baseline; border-radius: 20%; margin-right: 2px;">crollary <span>.</span></h1>
+            <p id="headerDesc" data-i18n="subtitle">Global News, Cloud Sync & Infinity Scroll</p>
         </header>
 
         <div class="global-region-wrapper">
@@ -257,7 +253,7 @@
                     <li data-i18n="guide1">👈 Sola Kaydır: Haberi gizle (Okundu yap)</li>
                     <li data-i18n="guide2">👉 Sağa Kaydır: Arşive kaydet</li>
                     <li data-i18n="guide4">⬇️ Ekranı Aşağı Çek: Yeni haberleri tara</li>
-                    <li data-i18n="guide5">📖 Okuma Ekranı: Geri tuşuna basarak veya 3 kez dokunarak kapat</li>
+                    <li data-i18n="guide5">📖 Okuma Ekranı: Geri tuşuna basarak kapat</li>
                 </ul>
             </div>
         </div>
@@ -297,7 +293,6 @@
         <div class="modal-content" style="max-width: 500px; height: auto; max-height: 85vh;">
             <div class="modal-header"><div class="modal-top-row"><h3 style="color:white; margin:0;">⚙️ Ayarlar</h3><button class="btn-icon btn-close" onclick="closeModalSafe('settingsModal')" title="Kapat">✕</button></div></div>
             <div class="modal-body" style="padding: 20px; cursor: default;">
-                
                 <div style="margin-bottom:25px; padding-bottom:20px; border-bottom:1px solid var(--surface-light);">
                     <button id="loginBtn" class="btn-login" style="width:100%; justify-content:center; padding:12px;" onclick="signInWithGoogle()" data-i18n="login">Google ile Giriş Yap</button>
                     <div id="userInfo" class="user-profile" style="display:none; justify-content:space-between; padding:10px 15px;">
@@ -308,12 +303,22 @@
                         <button class="btn-logout" onclick="signOut()" data-i18n="logout" style="font-size:0.9rem;">Çıkış</button>
                     </div>
                 </div>
-
                 <div class="filter-section-title"><span data-i18n="themeTitle">🎨 Temalar</span></div>
                 <div class="view-controls" id="themeBtnsWrapper" style="margin-bottom:25px;"></div>
-                
                 <div class="filter-section-title"><span data-i18n="layoutTitle">📐 Görünüm Boyutu</span></div>
                 <div class="view-controls" id="layoutBtnsWrapper"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="sourceFilterModal" class="modal" style="z-index: 2500;">
+        <div class="modal-content" style="max-width: 600px; height: auto; max-height: 85vh;">
+            <div class="modal-header"><div class="modal-top-row"><h3 style="color:white; margin:0;" data-i18n="manageSourcesTitle">📰 Kaynakları Yönet</h3><button class="btn-icon btn-close" onclick="closeModalSafe('sourceFilterModal')" title="Kapat">✕</button></div></div>
+            <div class="modal-body" style="padding: 20px; cursor: default;">
+                <input type="text" id="popupSearchInput" data-i18n-ph="searchSourcesPh" placeholder="Kaynak ara..." onkeyup="syncSearchInputs(this.value)" style="width:100%; padding:12px 15px; border-radius:8px; border:1px solid var(--surface-light); background:var(--bg-dark); color:white; margin-bottom:15px; outline:none; font-size:1rem;">
+                <div style="background: rgba(255,255,255,0.05); padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; display:flex; justify-content:space-between; align-items:center;"><label style="cursor:pointer; display:flex; align-items:center; gap:8px; color:white; font-weight:600;"><input type="checkbox" id="showReadPopup" onchange="toggleReadVisibility(this.checked)" style="width:18px; height:18px; accent-color:var(--primary);"><span data-i18n="hideReadPopup">Okunanları Gizle</span></label><button onclick="popupRefresh()" style="background:var(--surface-light); color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-weight:bold;" data-i18n="refreshBtn">🔄 Yenile</button></div>
+                <div style="margin-bottom: 15px; display:flex; justify-content:space-between;"><button class="select-all-btn" onclick="toggleAllSourcesState(event)" data-i18n="selectAllBtn">Tümünü Seç/Kaldır</button></div>
+                <div class="chip-container show" id="popupFilterList"></div>
             </div>
         </div>
     </div>
@@ -326,19 +331,17 @@
             </div>
             <div class="modal-body" id="modalBodyArea">
                 <div class="triple-tap-hint" data-i18n="tripleTapHint">Triple tap to close</div>
-                <div id="readerView"><h2 class="reader-title" id="modalTitle">Title</h2><img id="modalImg" src="" class="reader-image" onerror="this.style.display='none'"><div class="summary-box"><p id="modalDesc">Summary...</p></div><div id="fullTextContainer" class="reader-text-container"></div></div>
+                <div id="readerView"><h2 class="reader-title" id="modalTitle">Title</h2><img id="modalImg" src="" class="reader-image" onerror="this.src='splash.png'; this.classList.add('default-splash-thumb');"><div class="summary-box"><p id="modalDesc">Summary...</p></div><div id="fullTextContainer" class="reader-text-container"></div></div>
                 <div id="iframeView"><div class="iframe-banner" id="iframeBanner"><span style="animation: pulse 1.5s infinite;">⏳</span> <span data-i18n="loadingSite">Loading original site...</span></div><iframe id="modalIframe" class="modal-iframe" sandbox="allow-same-origin allow-scripts allow-forms allow-popups"></iframe></div>
             </div>
         </div>
     </div>
 
     <div id="toastNotification" class="toast-notification" onclick="scrollToTop()"><span>⬆️</span> <span id="toastText">System Update!</span></div>
-
     <script>
-        // 2. PARÇADA (JAVASCRIPT) DEVAM EDECEK...
         const TRANSLATIONS = {
-            'EN': { subtitle: "Global News, Cloud Sync & Infinity Scroll", menuTitle: "Search, Filter & Add Sources", regionLabel: "🌍 News Region:", themeTitle: "🎨 Themes", themes: { 'default': '🌑 Dark', 'glass': '🪟 Glass', 'metallic': '⚙️ Metal', 'hologram': '🌈 Holo', 'animated': '🌊 Flow', 'cyber': '⚡ Neon Cyber' }, layoutTitle: "📐 Layout Size", layouts: { 'list': '🔠 List', 'small': '≣ Small', 'medium': '⊞ Med', 'large': '🔲 Large', 'shorts': '📱 Shorts' }, searchPlaceholder: "Search within fetched news...", catTitle: "📚 Quick Filters", cats: { '': 'All', 'Arşiv': '💾 Archive', 'News': '📰 News', 'Tech': '💻 Tech', 'Science': '🧬 Science', 'Health': '⚕️ Health', 'Sport': '⚽ Sport', 'Finance': '📈 Finance', 'World': '🌍 World', 'Philo': '🦉 Philo' }, hideReadText: "👁️ Hide Read Articles", sourceTitle: "📰 Source Filters (Expand)", selectAllBtn: "Select All", addRssTitle: "➕ Add Custom Source", addRssSearchHint: "🔍 Search Topic or Website URL:", addRssSearchBtn: "Find / Track", addRssManualHint: "➕ Advanced: Manual Add", addRssNamePlace: "Source Name", addRssSaveBtn: "Save to Cloud", fetchBtnText: "FETCH LATEST NEWS", loadingText: "Initializing global radar...", scanning: "Scanning:", pullToRefresh: "Pull to refresh", login: "Login via Google", logout: "Exit", manageSourcesTitle: "📰 Manage Sources", searchSourcesPh: "Search sources...", hideReadPopup: "Hide Read", refreshBtn: "🔄 Refresh", applyCloseBtn: "Apply & Close", readerTab: "📖 Reader View", originalTab: "🌐 Original Site", tripleTapHint: "Press Back or Triple tap to close", loadingSite: "Loading original site...", extracting: "Extracting article text...", scrollLoading: "Loading more...", checkingUpdates: "Checking network for updates...", swipeArchive: "💾 Archive", swipeArchived: "💾 Archived", swipeHide: "👁️ Hide", readMore: "Read →", guideTitle: "💡 Quick Start Guide", guide1: "👈 Swipe Left: Hide article", guide2: "👉 Swipe Right: Save to Archive", guide4: "⬇️ Pull Down: Fetch latest updates", guide5: "📖 Reading Mode: Press Back or tap 3 times to close", addedSuccess: "✅ Successfully Added!", adSlotText: "Sponsored Content" },
-            'TR': { subtitle: "Global Haberler ve Sınırsız Akış", menuTitle: "Haber Ara, Filtrele ve Kaynak Ekle", regionLabel: "🌍 Küresel Haber Bölgesi:", themeTitle: "🎨 Temalar", themes: { 'default': '🌑 Standart', 'glass': '🪟 Cam', 'metallic': '⚙️ Metalik', 'hologram': '🌈 Hologram', 'animated': '🌊 Hareketli', 'cyber': '⚡ Neon Cyber' }, layoutTitle: "📐 Görünüm Boyutu", layouts: { 'list': '🔠 Liste', 'small': '≣ Küçük', 'medium': '⊞ Orta', 'large': '🔲 Büyük', 'shorts': '📱 Shorts' }, searchPlaceholder: "Çekilen haberler içinde ara...", catTitle: "📚 Hızlı Konu Filtreleri", cats: { '': 'Tümü', 'Arşiv': '💾 Arşiv', 'News': '📰 Gündem', 'Tech': '💻 Teknoloji', 'Science': '🧬 Bilim', 'Health': '⚕️ Sağlık', 'Sport': '⚽ Spor', 'Finance': '📈 Ekonomi', 'World': '🌍 Dünya', 'Philo': '🦉 Felsefe' }, hideReadText: "👁️ Okunanları Gizle", sourceTitle: "📰 Kaynak Filtreleri (Genişlet)", selectAllBtn: "Tümünü Seç/Kaldır", addRssTitle: "➕ İnternetten Kaynak Ekle", addRssSearchHint: "🔍 Site Adresi veya Konu Yazın:", addRssSearchBtn: "Bul / Ekle", addRssManualHint: "➕ Gelişmiş: Manuel Kayıt Aç", addRssNamePlace: "Kaynağın Adı", addRssSaveBtn: "Buluta Kaydet", fetchBtnText: "AĞDAN YENİ HABERLERİ ÇEK", loadingText: "Radar başlatılıyor...", scanning: "Taranıyor:", pullToRefresh: "Yenilemek için çekin", login: "Google ile Giriş Yap", logout: "Çıkış", manageSourcesTitle: "📰 Kaynakları Yönet", searchSourcesPh: "Kaynak arayın...", hideReadPopup: "Okunanları Gizle", refreshBtn: "🔄 Yenile", applyCloseBtn: "Uygula ve Kapat", readerTab: "📖 Okuma Modu", originalTab: "🌐 Orijinal Site", tripleTapHint: "Geri tuşuna basarak veya 3 kez dokunarak kapat", loadingSite: "Orijinal site yükleniyor...", extracting: "Haber metni analiz ediliyor...", scrollLoading: "Daha fazla yükleniyor...", checkingUpdates: "Ağda yeni gelişme var mı kontrol ediliyor...", swipeArchive: "💾 Arşivle", swipeArchived: "💾 Arşivlendi", swipeHide: "👁️ Gizle", readMore: "Oku →", guideTitle: "💡 Kolay Kullanım Rehberi", guide1: "👈 Sola Kaydır: Haberi gizle (Okundu yap)", guide2: "👉 Sağa Kaydır: Arşive kaydet", guide4: "⬇️ Ekranı Aşağı Çek: Yeni haberleri tara", guide5: "📖 Okuma Ekranı: Geri tuşuna basarak veya 3 kez dokunarak kapat", addedSuccess: "✅ Başarıyla Eklendi!", adSlotText: "Sponsorlu İçerik Alanı" },
+            'EN': { subtitle: "Global News, Cloud Sync & Infinity Scroll", menuTitle: "Search & Filter", regionLabel: "🌍 News Region:", themeTitle: "🎨 Themes", themes: { 'default': '🌑 Dark', 'glass': '🪟 Glass', 'metallic': '⚙️ Metal', 'hologram': '🌈 Holo', 'animated': '🌊 Flow', 'cyber': '⚡ Neon Cyber' }, layoutTitle: "📐 Layout Size", layouts: { 'list': '🔠 List', 'small': '≣ Small', 'medium': '⊞ Med', 'large': '🔲 Large', 'shorts': '📱 Shorts' }, searchPlaceholder: "Search within fetched news...", catTitle: "📚 Quick Filters", cats: { '': 'All', 'Arşiv': '💾 Archive', 'News': '📰 News', 'Tech': '💻 Tech', 'Science': '🧬 Science', 'Health': '⚕️ Health', 'Sport': '⚽ Sport', 'Finance': '📈 Finance', 'World': '🌍 World', 'Philo': '🦉 Philo' }, hideReadText: "👁️ Hide Read Articles", sourceTitle: "📰 Source Filters (Expand)", selectAllBtn: "Select All", addRssTitle: "➕ Add Custom Source", addRssSearchHint: "🔍 Search Topic or Website URL:", addRssSearchBtn: "Find / Track", addRssManualHint: "➕ Advanced: Manual Add", addRssNamePlace: "Source Name", addRssSaveBtn: "Save to Cloud", fetchBtnText: "FETCH LATEST NEWS", loadingText: "Initializing global radar...", scanning: "Scanning:", pullToRefresh: "Pull to refresh", login: "Login via Google", logout: "Exit", manageSourcesTitle: "📰 Manage Sources", searchSourcesPh: "Search sources...", hideReadPopup: "Hide Read", refreshBtn: "🔄 Refresh", applyCloseBtn: "Apply & Close", readerTab: "📖 Reader View", originalTab: "🌐 Original Site", tripleTapHint: "Press Back or Triple tap to close", loadingSite: "Loading original site...", extracting: "Extracting article text...", scrollLoading: "Loading more...", checkingUpdates: "Checking network for updates...", swipeArchive: "💾 Archive", swipeArchived: "💾 Archived", swipeHide: "👁️ Hide", readMore: "Read →", guideTitle: "💡 Quick Start Guide", guide1: "👈 Swipe Left: Hide article", guide2: "👉 Swipe Right: Save to Archive", guide4: "⬇️ Pull Down: Fetch latest updates", guide5: "📖 Reading Mode: Press Back to close", addedSuccess: "✅ Successfully Added!", adSlotText: "Sponsored Content" },
+            'TR': { subtitle: "Global Haberler ve Sınırsız Akış", menuTitle: "Haber Ara, Filtrele ve Kaynak Ekle", regionLabel: "🌍 Küresel Haber Bölgesi:", themeTitle: "🎨 Temalar", themes: { 'default': '🌑 Standart', 'glass': '🪟 Cam', 'metallic': '⚙️ Metalik', 'hologram': '🌈 Hologram', 'animated': '🌊 Hareketli', 'cyber': '⚡ Neon Cyber' }, layoutTitle: "📐 Görünüm Boyutu", layouts: { 'list': '🔠 Liste', 'small': '≣ Küçük', 'medium': '⊞ Orta', 'large': '🔲 Büyük', 'shorts': '📱 Shorts' }, searchPlaceholder: "Çekilen haberler içinde ara...", catTitle: "📚 Hızlı Konu Filtreleri", cats: { '': 'Tümü', 'Arşiv': '💾 Arşiv', 'News': '📰 Gündem', 'Tech': '💻 Teknoloji', 'Science': '🧬 Bilim', 'Health': '⚕️ Sağlık', 'Sport': '⚽ Spor', 'Finance': '📈 Ekonomi', 'World': '🌍 Dünya', 'Philo': '🦉 Felsefe' }, hideReadText: "👁️ Okunanları Gizle", sourceTitle: "📰 Kaynak Filtreleri (Genişlet)", selectAllBtn: "Tümünü Seç/Kaldır", addRssTitle: "➕ İnternetten Kaynak Ekle", addRssSearchHint: "🔍 Site Adresi veya Konu Yazın:", addRssSearchBtn: "Bul / Ekle", addRssManualHint: "➕ Gelişmiş: Manuel Kayıt Aç", addRssNamePlace: "Kaynağın Adı", addRssSaveBtn: "Buluta Kaydet", fetchBtnText: "AĞDAN YENİ HABERLERİ ÇEK", loadingText: "Radar başlatılıyor...", scanning: "Taranıyor:", pullToRefresh: "Yenilemek için çekin", login: "Google ile Giriş Yap", logout: "Çıkış", manageSourcesTitle: "📰 Kaynakları Yönet", searchSourcesPh: "Kaynak arayın...", hideReadPopup: "Okunanları Gizle", refreshBtn: "🔄 Yenile", applyCloseBtn: "Uygula ve Kapat", readerTab: "📖 Okuma Modu", originalTab: "🌐 Orijinal Site", tripleTapHint: "Geri tuşuna basarak veya 3 kez dokunarak kapat", loadingSite: "Orijinal site yükleniyor...", extracting: "Haber metni analiz ediliyor...", scrollLoading: "Daha fazla yükleniyor...", checkingUpdates: "Ağda yeni gelişme var mı kontrol ediliyor...", swipeArchive: "💾 Arşivle", swipeArchived: "💾 Arşivlendi", swipeHide: "👁️ Gizle", readMore: "Oku →", guideTitle: "💡 Kolay Kullanım Rehberi", guide1: "👈 Sola Kaydır: Haberi gizle", guide2: "👉 Sağa Kaydır: Arşive kaydet", guide4: "⬇️ Ekranı Aşağı Çek: Yeni haberleri tara", guide5: "📖 Okuma Ekranı: Geri tuşuna basarak kapat", addedSuccess: "✅ Başarıyla Eklendi!", adSlotText: "Sponsorlu İçerik Alanı" },
             'ES': { subtitle: "Noticias Globales y Scroll Infinito", menuTitle: "Buscar, Filtrar y Fuentes", regionLabel: "🌍 Región de Noticias:", themeTitle: "🎨 Temas", themes: { 'default': '🌑 Oscuro', 'glass': '🪟 Cristal', 'metallic': '⚙️ Metal', 'hologram': '🌈 Holo', 'animated': '🌊 Fluido', 'cyber': '⚡ Neón Cyber' }, layoutTitle: "📐 Tamaño de Vista", layouts: { 'list': '🔠 Lista', 'small': '≣ Pequeño', 'medium': '⊞ Medio', 'large': '🔲 Grande', 'shorts': '📱 Shorts' }, searchPlaceholder: "Buscar en noticias...", catTitle: "📚 Filtros", cats: { '': 'Todo', 'Arşiv': '💾 Archivo', 'News': '📰 Noticias', 'Tech': '💻 Tecno', 'Science': '🧬 Ciencia', 'Health': '⚕️ Salud', 'Sport': '⚽ Deporte', 'Finance': '📈 Finanzas', 'World': '🌍 Mundo', 'Philo': '🦉 Filo' }, hideReadText: "👁️ Ocultar Leídos", sourceTitle: "📰 Fuentes", selectAllBtn: "Seleccionar Todo", addRssTitle: "➕ Añadir Fuente", addRssSearchHint: "🔍 Buscar Tema o URL:", addRssSearchBtn: "Buscar", addRssManualHint: "➕ Manual", addRssNamePlace: "Nombre", addRssSaveBtn: "Guardar", fetchBtnText: "ACTUALIZAR", loadingText: "Iniciando radar...", scanning: "Buscando:", pullToRefresh: "Desliza para actualizar", login: "Entrar con Google", logout: "Salir", manageSourcesTitle: "📰 Fuentes", searchSourcesPh: "Buscar...", hideReadPopup: "Ocultar", refreshBtn: "🔄 Refrescar", applyCloseBtn: "Aplicar", readerTab: "📖 Lectura", originalTab: "🌐 Original", tripleTapHint: "Atrás o 3 toques para cerrar", loadingSite: "Cargando...", extracting: "Extrayendo...", scrollLoading: "Cargando más...", checkingUpdates: "Buscando actualizaciones...", swipeArchive: "💾 Guardar", swipeArchived: "💾 Guardado", swipeHide: "👁️ Ocultar", readMore: "Leer →", guideTitle: "💡 Guía", guide1: "👈 Deslizar Izq: Ocultar", guide2: "👉 Deslizar Der: Archivo", guide4: "⬇️ Deslizar Abajo: Buscar", guide5: "📖 Lectura: Atrás para cerrar", addedSuccess: "✅ ¡Añadido!", adSlotText: "Contenido Patrocinado" },
             'DE': { subtitle: "Globale News & Infinity Scroll", menuTitle: "Suche, Filter & Quellen", regionLabel: "🌍 Region:", themeTitle: "🎨 Themes", themes: { 'default': '🌑 Dunkel', 'glass': '🪟 Glas', 'metallic': '⚙️ Metall', 'hologram': '🌈 Holo', 'animated': '🌊 Fließend', 'cyber': '⚡ Neon Cyber' }, layoutTitle: "📐 Layout", layouts: { 'list': '🔠 Liste', 'small': '≣ Klein', 'medium': '⊞ Mittel', 'large': '🔲 Groß', 'shorts': '📱 Shorts' }, searchPlaceholder: "Suche...", catTitle: "📚 Filter", cats: { '': 'Alle', 'Arşiv': '💾 Archiv', 'News': '📰 News', 'Tech': '💻 Tech', 'Science': '🧬 Wissen', 'Health': '⚕️ Gesundheit', 'Sport': '⚽ Sport', 'Finance': '📈 Finanzen', 'World': '🌍 Welt', 'Philo': '🦉 Philo' }, hideReadText: "👁️ Gelesene ausblenden", sourceTitle: "📰 Quellen", selectAllBtn: "Alle", addRssTitle: "➕ Quelle hinzufügen", addRssSearchHint: "🔍 Thema/URL:", addRssSearchBtn: "Finden", addRssManualHint: "➕ Manuell", addRssNamePlace: "Name", addRssSaveBtn: "Speichern", fetchBtnText: "AKTUALISIEREN", loadingText: "Lade Radar...", scanning: "Suche:", pullToRefresh: "Zum Aktualisieren ziehen", login: "Google Login", logout: "Beenden", manageSourcesTitle: "📰 Quellen", searchSourcesPh: "Suche...", hideReadPopup: "Ausblenden", refreshBtn: "🔄 Aktualisieren", applyCloseBtn: "Anwenden", readerTab: "📖 Lesen", originalTab: "🌐 Original", tripleTapHint: "Zurück oder 3x tippen", loadingSite: "Lade...", extracting: "Extraktion...", scrollLoading: "Mehr...", checkingUpdates: "Suche Updates...", swipeArchive: "💾 Speichern", swipeArchived: "💾 Gespeichert", swipeHide: "👁️ Verbergen", readMore: "Lesen →", guideTitle: "💡 Anleitung", guide1: "👈 Links: Ausblenden", guide2: "👉 Rechts: Archiv", guide4: "⬇️ Runter: Aktualisieren", guide5: "📖 Lesen: Zurück zum Schließen", addedSuccess: "✅ Hinzugefügt!", adSlotText: "Gesponserter Inhalt" },
             'FR': { subtitle: "Actualités & Scroll Infini", menuTitle: "Recherche & Sources", regionLabel: "🌍 Région:", themeTitle: "🎨 Thèmes", themes: { 'default': '🌑 Sombre', 'glass': '🪟 Verre', 'metallic': '⚙️ Métal', 'hologram': '🌈 Holo', 'animated': '🌊 Fluide', 'cyber': '⚡ Néon Cyber' }, layoutTitle: "📐 Affichage", layouts: { 'list': '🔠 Liste', 'small': '≣ Petit', 'medium': '⊞ Moyen', 'large': '🔲 Grand', 'shorts': '📱 Shorts' }, searchPlaceholder: "Rechercher...", catTitle: "📚 Filtres", cats: { '': 'Tout', 'Arşiv': '💾 Archive', 'News': '📰 Actus', 'Tech': '💻 Tech', 'Science': '🧬 Science', 'Health': '⚕️ Santé', 'Sport': '⚽ Sport', 'Finance': '📈 Finance', 'World': '🌍 Monde', 'Philo': '🦉 Philo' }, hideReadText: "👁️ Masquer lus", sourceTitle: "📰 Sources", selectAllBtn: "Tout", addRssTitle: "➕ Ajouter Source", addRssSearchHint: "🔍 Sujet/URL:", addRssSearchBtn: "Trouver", addRssManualHint: "➕ Manuel", addRssNamePlace: "Nom", addRssSaveBtn: "Sauvegarder", fetchBtnText: "ACTUALISER", loadingText: "Chargement...", scanning: "Analyse:", pullToRefresh: "Tirer pour actualiser", login: "Connexion Google", logout: "Quitter", manageSourcesTitle: "📰 Sources", searchSourcesPh: "Rechercher...", hideReadPopup: "Masquer", refreshBtn: "🔄 Actualiser", applyCloseBtn: "Appliquer", readerTab: "📖 Lecture", originalTab: "🌐 Original", tripleTapHint: "Retour ou 3 tapes", loadingSite: "Chargement...", extracting: "Extraction...", scrollLoading: "Plus...", checkingUpdates: "Vérification...", swipeArchive: "💾 Archiver", swipeArchived: "💾 Archivé", swipeHide: "👁️ Masquer", readMore: "Lire →", guideTitle: "💡 Guide", guide1: "👈 Gauche: Masquer", guide2: "👉 Droite: Archive", guide4: "⬇️ Bas: Actualiser", guide5: "📖 Lecture: Retour pour fermer", addedSuccess: "✅ Ajouté!", adSlotText: "Contenu Sponsorisé" },
@@ -367,7 +370,6 @@
         let readArticles = JSON.parse(localStorage.getItem('readArticlesList')) || [];
         let showReadArticles = false; let displayedCount = 0; let isFetchingRefresh = false; const ITEMS_PER_PAGE = 20;
         
-        // DEFAULTS
         let currentTheme = localStorage.getItem('appTheme') || 'hologram';
         let currentLayout = localStorage.getItem('appLayout') || 'medium';
         let initialFetchDone = false; 
@@ -380,16 +382,22 @@
         }
 
         window.addEventListener('popstate', (e) => {
+            // Ekranda açık olan tüm modalları kapat
             document.getElementById('newsModal').style.display = 'none';
             document.getElementById('settingsModal').style.display = 'none';
+            document.getElementById('sourceFilterModal').style.display = 'none';
             document.body.style.overflow = 'auto';
+            // Ana menü açıksa kapat
+            document.getElementById('controlsWrapper').classList.add('collapsed');
+            document.getElementById('toggleIcon').innerText = '▼';
+            // İframe'i temizle
             const iframe = document.getElementById('modalIframe');
             if(iframe) { iframe.removeAttribute('srcdoc'); iframe.src = 'about:blank'; }
         });
 
         function closeModalSafe(modalId) {
-            if(history.state && history.state.modal === modalId) {
-                history.back(); // History üzerinden kapat
+            if(history.state && history.state.modal) {
+                history.back(); // Popstate tetiklenecek ve modal kapanacak
             } else {
                 document.getElementById(modalId).style.display = 'none';
                 document.body.style.overflow = 'auto';
@@ -463,18 +471,29 @@
                     if (data.activeSources) { activeSources = data.activeSources; localStorage.setItem('activeSourcesList', JSON.stringify(activeSources)); }
                 }
             } catch (e) {}
-            loadCustomFeeds(); renderChips();
+            loadCustomFeeds();
         }
 
         document.addEventListener('click', (e) => { 
             const wrapper = document.getElementById('controlsWrapper'); 
-            if (!wrapper.classList.contains('collapsed') && !wrapper.contains(e.target)) { 
+            // Menü açıksa ve dışarı tıklanırsa kapat (Giriş butonu hariç)
+            if (!wrapper.classList.contains('collapsed') && !wrapper.contains(e.target) && !e.target.closest('#loginBtn') && !e.target.closest('.settings-btn')) { 
                 wrapper.classList.add('collapsed'); document.getElementById('toggleIcon').innerText = '▼'; 
             } 
             const guideContent = document.getElementById('guideContent'); const guideWrapper = document.getElementById('guideBox');
             if (guideContent.classList.contains('show') && !guideWrapper.contains(e.target)) { guideContent.classList.remove('show'); document.getElementById('guideArrow').innerText = '▼'; }
         });
-        function toggleControls(event) { if(event) event.stopPropagation(); const wrapper = document.getElementById('controlsWrapper'); const icon = document.getElementById('toggleIcon'); if (wrapper.classList.contains('collapsed')) { wrapper.classList.remove('collapsed'); icon.innerText = '▲'; } else { wrapper.classList.add('collapsed'); icon.innerText = '▼'; } }
+        function toggleControls(event) { 
+            if(event) event.stopPropagation(); 
+            const wrapper = document.getElementById('controlsWrapper'); 
+            const icon = document.getElementById('toggleIcon'); 
+            if (wrapper.classList.contains('collapsed')) { 
+                wrapper.classList.remove('collapsed'); icon.innerText = '▲'; 
+                history.pushState({ menu: 'controls' }, ''); // Menü açıldığında da history'ye at ki geri tuşuyla kapansın
+            } else { 
+                wrapper.classList.add('collapsed'); icon.innerText = '▼'; 
+            } 
+        }
         function changeTheme(themeName, btnElement) { document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active')); if(btnElement) btnElement.classList.add('active'); else { Array.from(document.querySelectorAll('.theme-btn')).find(b => b.getAttribute('onclick').includes(themeName))?.classList.add('active'); } document.body.setAttribute('data-theme', themeName); currentTheme = themeName; localStorage.setItem('appTheme', themeName); syncToCloud(); }
         function toggleReadVisibility(show) { showReadArticles = show; document.getElementById('showReadMain').checked = show; handleSearch(); }
         function markAsRead(link, fromSwipe = false) { if (!readArticles.includes(link)) { readArticles.push(link); localStorage.setItem('readArticlesList', JSON.stringify(readArticles)); syncToCloud(); if (!fromSwipe && !showReadArticles) handleSearch(true); else if (!fromSwipe) handleSearch(true); } }
@@ -482,6 +501,16 @@
         function setGridSize(size, btnElement, skipSave = false) { document.querySelectorAll('.view-btn:not(.theme-btn)').forEach(b => b.classList.remove('active')); if(btnElement) btnElement.classList.add('active'); else { Array.from(document.querySelectorAll('.view-btn:not(.theme-btn)')).find(b => b.getAttribute('onclick').includes(size))?.classList.add('active'); } const grid = document.getElementById('newsGrid'); grid.className = 'news-grid grid-' + size; if (size === 'shorts') document.body.classList.add('shorts-mode'); else document.body.classList.remove('shorts-mode'); if(!skipSave) { currentLayout = size; localStorage.setItem('appLayout', size); } }
         
         function filterCategory(catKey, btnElement) { isArchiveView = (catKey === 'Arşiv' || catKey === 'Archive'); document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active')); if(btnElement) btnElement.classList.add('active'); currentCategory = catKey; handleSearch(); }
+
+        // KAYNAK FİLTRELEME PENCERESİ VE CHİPLER
+        function openSourceFilterModal(event) { 
+            if(event) event.stopPropagation(); 
+            openModalSafe('sourceFilterModal'); 
+            document.getElementById('popupSearchInput').value = document.getElementById('searchInput').value; 
+            loadCustomFeeds(); 
+        }
+        function syncSearchInputs(val) { document.getElementById('searchInput').value = val; handleSearch(); }
+        function popupRefresh() { document.getElementById('popupFilterList').innerHTML = '🔄...'; checkNewArticlesInBackground(true).then(() => { loadCustomFeeds(); }); }
 
         function loadCustomFeeds() {
             RSS_FEEDS = [...(GLOBAL_RSS_DB[currentRegion] || GLOBAL_RSS_DB['EN'])];
@@ -507,12 +536,21 @@
         function deleteCustomRSS(id, event) { event.stopPropagation(); if(!confirm("Delete?")) return; let savedFeeds = JSON.parse(localStorage.getItem('customRSSFeeds')) || []; savedFeeds = savedFeeds.filter(f => f.id !== id); localStorage.setItem('customRSSFeeds', JSON.stringify(savedFeeds)); syncToCloud(); loadCustomFeeds(); handleSearch(); }
         function toggleSourceState(sourceName) { if(activeSources.includes(sourceName)) { activeSources = activeSources.filter(s => s !== sourceName); } else { activeSources.push(sourceName); } saveActiveSources(); renderChips(); handleSearch(); }
         function toggleAllSourcesState(event) { if(event) event.stopPropagation(); if(activeSources.length === RSS_FEEDS.length) { activeSources = []; } else { activeSources = RSS_FEEDS.map(f => f.name); } saveActiveSources(); renderChips(); handleSearch(); }
+        
         function renderChips() {
-            const listMain = document.getElementById('filterList'); if(listMain) listMain.innerHTML = '';
+            const listMain = document.getElementById('filterList');
+            const listPopup = document.getElementById('popupFilterList');
+            if(listMain) listMain.innerHTML = '';
+            if(listPopup) listPopup.innerHTML = '';
             RSS_FEEDS.forEach(feed => {
                 const isActive = activeSources.includes(feed.name); let deleteBtn = feed.isCustom ? `<span class="chip-delete" onclick="deleteCustomRSS('${feed.id}', event)">✕</span>` : '';
                 const htmlStr = `<input type="checkbox" style="display:none;" value="${feed.name}" ${isActive ? 'checked' : ''} onchange="toggleSourceState('${feed.name}')"> ${feed.name} ${deleteBtn}`;
-                const labelMain = document.createElement('label'); labelMain.className = `chip ${isActive ? 'active' : ''}`; labelMain.innerHTML = htmlStr; if(listMain) listMain.appendChild(labelMain);
+                
+                const labelMain = document.createElement('label'); labelMain.className = `chip ${isActive ? 'active' : ''}`; labelMain.innerHTML = htmlStr; 
+                if(listMain) listMain.appendChild(labelMain);
+                
+                const labelPopup = document.createElement('label'); labelPopup.className = `chip ${isActive ? 'active' : ''}`; labelPopup.innerHTML = htmlStr; 
+                if(listPopup) listPopup.appendChild(labelPopup);
             });
         }
 
@@ -520,32 +558,35 @@
 
         function addDiscoveredRss(name, url) { document.getElementById('newRssName').value = name.substring(0,25); document.getElementById('newRssUrl').value = url; document.getElementById('rssSearchResults').innerHTML = `<span style="color:#10b981; font-weight:bold; margin-top:10px; display:block;">${TRANSLATIONS[currentRegion].addedSuccess}</span>`; addCustomRSS(); }
 
+        // İNTERNETTEN GOOGLE NEWS ÜZERİNDEN ARAMA (ONARILDI - V1.4 SÜRÜMÜNE DÖNDÜLDÜ)
         async function findRssFromUrl() {
             const urlInput = document.getElementById('searchRssUrl').value.trim(); if (!urlInput) return;
             const resultsDiv = document.getElementById('rssSearchResults'); resultsDiv.innerHTML = '⏳...';
             const isUrl = urlInput.includes('.') && !urlInput.includes(' ');
             let targetUrl = isUrl ? (urlInput.startsWith('http') ? urlInput : 'https://' + urlInput) : `https://news.google.com/rss/search?q=${encodeURIComponent(urlInput)}&hl=${currentRegion.toLowerCase()}-${currentRegion}&gl=${currentRegion}&ceid=${currentRegion}:${currentRegion.toLowerCase()}`;
             try {
-                const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
-                const res = await fetch(proxyUrl); const text = await res.text();
-                
-                if (text.includes('<rss') || text.includes('<feed')) {
-                    const parser = new DOMParser(); const xml = parser.parseFromString(text, "text/xml"); const titleNode = xml.querySelector('title'); const feedTitle = titleNode ? titleNode.textContent : urlInput;
-                    let cleanTitle = feedTitle.replace(/'/g, "\\'"); 
+                const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(targetUrl)}`;
+                const res = await fetch(proxyUrl); const data = await res.json();
+                if (data.status === 'ok' || data.feed) {
+                    let feedTitle = data.feed ? data.feed.title : urlInput; let cleanTitle = feedTitle.replace(/'/g, "\\'"); 
                     resultsDiv.innerHTML = `<button style="background:var(--surface-light); text-align:left; font-size:0.85rem; color:white; padding:8px; border-radius:5px; width:100%; margin-top:8px; cursor:pointer;" onclick="addDiscoveredRss('${cleanTitle}', '${targetUrl}')">➕ ${feedTitle} (Track)</button>`;
-                    return;
+                } else {
+                    const htmlProxy = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+                    const resH = await fetch(htmlProxy); const dataH = await resH.json();
+                    if (dataH.contents) {
+                        const parser = new DOMParser(); const doc = parser.parseFromString(dataH.contents, 'text/html');
+                        const rssLinks = doc.querySelectorAll('link[type="application/rss+xml"], link[type="application/atom+xml"]');
+                        if (rssLinks.length > 0) {
+                            resultsDiv.innerHTML = '<span style="color:#10b981; font-weight:bold;">✅ Click to add:</span>';
+                            rssLinks.forEach((link) => {
+                                let href = link.getAttribute('href'); let title = link.getAttribute('title') || 'Main RSS Feed';
+                                if(href.startsWith('/')) { href = new URL(targetUrl).origin + href; } else if (!href.startsWith('http')) { href = targetUrl.replace(/\/$/, '') + '/' + href; }
+                                let cleanTitle = title.replace(/'/g, "\\'");
+                                resultsDiv.innerHTML += `<button style="background:var(--surface-light); text-align:left; font-size:0.85rem; color:white; padding:8px; border-radius:5px; width:100%; margin-top:8px; cursor:pointer;" onclick="addDiscoveredRss('${cleanTitle}', '${href}')">➕ ${title}</button>`;
+                            });
+                        } else { resultsDiv.innerHTML = '⚠️ No RSS found here.'; }
+                    }
                 }
-                const parser = new DOMParser(); const doc = parser.parseFromString(text, 'text/html');
-                const rssLinks = doc.querySelectorAll('link[type="application/rss+xml"], link[type="application/atom+xml"]');
-                if (rssLinks.length > 0) {
-                    resultsDiv.innerHTML = '<span style="color:#10b981; font-weight:bold;">✅ Click to add:</span>';
-                    rssLinks.forEach((link) => {
-                        let href = link.getAttribute('href'); let title = link.getAttribute('title') || 'Main RSS Feed';
-                        if(href.startsWith('/')) { href = new URL(targetUrl).origin + href; } else if (!href.startsWith('http')) { href = targetUrl.replace(/\/$/, '') + '/' + href; }
-                        let cleanTitle = title.replace(/'/g, "\\'");
-                        resultsDiv.innerHTML += `<button style="background:var(--surface-light); text-align:left; font-size:0.85rem; color:white; padding:8px; border-radius:5px; width:100%; margin-top:8px; cursor:pointer;" onclick="addDiscoveredRss('${cleanTitle}', '${href}')">➕ ${title}</button>`;
-                    });
-                } else { resultsDiv.innerHTML = '⚠️ No RSS found here.'; }
             } catch (err) { resultsDiv.innerHTML = '❌ Blocked by target site.'; }
         }
 
@@ -651,7 +692,7 @@
             const nextBatch = filteredArticles.slice(displayedCount, displayedCount + ITEMS_PER_PAGE); const t = TRANSLATIONS[currentRegion];
             
             nextBatch.forEach((art, i) => {
-                // HER 10 KARTTA 1 REKLAM YUVASI EKLENİR
+                // HER 10 KARTTA 1 REKLAM YUVASI EKLENİR (DÖNEN SPLASH RESİMLİ)
                 if ((displayedCount + i) % 10 === 0 && (displayedCount + i) !== 0) {
                     const adWrapper = document.createElement('div'); adWrapper.className = 'swipe-wrapper ad-slot-wrapper';
                     adWrapper.innerHTML = `
@@ -671,13 +712,14 @@
 
                 let isDefault = !art.image;
                 let safeImgUrl = art.image ? art.image.replace(/"/g, '&quot;') : '';
+                // GÖRSELİ OLMAYANLAR İÇİN DÖNEN SPLASH RESMİ EKLENDİ
                 let imgHtml = !isDefault ? `<img src="${safeImgUrl}" onload="this.style.opacity=1; this.parentElement.classList.remove('img-skeleton');" onerror="this.onerror=null; this.style.display='none'; this.parentElement.insertAdjacentHTML('beforeend', '<img src=\\'splash.png\\' class=\\'default-splash-thumb\\'>'); this.parentElement.setAttribute('data-default-img', 'true'); this.parentElement.classList.remove('img-skeleton');">` : '<img src="splash.png" class="default-splash-thumb">';
 
                 wrapper.innerHTML = `
                     <div class="swipe-bg swipe-bg-left">${isArchived ? t.swipeArchived : t.swipeArchive}</div><div class="swipe-bg swipe-bg-right">${t.swipeHide}</div>
                     <div class="news-card ${isRead && !isArchiveView ? 'read-article' : ''}">
                         <div class="card-img-wrapper ${isDefault ? '' : 'img-skeleton'}" ${isDefault ? 'data-default-img="true"' : ''}>
-                            <div class="source-badge">${art.source} ${catText ? '• '+catText : ''}</div>
+                            <div class="source-badge" onclick="openSourceFilterModal(event)">${art.source} ${catText ? '• '+catText : ''}</div>
                             ${imgHtml}
                         </div>
                         <div class="news-content"><h3>${art.title}</h3><div class="meta"><span>🕒 ${dateStr}</span><span class="read-more">${t.readMore}</span></div></div>
@@ -707,9 +749,7 @@
             if(!art.image) { modalBody.setAttribute('data-default-img', 'true'); imgEl.style.display = 'none'; } else { modalBody.removeAttribute('data-default-img'); imgEl.style.display = 'block'; }
 
             switchTab('reader'); 
-            
-            // HISTORY API GÜVENLİ AÇILIŞ
-            openModalSafe('newsModal');
+            openModalSafe('newsModal'); // HISTORY API İLE AÇ
             
             const textContainer = document.getElementById('fullTextContainer'); textContainer.innerHTML = `<div class="loading-pulse">${t.extracting}</div>`;
             const iframe = document.getElementById('modalIframe'); const banner = document.getElementById('iframeBanner'); iframe.removeAttribute('srcdoc'); iframe.src = 'about:blank'; banner.innerHTML = `<span style="animation: pulse 1.5s infinite;">⏳</span> ${t.loadingSite}`;
