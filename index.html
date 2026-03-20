@@ -358,9 +358,30 @@
             <details class="setting-item">
                 <summary>Destek & Geri Bildirim</summary>
                 <div class="setting-detail">
-                    <p style="color: var(--text-muted); font-size: 0.9rem; margin:0;">Uygulamayla ilgili bir hata mı buldunuz veya öneriniz mi var?</p>
-                    <textarea placeholder="Görüşlerinizi buraya yazın..." style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--surface-light); background:var(--bg-dark); color:white; resize:vertical; min-height:80px; outline:none; font-family:inherit;"></textarea>
-                    <button class="btn-login" style="padding:10px;">Gönder</button>
+                    
+                    <h4 style="color: var(--text-main); margin: 0 0 5px 0;">Projeye Destek Olun ☕</h4>
+                    <p style="color: var(--text-muted); font-size: 0.85rem; margin:0 0 10px 0;">Scrollary'nin sunucu maliyetlerine ve gelişimine katkıda bulunmak isterseniz destek olabilirsiniz.</p>
+                    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                        <a href="https://shopier.com/senin_dukkanin" target="_blank" style="flex: 1; text-align: center; background: #22C55E; color: #fff; padding: 10px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 0.85rem; transition: 0.2s;">💳 Shopier ile Destek</a>
+                        <a href="https://www.buymeacoffee.com/senin_kullanici_adin" target="_blank" style="flex: 1; text-align: center; background: #FFDD00; color: #000; padding: 10px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 0.85rem; transition: 0.2s;">☕ Kahve Ismarla</a>
+                    </div>
+
+                    <hr style="border: 0; border-top: 1px solid var(--surface-light); margin-bottom: 15px;">
+
+                    <h4 style="color: var(--text-main); margin: 0 0 5px 0;">Bize Ulaşın ✉️</h4>
+                    <p style="color: var(--text-muted); font-size: 0.85rem; margin:0 0 10px 0;">Hata bildirimi veya önerileriniz doğrudan geliştiriciye iletilecektir.</p>
+                    
+                    <form action="https://formspree.io/f/xjgazvzb" method="POST" style="display: flex; flex-direction: column; gap: 10px;">
+                        
+                        <input type="hidden" name="_subject" value="Scrollary'den Yeni Geri Bildirim!">
+                        
+                        <input type="email" name="Kullanici_Eposta" placeholder="E-posta Adresiniz (Size dönebilmemiz için)" required style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--surface-light); background:var(--bg-dark); color:white; outline:none; font-family:inherit;">
+                        
+                        <textarea name="Mesaj" placeholder="Görüşlerinizi, bulduğunuz hataları veya eklenmesini istediğiniz haber kaynaklarını yazın..." required style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--surface-light); background:var(--bg-dark); color:white; resize:vertical; min-height:80px; outline:none; font-family:inherit;"></textarea>
+                        
+                        <button type="submit" class="btn-login" style="padding:10px; font-size: 0.95rem;">Mesajı Gönder 🚀</button>
+                    </form>
+
                 </div>
             </details>
 
