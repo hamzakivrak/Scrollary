@@ -561,10 +561,11 @@
             } else {
                 document.getElementById(modalId).style.display = 'none';
                 document.body.style.overflow = 'auto';
-                if(modalId === 'newsModal') {
-                    const iframe = document.getElementById('modalIframe');
-                    if(iframe) { iframe.removeAttribute('srcdoc'); iframe.src = 'about:blank'; }
-                }
+                            if(modalId === 'newsModal') {
+                const oldIframe = document.getElementById('modalIframe');
+                if(oldIframe) { const newIframe = document.createElement('iframe'); newIframe.id = 'modalIframe'; newIframe.className = 'modal-iframe'; oldIframe.parentNode.replaceChild(newIframe, oldIframe); }
+            }
+
             }
         }
 
@@ -1073,7 +1074,7 @@
             openModalSafe('newsModal'); 
             
             const textContainer = document.getElementById('fullTextContainer'); textContainer.innerHTML = `<div class="loading-pulse">${t.extracting}</div>`;
-            const iframe = document.getElementById('modalIframe'); const banner = document.getElementById('iframeBanner'); iframe.removeAttribute('srcdoc'); iframe.src = 'about:blank'; banner.innerHTML = `<span style="animation: pulse 1.5s infinite;">⏳</span> ${t.loadingSite}`;
+const oldIframe = document.getElementById('modalIframe'); const iframe = document.createElement('iframe'); iframe.id = 'modalIframe'; iframe.className = 'modal-iframe'; iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups'); oldIframe.parentNode.replaceChild(iframe, oldIframe); const banner = document.getElementById('iframeBanner'); banner.innerHTML = `<span style="animation: pulse 1.5s infinite;">⏳</span> ${t.loadingSite}`;
 
             try {
                 if(art.link.includes('news.google.com')) throw new Error("Redirect");
