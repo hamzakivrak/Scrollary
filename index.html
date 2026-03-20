@@ -344,7 +344,7 @@
                     </div>
                 </div>
                 
-                <button onclick="startBackgroundSync()" class="fetch-btn" id="fetchBtn" data-i18n="fetchBtnText">FETCH LATEST NEWS</button>
+                <button onclick="fetchAllRSS()" class="fetch-btn" id="fetchBtn" data-i18n="fetchBtnText">FETCH LATEST NEWS</button>
             </div>
         </div>
 
@@ -479,12 +479,11 @@
         const firebaseConfig = { apiKey: "AIzaSyCVIiXeaZKfS9QpXO6LU1LlKVfbyuiTZbE", authDomain: "scrollary.firebaseapp.com", projectId: "scrollary", storageBucket: "scrollary.firebasestorage.app", messagingSenderId: "636511730600", appId: "1:636511730600:web:d61b1335232cdcfe6e3b9d", measurementId: "G-MXHQDXS8LH" };
         firebase.initializeApp(firebaseConfig); const auth = firebase.auth(); const db = firebase.firestore(); const provider = new firebase.auth.GoogleAuthProvider();
 
-        // DEV VE YENİ KAYNAKLAR (Bulunması çok kolay, temiz RSS linkleri)
         const GLOBAL_RSS_DB = {
-            'TR': [ { id: 'sozcu', name: 'Sözcü', url: 'https://www.sozcu.com.tr/rss/tum-haberler.xml', cat: 'News' }, { id: 'cumhuriyet', name: 'Cumhuriyet', url: 'https://www.cumhuriyet.com.tr/rss', cat: 'News' }, { id: 'sabah', name: 'Sabah', url: 'https://www.sabah.com.tr/rss/sondakika.xml', cat: 'News' }, { id: 'cnnturk', name: 'CNN Türk', url: 'https://www.cnnturk.com/feed/rss/all/news', cat: 'News' }, { id: 'webtekno', name: 'Webtekno', url: 'https://www.webtekno.com/rss.xml', cat: 'Tech' }, { id: 'donanimhaber', name: 'DonanımHaber', url: 'https://www.donanimhaber.com/rss/tum/', cat: 'Tech' }, { id: 'evrim', name: 'Evrim Ağacı', url: 'https://evrimagaci.org/rss.xml', cat: 'Science' }, { id: 'fotomac', name: 'Fotomaç', url: 'https://www.fotomac.com.tr/rss/anasayfa.xml', cat: 'Sport' }, { id: 'aspor', name: 'A Spor', url: 'https://www.aspor.com.tr/rss/anasayfa.xml', cat: 'Sport' }, { id: 'bloomberg', name: 'Bloomberg HT', url: 'https://www.bloomberght.com/rss', cat: 'Finance' }, { id: 'bbctr', name: 'BBC Türkçe', url: 'https://feeds.bbci.co.uk/turkce/rss.xml', cat: 'World' }, { id: 'haberturk', name: 'Habertürk', url: 'https://www.haberturk.com/rss', cat: 'News' } ],
-            'EN': [ { id: 'bbc', name: 'BBC News', url: 'http://feeds.bbci.co.uk/news/rss.xml', cat: 'News' }, { id: 'yahoo', name: 'Yahoo News', url: 'https://news.yahoo.com/rss', cat: 'News' }, { id: 'fox', name: 'Fox News', url: 'http://feeds.foxnews.com/foxnews/world', cat: 'World' }, { id: 'nyt', name: 'NY Times', url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml', cat: 'World' }, { id: 'tc', name: 'TechCrunch', url: 'https://techcrunch.com/feed/', cat: 'Tech' }, { id: 'verge', name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml', cat: 'Tech' }, { id: 'sciam', name: 'Scientific American', url: 'http://rss.sciam.com/ScientificAmerican-Global', cat: 'Science' }, { id: 'webmd', name: 'WebMD', url: 'https://rssfeeds.webmd.com/rss/rss.aspx?RSSSource=RSS_PUBLIC', cat: 'Health' }, { id: 'espn', name: 'ESPN', url: 'https://www.espn.com/espn/rss/news', cat: 'Sport' }, { id: 'cnbc', name: 'CNBC', url: 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000397', cat: 'Finance' }, { id: 'aljazeera', name: 'Al Jazeera', url: 'https://www.aljazeera.com/xml/rss/all.xml', cat: 'World' }, { id: 'philo', name: 'Philosophy Now', url: 'https://philosophynow.org/rss', cat: 'Philo' } ],
+            'TR': [ { id: 'sozcu', name: 'Sözcü', url: 'https://www.sozcu.com.tr/rss/tum-haberler.xml', cat: 'News' }, { id: 'cumhuriyet', name: 'Cumhuriyet', url: 'https://www.cumhuriyet.com.tr/rss', cat: 'News' }, { id: 'sabah', name: 'Sabah', url: 'https://www.sabah.com.tr/rss/sondakika.xml', cat: 'News' }, { id: 'trt', name: 'TRT Haber', url: 'https://www.trthaber.com/rss_sondakika.xml', cat: 'News' }, { id: 'webtekno', name: 'Webtekno', url: 'https://www.webtekno.com/rss.xml', cat: 'Tech' }, { id: 'shiftdelete', name: 'ShiftDelete', url: 'https://shiftdelete.net/feed', cat: 'Tech' }, { id: 'evrim', name: 'Evrim Ağacı', url: 'https://evrimagaci.org/rss.xml', cat: 'Science' }, { id: 'ntvspor', name: 'NTV Spor', url: 'https://www.ntvspor.net/rss', cat: 'Sport' }, { id: 'fanatik', name: 'Fanatik', url: 'https://www.fanatik.com.tr/rss/anasayfa.xml', cat: 'Sport' }, { id: 'bloomberg', name: 'Bloomberg HT', url: 'https://www.bloomberght.com/rss', cat: 'Finance' }, { id: 'bbctr', name: 'BBC Türkçe', url: 'https://feeds.bbci.co.uk/turkce/rss.xml', cat: 'World' }, { id: 'onedio', name: 'Onedio', url: 'https://onedio.com/support/rss.xml', cat: 'News' } ],
+            'EN': [ { id: 'reuters', name: 'Reuters', url: 'https://www.reutersagency.com/feed/?best-topics=world-news&type=rss', cat: 'World' }, { id: 'bbc', name: 'BBC News', url: 'http://feeds.bbci.co.uk/news/rss.xml', cat: 'News' }, { id: 'fox', name: 'Fox News', url: 'http://feeds.foxnews.com/foxnews/world', cat: 'World' }, { id: 'guardian', name: 'The Guardian', url: 'https://www.theguardian.com/world/rss', cat: 'World' }, { id: 'tc', name: 'TechCrunch', url: 'https://techcrunch.com/feed/', cat: 'Tech' }, { id: 'verge', name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml', cat: 'Tech' }, { id: 'sciam', name: 'Scientific American', url: 'http://rss.sciam.com/ScientificAmerican-Global', cat: 'Science' }, { id: 'healthline', name: 'Healthline', url: 'https://www.healthline.com/rss', cat: 'Health' }, { id: 'espn', name: 'ESPN', url: 'https://www.espn.com/espn/rss/news', cat: 'Sport' }, { id: 'ft', name: 'Financial Times', url: 'https://www.ft.com/?format=rss', cat: 'Finance' }, { id: 'aljazeera', name: 'Al Jazeera EN', url: 'https://www.aljazeera.com/xml/rss/all.xml', cat: 'World' }, { id: 'philo', name: 'Philosophy Now', url: 'https://philosophynow.org/rss', cat: 'Philo' } ],
             'DE': [ { id: 'spiegel', name: 'Der Spiegel', url: 'https://www.spiegel.de/schlagzeilen/tops/index.rss', cat: 'News' }, { id: 'tagesschau', name: 'Tagesschau', url: 'https://www.tagesschau.de/xml/rss2/', cat: 'News' }, { id: 'faz', name: 'FAZ', url: 'https://www.faz.net/rss/aktuell/', cat: 'News' }, { id: 'sz', name: 'Süddeutsche', url: 'https://rss.sueddeutsche.de/rss/Topthemen', cat: 'News' }, { id: 'heise', name: 'Heise Online', url: 'https://www.heise.de/rss/heise-atom.xml', cat: 'Tech' }, { id: 'spektrum', name: 'Spektrum', url: 'https://www.spektrum.de/rss/alles', cat: 'Science' }, { id: 'kicker', name: 'Kicker', url: 'https://rss.kicker.de/news/aktuell', cat: 'Sport' }, { id: 'sport1', name: 'Sport1', url: 'https://www.sport1.de/news/rss.xml', cat: 'Sport' }, { id: 'handelsblatt', name: 'Handelsblatt', url: 'https://www.handelsblatt.com/contentexport/feed/top-themen', cat: 'Finance' }, { id: 'wiwo', name: 'WirtschaftsWoche', url: 'https://www.wiwo.de/contentexport/feed/rss/schlagzeilen', cat: 'Finance' }, { id: 'zeit', name: 'Die Zeit', url: 'https://newsfeed.zeit.de/index', cat: 'World' }, { id: 'philomag', name: 'Philo Magazin', url: 'https://www.philomag.de/rss.xml', cat: 'Philo' } ],
-            'ES': [ { id: 'elpais', name: 'El País', url: 'https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada', cat: 'News' }, { id: 'elmundo', name: 'El Mundo', url: 'https://e00-elmundo.uecdn.es/elmundo/rss/portada.xml', cat: 'News' }, { id: 'abc', name: 'ABC.es', url: 'https://www.abc.es/rss/2.0/espana/', cat: 'News' }, { id: '20minutos', name: '20 Minutos', url: 'https://www.20minutos.es/rss/', cat: 'World' }, { id: 'hipertextual', name: 'Hipertextual', url: 'https://hipertextual.com/feed', cat: 'Tech' }, { id: 'muy', name: 'Muy Interesante', url: 'https://www.muyinteresante.es/feed', cat: 'Science' }, { id: 'cuidateplus', name: 'CuidatePlus', url: 'https://www.cuidateplus.com/rss', cat: 'Health' }, { id: 'marca', name: 'Marca', url: 'https://e00-marca.uecdn.es/rss/futbol/primera-division.xml', cat: 'Sport' }, { id: 'as', name: 'Diario AS', url: 'https://as.com/rss/futbol/primera.xml', cat: 'Sport' }, { id: 'expansion', name: 'Expansión', url: 'https://e00-expansion.uecdn.es/rss/empresas.xml', cat: 'Finance' }, { id: 'bbcmundo', name: 'BBC Mundo', url: 'http://www.bbc.co.uk/mundo/temas/america_latina/index.xml', cat: 'World' }, { id: 'filosofia', name: 'Filosofía&Co', url: 'https://filco.es/feed/', cat: 'Philo' } ],
+            'ES': [ { id: 'elpais', name: 'El País', url: 'https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada', cat: 'News' }, { id: 'elmundo', name: 'El Mundo', url: 'https://e00-elmundo.uecdn.es/elmundo/rss/portada.xml', cat: 'News' }, { id: 'abc', name: 'ABC.es', url: 'https://www.abc.es/rss/2.0/espana/', cat: 'News' }, { id: 'rtve', name: 'RTVE', url: 'https://www.rtve.es/api/noticias/rss', cat: 'World' }, { id: 'xataka', name: 'Xataka', url: 'https://www.xataka.com/feed.xml', cat: 'Tech' }, { id: 'muy', name: 'Muy Interesante', url: 'https://www.muyinteresante.es/feed', cat: 'Science' }, { id: 'infosalus', name: 'InfoSalus', url: 'https://www.infosalus.com/rss/', cat: 'Health' }, { id: 'marca', name: 'Marca', url: 'https://e00-marca.uecdn.es/rss/futbol/primera-division.xml', cat: 'Sport' }, { id: 'as', name: 'Diario AS', url: 'https://as.com/rss/futbol/primera.xml', cat: 'Sport' }, { id: 'expansion', name: 'Expansión', url: 'https://e00-expansion.uecdn.es/rss/empresas.xml', cat: 'Finance' }, { id: 'bbcmundo', name: 'BBC Mundo', url: 'http://www.bbc.co.uk/mundo/temas/america_latina/index.xml', cat: 'World' }, { id: 'filosofia', name: 'Filosofía&Co', url: 'https://filco.es/feed/', cat: 'Philo' } ],
             'FR': [ { id: 'lemonde', name: 'Le Monde', url: 'https://www.lemonde.fr/rss/une.xml', cat: 'News' }, { id: 'figaro', name: 'Le Figaro', url: 'https://www.lefigaro.fr/rss/figaro_actualites.xml', cat: 'News' }, { id: 'libe', name: 'Libération', url: 'https://www.liberation.fr/arc/outboundfeeds/rss-all/collection/accueil-une/?outputType=xml', cat: 'News' }, { id: 'france24', name: 'France 24', url: 'https://www.france24.com/fr/rss', cat: 'World' }, { id: 'numerama', name: 'Numerama', url: 'https://www.numerama.com/feed/', cat: 'Tech' }, { id: 'futura', name: 'Futura Sciences', url: 'https://www.futura-sciences.com/rss/actualites.xml', cat: 'Science' }, { id: 'doctissimo', name: 'Doctissimo', url: 'https://www.doctissimo.fr/rss/news.xml', cat: 'Health' }, { id: 'equipe', name: 'L\'Équipe', url: 'https://dwh.lequipe.fr/api/edito/rss?path=/', cat: 'Sport' }, { id: 'echos', name: 'Les Echos', url: 'https://services.lesechos.fr/rss/les-echos-accueil.xml', cat: 'Finance' }, { id: 'tribune', name: 'La Tribune', url: 'https://www.latribune.fr/feed.xml', cat: 'Finance' }, { id: 'rtbf', name: 'RTBF Info', url: 'https://rss.rtbf.be/article/rss/highlight_rtbfinfo_info-accueil.xml', cat: 'World' }, { id: 'philomag', name: 'Philosophie Mag', url: 'https://www.philomag.com/rss.xml', cat: 'Philo' } ],
             'RU': [ { id: 'lenta', name: 'Lenta.ru', url: 'https://lenta.ru/rss/news', cat: 'News' }, { id: 'meduza', name: 'Meduza', url: 'https://meduza.io/rss/all', cat: 'News' }, { id: 'ria', name: 'RIA Novosti', url: 'https://ria.ru/export/rss2/archive/index.xml', cat: 'World' }, { id: 'tass', name: 'TASS', url: 'http://tass.ru/rss/v2.xml', cat: 'World' }, { id: 'habr', name: 'Habr', url: 'https://habr.com/ru/rss/all/all/', cat: 'Tech' }, { id: 'naked', name: 'Naked Science', url: 'https://naked-science.ru/feed', cat: 'Science' }, { id: 'champ', name: 'Championat', url: 'https://www.championat.com/xml/rss.xml', cat: 'Sport' }, { id: 'sportex', name: 'Sport Express', url: 'https://www.sport-express.ru/services/materials/news/se/', cat: 'Sport' }, { id: 'kommersant', name: 'Kommersant', url: 'https://www.kommersant.ru/RSS/news.xml', cat: 'Finance' }, { id: 'vedomosti', name: 'Vedomosti', url: 'https://www.vedomosti.ru/rss/news', cat: 'Finance' }, { id: '3dnews', name: '3DNews', url: 'https://3dnews.ru/news/rss/', cat: 'Tech' }, { id: 'rt_ru', name: 'RT', url: 'https://russian.rt.com/rss', cat: 'World' } ],
             'AR': [ { id: 'aljazeera', name: 'Al Jazeera', url: 'https://www.aljazeera.net/aljazeerarss/a7c186be-1baa-4bd4-9d80-a84db769f779/73d0e1b4-532f-45ef-b135-bfdff8b8cab9', cat: 'News' }, { id: 'alarabiya', name: 'Al Arabiya', url: 'https://www.alarabiya.net/.mrss/ar', cat: 'News' }, { id: 'skynews', name: 'Sky News Arabia', url: 'https://www.skynewsarabia.com/rss/home', cat: 'World' }, { id: 'bbc', name: 'BBC Arabic', url: 'http://feeds.bbci.co.uk/arabic/rss.xml', cat: 'World' }, { id: 'ait', name: 'AIT News', url: 'https://aitnews.com/feed/', cat: 'Tech' }, { id: 'techwd', name: 'Tech WD', url: 'https://www.tech-wd.com/wd/feed/', cat: 'Tech' }, { id: 'sciarab', name: 'Scientific Arab', url: 'https://scientificarab.com/feed/', cat: 'Science' }, { id: 'webteb', name: 'WebTeb', url: 'https://www.webteb.com/rss/health', cat: 'Health' }, { id: 'kooora', name: 'Kooora', url: 'https://www.kooora.com/rss/news.xml', cat: 'Sport' }, { id: 'cnbc', name: 'CNBC Arabia', url: 'https://www.cnbcarabia.com/rss', cat: 'Finance' }, { id: 'rt_ar', name: 'RT Arabic', url: 'https://arabic.rt.com/rss', cat: 'World' }, { id: 'cnn_ar', name: 'CNN Arabic', url: 'https://arabic.cnn.com/api/v1/rss/middle_east/rss.xml', cat: 'World' } ],
@@ -501,7 +500,7 @@
         const ptrIcon = document.getElementById('ptrIcon');
         const ptrText = document.getElementById('ptrText');
 
-        async function fetchWithTimeout(resource, timeout = 5000) {
+        async function fetchWithTimeout(resource, timeout = 10000) {
             const controller = new AbortController();
             const id = setTimeout(() => controller.abort(), timeout);
             try {
@@ -514,7 +513,7 @@
             }
         }
         
-        let currentTheme = localStorage.getItem('appTheme') || 'hologram';
+        let currentTheme = localStorage.getItem('appTheme') || 'animated';
         let currentLayout = localStorage.getItem('appLayout') || 'medium';
         let initialFetchDone = false; 
 
@@ -532,14 +531,13 @@
             changeTheme(currentTheme); 
             setGridSize(currentLayout, null, true);
 
-            // Eski haberler varsa ekrana anında fırlat
             const cached = JSON.parse(localStorage.getItem('savedNewsArticles')) || [];
             if(cached.length > 0) {
                 allArticles = cached;
                 handleSearch(true); 
-                setTimeout(() => { startBackgroundSync(true); }, 1000); 
+                setTimeout(() => { fetchAllRSS(true); }, 1500); 
             } else {
-                startBackgroundSync(false, true); 
+                fetchAllRSS(false); 
             }
         };
 
@@ -596,9 +594,8 @@
         function switchGlobalRegion(regionCode) {
             currentRegion = regionCode; document.getElementById('regionSelect').value = regionCode; localStorage.setItem('scrollaryRegion', regionCode);
             applyTranslations(currentRegion, true); localStorage.removeItem('activeSourcesList'); loadCustomFeeds(); 
-            allArticles = []; // Dil değişince ekran temizlensin ve yeni dilde aksın
-            document.getElementById('newsGrid').innerHTML = '';
-            startBackgroundSync(false, true); 
+            allArticles = []; document.getElementById('newsGrid').innerHTML = '';
+            fetchAllRSS(false); 
         }
 
         auth.onAuthStateChanged(async user => {
@@ -631,7 +628,7 @@
                         localStorage.setItem('scrollaryRegion', currentRegion); 
                         applyTranslations(currentRegion, true); 
                         loadCustomFeeds();
-                        startBackgroundSync(); 
+                        fetchAllRSS(true); 
                     }
                     if (data.activeSources) { activeSources = data.activeSources; localStorage.setItem('activeSourcesList', JSON.stringify(activeSources)); }
                 }
@@ -676,7 +673,7 @@
         
         function popupRefresh() { 
             document.getElementById('popupFilterList').innerHTML = '🔄...'; 
-            startBackgroundSync(true); 
+            fetchAllRSS(true); 
             setTimeout(() => { loadCustomFeeds(); }, 1500); 
         }
 
@@ -718,7 +715,7 @@
                 arts.forEach(a => { if(!allArticles.find(x => x.link === a.link)) allArticles.push(a); });
                 allArticles.sort((a,b) => b.timestamp - a.timestamp);
                 saveToLocalMemory();
-                handleSearch(true); // Çekilir çekilmez ekrana düşer
+                handleSearch(true); 
             }
             document.getElementById('rssSearchResults').innerHTML = `<span style="color:#10b981; font-weight:bold; margin-top:10px; display:block;">${TRANSLATIONS[currentRegion].addedSuccess}</span>`;
         }
@@ -741,10 +738,11 @@
                 return;
             }
             
+            // Eğer URL girildiyse HTML taramak için basit allorigins proxy'si (YALNIZCA HTML ARAMASI İÇİN)
             let targetUrl = urlInput.startsWith('http') ? urlInput : 'https://' + urlInput;
             try {
                 const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
-                const resH = await fetchWithTimeout(proxyUrl, 6000); const dataH = await resH.json();
+                const resH = await fetchWithTimeout(proxyUrl, 8000); const dataH = await resH.json();
                 if (dataH.contents) {
                     const parser = new DOMParser(); const doc = parser.parseFromString(dataH.contents, 'text/html');
                     const rssLinks = doc.querySelectorAll('link[type="application/rss+xml"], link[type="application/atom+xml"]');
@@ -794,52 +792,74 @@
             });
         }
 
-        // HABER ÇEKİCİ (Güçlendirilmiş Çoklu Proxy)
+        // ==============================================================
+        // MİMARİ DEVRİM: YENİ RENDER (NODE.JS) BACKEND ENTEGRASYONU
+        // ==============================================================
         async function fetchFeedData(feed) {
-            let articles = []; 
-            const targetUrl = feed.url; 
+            // Kendi şahsi ve zırhlı sunucumuz!
+            const apiUrl = `https://scrollary-api.onrender.com/api/fetch-news?url=${encodeURIComponent(feed.url)}`;
             
-            const proxies = [ 
-                { url: `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(targetUrl)}`, type: 'json' },
-                { url: `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`, type: 'raw' },
-                { url: `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`, type: 'raw' },
-                { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`, type: 'raw' }
+            try {
+                // Sunucu ilk açılışta uykuda olabilir diye ona uyanması için 25 saniye zaman tanıyoruz.
+                const res = await fetchWithTimeout(apiUrl, 25000); 
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.articles && data.articles.length > 0) {
+                        return data.articles.map(item => {
+                            let pubDate = new Date(item.date);
+                            if (isNaN(pubDate.getTime())) pubDate = new Date();
+                            return { 
+                                title: item.title || "İsimsiz Haber", 
+                                description: item.description || "", 
+                                link: item.link || "#", 
+                                image: item.image || "", 
+                                source: feed.name, 
+                                date: pubDate, 
+                                timestamp: pubDate.getTime(), 
+                                categories: feed.cat ? [feed.cat] : [] 
+                            };
+                        });
+                    }
+                }
+            } catch(e) {
+                console.log(`Sunucuda gecikme yaşandı, ${feed.name} için yedek proxy devreye girdi...`);
+            }
+            
+            // Eğer Render çökerse, çok geç yanıt verirse uygulama bozulmasın diye YEDEK MOTOR:
+            const fallbackProxies = [ 
+                { url: `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feed.url)}`, type: 'json' },
+                { url: `https://api.allorigins.win/raw?url=${encodeURIComponent(feed.url)}`, type: 'raw' }
             ];
             
-            for (let proxy of proxies) {
+            for (let proxy of fallbackProxies) {
                 try {
-                    const res = await fetchWithTimeout(proxy.url, 5000);
+                    const res = await fetchWithTimeout(proxy.url, 6000);
                     if (!res.ok) continue;
                     
                     if (proxy.type === 'raw') {
                         const text = await res.text(); 
-                        const tLower = text.trim().toLowerCase();
-                        if (tLower.includes("<rss") || tLower.includes("<feed") || tLower.includes("<?xml") || tLower.includes("<rdf") || tLower.includes("<channel")) {
-                            articles = parseXMLToArticles(text, feed); 
-                            if (articles.length > 0) return articles;
+                        if (text.includes("<rss") || text.includes("<feed") || text.includes("<?xml")) {
+                            return parseXMLToArticles(text, feed); 
                         }
                     } else if (proxy.type === 'json') { 
                         const data = await res.json();
                         if (data.status === "ok" && data.items && data.items.length > 0) { 
-                            articles = data.items.map(item => {
+                            return data.items.map(item => {
                                 let img = item.thumbnail || (item.enclosure && item.enclosure.link) || "";
                                 if(!img) { const dMatch = (item.description||"").match(/<img[^>]+src=["']([^"']+)["']/i); if(dMatch) img = dMatch[1]; }
                                 let pubDate = new Date((item.pubDate||"").replace(/-/g, '/')); if(isNaN(pubDate.getTime())) pubDate = new Date();
-                                
                                 let cleanDesc = (item.description || "").replace(/<[^>]*>?/gm, '').trim();
                                 cleanDesc = cleanDesc.length > 180 ? cleanDesc.substring(0, 180) + '...' : cleanDesc;
-
-                                return { title: item.title, description: cleanDesc, link: item.link, image: img || '', source: feed.name, date: pubDate, timestamp: pubDate.getTime(), categories: feed.cat ? [feed.cat] : (item.categories||[]) };
+                                return { title: item.title, description: cleanDesc, link: item.link, image: img || '', source: feed.name, date: pubDate, timestamp: pubDate.getTime(), categories: feed.cat ? [feed.cat] : [] };
                             });
-                            if (articles.length > 0) return articles;
                         } 
                     }
-                } catch(e) { } 
+                } catch(err) {} 
             } 
             return [];
         }
 
-        // AKILLI XML PARÇALAYICI
+        // YEDEK MOTOR İÇİN XML ÇÖZÜCÜ
         function parseXMLToArticles(textData, feed) {
             const parser = new DOMParser(); 
             const xmlDoc = parser.parseFromString(textData, "text/xml"); 
@@ -848,19 +868,13 @@
             
             items.forEach(item => {
                 try {
-                    let title = "Haber Başlığı"; 
-                    const titleNode = item.getElementsByTagName("title")[0];
+                    let title = "Haber Başlığı"; const titleNode = item.getElementsByTagName("title")[0];
                     if (titleNode) title = titleNode.textContent.trim() || "Haber Başlığı";
 
-                    let link = "#"; 
-                    const linkNode = item.getElementsByTagName("link")[0];
-                    if (linkNode) { 
-                        link = linkNode.textContent ? linkNode.textContent.trim() : ""; 
-                        if(!link) link = linkNode.getAttribute("href") || "#"; 
-                    }
+                    let link = "#"; const linkNode = item.getElementsByTagName("link")[0];
+                    if (linkNode) { link = linkNode.textContent ? linkNode.textContent.trim() : ""; if(!link) link = linkNode.getAttribute("href") || "#"; }
 
-                    let desc = ""; 
-                    const descNode = item.getElementsByTagName("description")[0] || item.getElementsByTagName("summary")[0] || item.getElementsByTagName("content")[0];
+                    let desc = ""; const descNode = item.getElementsByTagName("description")[0] || item.getElementsByTagName("summary")[0] || item.getElementsByTagName("content")[0];
                     if (descNode) desc = descNode.textContent || "";
                     
                     const contentEnc = item.getElementsByTagName("content:encoded")[0] || item.getElementsByTagNameNS("*", "encoded")[0];
@@ -897,31 +911,37 @@
             try {
                 const toSave = allArticles.slice(0, 300); 
                 localStorage.setItem('savedNewsArticles', JSON.stringify(toSave)); 
-            } catch(e) { console.log("Hafıza limitine ulaşıldı."); } 
+            } catch(e) {} 
         }
 
-        function fetchAllRSS() {
-            startBackgroundSync(false, true);
-        }
-
-        // AKARAK YÜKLEME (STREAM LOADING) - Arka planda filtreye bakmaksızın tüm kaynakları tarar
-        async function startBackgroundSync(isTopRefresh = false, forceShowSpinner = false) {
+        // SESSİZ AKIŞ MOTORU
+        async function fetchAllRSS(isSilent = false) {
             if(isFetchingRefresh) return;
             isFetchingRefresh = true;
             
             const fetchBtn = document.getElementById('fetchBtn');
             const endSpinner = document.getElementById('endRefreshSpinner');
+            const grid = document.getElementById('newsGrid');
+            
+            if(!isSilent) {
+                document.getElementById('controlsWrapper').classList.add('collapsed'); 
+                document.getElementById('toggleIcon').innerText = '▼'; 
+            }
             
             fetchBtn.innerText = "🔄 " + TRANSLATIONS[currentRegion].scanning;
             fetchBtn.style.opacity = "0.7";
-            if(forceShowSpinner) endSpinner.style.display = 'block';
+            if(!isSilent) {
+                grid.innerHTML = `<div class="status-msg"><span id="loadingText" style="color:white; font-weight:600;">${TRANSLATIONS[currentRegion].loadingText}</span><div class="loading-bar"><div class="loading-fill" id="loadingFill"></div></div></div>`;
+            } else {
+                endSpinner.style.display = 'block';
+            }
 
             let newCount = 0;
             
-            const CHUNK_SIZE = 3;
+            // Tüm kaynakları hızlıca tarıyoruz (Tümü = RSS_FEEDS. Seçili olmasa bile arka planda önbelleğe alınır)
+            const CHUNK_SIZE = 4;
             for (let i = 0; i < RSS_FEEDS.length; i += CHUNK_SIZE) {
                 const chunk = RSS_FEEDS.slice(i, i + CHUNK_SIZE);
-                await new Promise(r => setTimeout(r, 200)); 
                 
                 const promises = chunk.map(feed => fetchFeedData(feed));
                 const results = await Promise.allSettled(promises);
@@ -939,36 +959,36 @@
                     }
                 });
 
-                // Parça (Chunk) tamamlandığında anında ekrana bas!
                 if(chunkHasNew) {
                     allArticles.sort((a, b) => b.timestamp - a.timestamp);
                     saveToLocalMemory();
                     
-                    // Kullanıcı en üstteyse sessizce yenile, aşağıdaysa rahatsız etme
-                    if(window.scrollY < 100) {
+                    if(!isSilent || window.scrollY < 100) {
                         handleSearch(true); 
                     }
                 }
+                
+                const fillObj = document.getElementById('loadingFill');
+                if(fillObj) fillObj.style.width = `${Math.min(((i+CHUNK_SIZE) / RSS_FEEDS.length) * 100, 100)}%`; 
             }
 
-            // Aşağıdaki kullanıcıya Twitter tarzı "Yeni Haber" bildirimi gönder
-            if (newCount > 0 && window.scrollY >= 100) { 
+            if (isSilent && newCount > 0 && window.scrollY >= 100) { 
                 const toast = document.getElementById('toastNotification');
                 document.getElementById('toastText').innerText = `⬆️ ${newCount} Yeni Haber Düştü!`;
                 toast.classList.add('show'); 
-            } else if (isTopRefresh && newCount === 0) { 
+            } else if (!isSilent && newCount === 0 && allArticles.length > 0) { 
                 const toast = document.getElementById('toastNotification');
                 document.getElementById('toastText').innerText = `✔️ En günceldesiniz`;
                 toast.classList.add('show'); 
                 setTimeout(() => { toast.classList.remove('show'); }, 3000); 
             }
             
-            if (isTopRefresh) { resetPullToRefresh(); } 
-            
+            resetPullToRefresh(); 
             endSpinner.style.display = 'none';
             fetchBtn.innerText = TRANSLATIONS[currentRegion].fetchBtnText;
             fetchBtn.style.opacity = "1";
             isFetchingRefresh = false;
+            if(!isSilent) handleSearch(true); // Spinnerı silip ana listeyi bas
         }
 
         // Tıklayınca en üste atıp haberleri göster
@@ -1047,7 +1067,6 @@
 
         function switchTab(tab) { document.getElementById('tabReader').classList.remove('active'); document.getElementById('tabWeb').classList.remove('active'); if(tab === 'reader') { document.getElementById('tabReader').classList.add('active'); document.getElementById('readerView').style.display = 'block'; document.getElementById('iframeView').style.display = 'none'; } else { document.getElementById('tabWeb').classList.add('active'); document.getElementById('readerView').style.display = 'none'; document.getElementById('iframeView').style.display = 'flex'; } }
 
-        // OKUMA EKRANI İÇİN EN HIZLI PROXY (CORSPROXY İLK SIRADA)
         async function openModal(art) {
             const t = TRANSLATIONS[currentRegion];
             document.getElementById('modalSource').innerText = art.source; document.getElementById('modalLinkExt').href = art.link; document.getElementById('modalTitle').innerText = art.title; document.getElementById('modalDesc').innerText = art.description;
@@ -1112,12 +1131,12 @@
             if (swipingCard) { const diffX = clientX - touchStartX; const diffY = clientY - touchStartY; if(!isVerticalScroll && Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > 10) { isVerticalScroll = true; swipingCard.style.transform = `translateX(0px)`; swipingCard.classList.remove('swiping'); swipingCard = null; return; } if(isVerticalScroll) return; swipeCurrentX = diffX; swipingCard.style.transform = `translateX(${swipeCurrentX}px)`; }
         }
         function handleDragEnd() {
-            if (pullDistance > 80 && !isFetchingRefresh && !swipingCard) { ptrIcon.innerText = "⏳"; ptrText.innerText = "..."; startBackgroundSync(true); } else { resetPullToRefresh(); }
+            if (pullDistance > 80 && !isFetchingRefresh && !swipingCard) { ptrIcon.innerText = "⏳"; ptrText.innerText = "..."; fetchAllRSS(true); } else { resetPullToRefresh(); }
             if (swipingCard) { const wrapper = swipingCard.closest('.swipe-wrapper'); const link = wrapper.dataset.link; swipingCard.classList.remove('swiping'); if(swipeCurrentX > 100) { swipingCard.style.transform = `translateX(100%)`; setTimeout(() => { archiveArticleByLink(link); wrapper.style.display = 'none'; }, 300); } else if(swipeCurrentX < -100) { swipingCard.style.transform = `translateX(-100%)`; setTimeout(() => { markAsRead(link, true); wrapper.style.display = 'none'; }, 300); } else { swipingCard.style.transform = `translateX(0px)`; } swipingCard = null; }
         }
         document.addEventListener('touchstart', e => handleDragStart(e.touches[0].clientX, e.touches[0].clientY, e.target), {passive: true}); document.addEventListener('touchmove', e => handleDragMove(e.touches[0].clientX, e.touches[0].clientY), {passive: true}); document.addEventListener('touchend', e => handleDragEnd()); document.addEventListener('mousedown', e => { const card = e.target.closest('.news-card'); if(card) { isDragging = true; handleDragStart(e.clientX, e.clientY, e.target); } }); document.addEventListener('mousemove', e => { if (!isDragging) return; handleDragMove(e.clientX, e.clientY); }); document.addEventListener('mouseup', e => { if (!isDragging) return; isDragging = false; handleDragEnd(); }); function resetPullToRefresh() { ptrEl.style.transform = `translateX(-50%) translateY(0)`; ptrEl.style.opacity = 0; touchStartY = 0; pullDistance = 0; setTimeout(() => { ptrIcon.innerText = "⬇️"; ptrText.innerText = TRANSLATIONS[currentRegion].pullToRefresh; }, 300); }
-        window.addEventListener('scroll', () => { if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 400) { if (displayedCount < filteredArticles.length) { const spinner = document.getElementById('scrollSpinner'); spinner.style.display = 'block'; setTimeout(() => { renderNextBatch(); spinner.style.display = 'none'; }, 100); } else if (filteredArticles.length > 0 && !isFetchingRefresh) { startBackgroundSync(); } } });
-        document.addEventListener('DOMContentLoaded', () => { const newsGrid = document.getElementById('newsGrid'); newsGrid.addEventListener('scroll', () => { if(document.body.classList.contains('shorts-mode')) { if ((newsGrid.scrollTop + newsGrid.clientHeight) >= newsGrid.scrollHeight - 600) { if (displayedCount < filteredArticles.length) { renderNextBatch(); } else if (filteredArticles.length > 0 && !isFetchingRefresh) { startBackgroundSync(); } } } }); });
+        window.addEventListener('scroll', () => { if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 400) { if (displayedCount < filteredArticles.length) { const spinner = document.getElementById('scrollSpinner'); spinner.style.display = 'block'; setTimeout(() => { renderNextBatch(); spinner.style.display = 'none'; }, 100); } else if (filteredArticles.length > 0 && !isFetchingRefresh) { fetchAllRSS(true); } } });
+        document.addEventListener('DOMContentLoaded', () => { const newsGrid = document.getElementById('newsGrid'); newsGrid.addEventListener('scroll', () => { if(document.body.classList.contains('shorts-mode')) { if ((newsGrid.scrollTop + newsGrid.clientHeight) >= newsGrid.scrollHeight - 600) { if (displayedCount < filteredArticles.length) { renderNextBatch(); } else if (filteredArticles.length > 0 && !isFetchingRefresh) { fetchAllRSS(true); } } } }); });
         
         function copyPapara() {
             const paparaInput = document.getElementById("paparaInput");
