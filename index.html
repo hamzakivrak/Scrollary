@@ -33,19 +33,50 @@
         .container { max-width: 1400px; margin: 0 auto; position: relative; z-index: 5; }
         
         /* TEMALAR */
-        body[data-theme="glass"] { --bg-dark: #000; background: url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2000&auto=format&fit=crop') center/cover fixed; }
-        body[data-theme="glass"] .news-card, body[data-theme="glass"] .controls-wrapper, body[data-theme="glass"] .guide-wrapper, body[data-theme="glass"] .global-region-wrapper, body[data-theme="glass"] .modal-content { background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); }
+        
+        /* Gerçekçi Cam (Glassmorphism) Teması */
+        body[data-theme="glass"] { 
+            --bg-dark: #020617; 
+            background: radial-gradient(circle at 15% 50%, rgba(225, 29, 72, 0.15), transparent 25%), radial-gradient(circle at 85% 30%, rgba(59, 130, 246, 0.15), transparent 25%), #020617; 
+            background-attachment: fixed;
+        }
+        body[data-theme="glass"] .news-card, body[data-theme="glass"] .controls-wrapper, body[data-theme="glass"] .guide-wrapper, body[data-theme="glass"] .global-region-wrapper, body[data-theme="glass"] .modal-content { 
+            background: rgba(255, 255, 255, 0.03); 
+            backdrop-filter: blur(24px); 
+            -webkit-backdrop-filter: blur(24px); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2); 
+        }
         body[data-theme="glass"] .news-content { background: transparent; }
+
+        /* Haber Stüdyosu (Animated) Teması */
+        @keyframes studioPan {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        body[data-theme="animated"] { 
+            background: linear-gradient(-45deg, #020617, #0f172a, #1d4ed8, #9f1239, #0f172a); 
+            background-size: 400% 400%; 
+            animation: studioPan 18s ease infinite; 
+            background-attachment: fixed;
+        }
+        body[data-theme="animated"] .news-card, body[data-theme="animated"] .controls-wrapper, body[data-theme="animated"] .guide-wrapper, body[data-theme="animated"] .global-region-wrapper, body[data-theme="animated"] .modal-content { 
+            background: rgba(15, 23, 42, 0.6); 
+            backdrop-filter: blur(12px); 
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08); 
+        }
+        body[data-theme="animated"] .news-content { background: transparent; }
+
+        /* Diğer Temalar */
         body[data-theme="metallic"] { --bg-dark: #1a1a1a; background: radial-gradient(circle at 50% 0%, #4a4a4a, #111 80%); }
         body[data-theme="metallic"] .news-card, body[data-theme="metallic"] .controls-wrapper, body[data-theme="metallic"] .guide-wrapper, body[data-theme="metallic"] .global-region-wrapper, body[data-theme="metallic"] .modal-content { background: linear-gradient(145deg, #333, #222); border: 1px solid #555; box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 4px 6px rgba(0,0,0,0.5); }
         body[data-theme="metallic"] .news-content { background: transparent; }
+        
         body[data-theme="hologram"] { --bg-dark: #0f0c29; background: linear-gradient(135deg, #0f0c29, #302b63, #240b36); }
         body[data-theme="hologram"] .news-card, body[data-theme="hologram"] .controls-wrapper, body[data-theme="hologram"] .guide-wrapper, body[data-theme="hologram"] .global-region-wrapper, body[data-theme="hologram"] .modal-content { background: linear-gradient(125deg, rgba(255,0,128,0.15), rgba(0,255,255,0.15)); border: 1px solid rgba(0,255,255,0.3); backdrop-filter: blur(10px); }
         body[data-theme="hologram"] .news-content { background: transparent; }
-        @keyframes gradientBG { 0% {background-position: 0% 50%;} 50% {background-position: 100% 50%;} 100% {background-position: 0% 50%;} }
-        body[data-theme="animated"] { background: linear-gradient(-45deg, #1e3a8a, #4c1d95, #0f172a, #064e3b); background-size: 400% 400%; animation: gradientBG 15s ease infinite; }
-        body[data-theme="animated"] .news-card, body[data-theme="animated"] .controls-wrapper, body[data-theme="animated"] .guide-wrapper, body[data-theme="animated"] .global-region-wrapper, body[data-theme="animated"] .modal-content { background: rgba(0,0,0,0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
-        body[data-theme="animated"] .news-content { background: transparent; }
         
         body[data-theme="cyber"] { --bg-dark: #09090b; background-color: #09090b; background-image: linear-gradient(rgba(0, 255, 255, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 255, 255, 0.05) 1px, transparent 1px); background-size: 20px 20px; box-shadow: inset 0 0 100px rgba(255, 0, 255, 0.1); }
         body[data-theme="cyber"] .news-card, body[data-theme="cyber"] .controls-wrapper, body[data-theme="cyber"] .guide-wrapper, body[data-theme="cyber"] .global-region-wrapper, body[data-theme="cyber"] .modal-content { background: rgba(10, 10, 15, 0.85); border: 1px solid #0ff; box-shadow: 0 0 10px rgba(0, 255, 255, 0.2), inset 0 0 10px rgba(255, 0, 255, 0.1); backdrop-filter: blur(5px); }
@@ -442,7 +473,6 @@
         const firebaseConfig = { apiKey: "AIzaSyCVIiXeaZKfS9QpXO6LU1LlKVfbyuiTZbE", authDomain: "scrollary.firebaseapp.com", projectId: "scrollary", storageBucket: "scrollary.firebasestorage.app", messagingSenderId: "636511730600", appId: "1:636511730600:web:d61b1335232cdcfe6e3b9d", measurementId: "G-MXHQDXS8LH" };
         firebase.initializeApp(firebaseConfig); const auth = firebase.auth(); const db = firebase.firestore(); const provider = new firebase.auth.GoogleAuthProvider();
 
-        // TAM 12 KAYNAK (Hız için optimize edilmiş, dengeli liste)
         const GLOBAL_RSS_DB = {
             'TR': [ { id: 'sozcu', name: 'Sözcü', url: 'https://www.sozcu.com.tr/rss/tum-haberler.xml', cat: 'News' }, { id: 'cumhuriyet', name: 'Cumhuriyet', url: 'https://www.cumhuriyet.com.tr/rss', cat: 'News' }, { id: 'sabah', name: 'Sabah', url: 'https://www.sabah.com.tr/rss/sondakika.xml', cat: 'News' }, { id: 'trt', name: 'TRT Haber', url: 'https://www.trthaber.com/rss_sondakika.xml', cat: 'News' }, { id: 'webtekno', name: 'Webtekno', url: 'https://www.webtekno.com/rss.xml', cat: 'Tech' }, { id: 'shiftdelete', name: 'ShiftDelete', url: 'https://shiftdelete.net/feed', cat: 'Tech' }, { id: 'evrim', name: 'Evrim Ağacı', url: 'https://evrimagaci.org/rss.xml', cat: 'Science' }, { id: 'ntvspor', name: 'NTV Spor', url: 'https://www.ntvspor.net/rss', cat: 'Sport' }, { id: 'fanatik', name: 'Fanatik', url: 'https://www.fanatik.com.tr/rss/anasayfa.xml', cat: 'Sport' }, { id: 'bloomberg', name: 'Bloomberg HT', url: 'https://www.bloomberght.com/rss', cat: 'Finance' }, { id: 'bbctr', name: 'BBC Türkçe', url: 'https://feeds.bbci.co.uk/turkce/rss.xml', cat: 'World' }, { id: 'onedio', name: 'Onedio', url: 'https://onedio.com/support/rss.xml', cat: 'News' } ],
             'EN': [ { id: 'reuters', name: 'Reuters', url: 'https://www.reutersagency.com/feed/?best-topics=world-news&type=rss', cat: 'World' }, { id: 'bbc', name: 'BBC News', url: 'http://feeds.bbci.co.uk/news/rss.xml', cat: 'News' }, { id: 'fox', name: 'Fox News', url: 'http://feeds.foxnews.com/foxnews/world', cat: 'World' }, { id: 'guardian', name: 'The Guardian', url: 'https://www.theguardian.com/world/rss', cat: 'World' }, { id: 'tc', name: 'TechCrunch', url: 'https://techcrunch.com/feed/', cat: 'Tech' }, { id: 'verge', name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml', cat: 'Tech' }, { id: 'sciam', name: 'Scientific American', url: 'http://rss.sciam.com/ScientificAmerican-Global', cat: 'Science' }, { id: 'healthline', name: 'Healthline', url: 'https://www.healthline.com/rss', cat: 'Health' }, { id: 'espn', name: 'ESPN', url: 'https://www.espn.com/espn/rss/news', cat: 'Sport' }, { id: 'ft', name: 'Financial Times', url: 'https://www.ft.com/?format=rss', cat: 'Finance' }, { id: 'aljazeera', name: 'Al Jazeera EN', url: 'https://www.aljazeera.com/xml/rss/all.xml', cat: 'World' }, { id: 'philo', name: 'Philosophy Now', url: 'https://philosophynow.org/rss', cat: 'Philo' } ],
@@ -464,7 +494,6 @@
         const ptrIcon = document.getElementById('ptrIcon');
         const ptrText = document.getElementById('ptrText');
 
-        // HIZLI VE KISA TIMEOUT (Takılı kalmaları anında çöpe atar)
         async function fetchWithTimeout(resource, timeout = 5000) {
             const controller = new AbortController();
             const id = setTimeout(() => controller.abort(), timeout);
@@ -488,7 +517,6 @@
             return ['TR', 'EN', 'ES', 'DE', 'FR', 'RU', 'AR', 'HI'].includes(shortLang) ? shortLang : 'EN';
         }
         
-        // DEVRİM 1: SIFIR SANİYE BEKLEME - ANINDA AÇILIŞ (Offline-First)
         window.onload = () => {
             currentRegion = detectUserRegion(); 
             document.getElementById('regionSelect').value = currentRegion;
@@ -497,16 +525,12 @@
             changeTheme(currentTheme); 
             setGridSize(currentLayout, null, true);
 
-            // Hafızada eski haberler varsa "ANINDA" listele
             const cached = JSON.parse(localStorage.getItem('savedNewsArticles')) || [];
             if(cached.length > 0) {
                 allArticles = cached;
                 handleSearch(true); 
-                
-                // Sen haberleri okurken, arka planda çaktırmadan yeni haberleri tarasın
                 setTimeout(() => { startBackgroundSync(); }, 1500); 
             } else {
-                // Eğer hayatında ilk defa giriyorsa sıfırdan akar
                 startBackgroundSync(); 
             }
         };
@@ -564,7 +588,7 @@
         function switchGlobalRegion(regionCode) {
             currentRegion = regionCode; document.getElementById('regionSelect').value = regionCode; localStorage.setItem('scrollaryRegion', regionCode);
             applyTranslations(currentRegion, true); localStorage.removeItem('activeSourcesList'); loadCustomFeeds(); 
-            startBackgroundSync(); // Dil değişince anında akmaya başlasın
+            startBackgroundSync(); 
         }
 
         auth.onAuthStateChanged(async user => {
@@ -580,6 +604,7 @@
         function signOut() { auth.signOut(); }
 
         async function syncToCloud() { if (!currentUser) return; try { await db.collection('users').doc(currentUser.uid).set({ readArticles: readArticles, archivedArticles: archivedArticles, customRSSFeeds: JSON.parse(localStorage.getItem('customRSSFeeds')) || [], appTheme: currentTheme, activeSources: activeSources, scrollaryRegion: currentRegion }, { merge: true }); } catch (e) {} }
+        
         async function loadFromCloud() {
             if (!currentUser) return;
             try {
@@ -590,7 +615,14 @@
                     if (data.archivedArticles) { archivedArticles = data.archivedArticles; localStorage.setItem('archivedArticlesList', JSON.stringify(archivedArticles)); }
                     if (data.customRSSFeeds) { localStorage.setItem('customRSSFeeds', JSON.stringify(data.customRSSFeeds)); }
                     if (data.appTheme) { changeTheme(data.appTheme); }
-                    if (data.scrollaryRegion) { currentRegion = data.scrollaryRegion; document.getElementById('regionSelect').value = currentRegion; localStorage.setItem('scrollaryRegion', currentRegion); applyTranslations(currentRegion, true); }
+                    if (data.scrollaryRegion && data.scrollaryRegion !== currentRegion) { 
+                        currentRegion = data.scrollaryRegion; 
+                        document.getElementById('regionSelect').value = currentRegion; 
+                        localStorage.setItem('scrollaryRegion', currentRegion); 
+                        applyTranslations(currentRegion, true); 
+                        loadCustomFeeds();
+                        startBackgroundSync(); 
+                    }
                     if (data.activeSources) { activeSources = data.activeSources; localStorage.setItem('activeSourcesList', JSON.stringify(activeSources)); }
                 }
             } catch (e) {}
@@ -632,7 +664,6 @@
         }
         function syncSearchInputs(val) { document.getElementById('searchInput').value = val; handleSearch(); }
         
-        // Modal içi yenile
         function popupRefresh() { 
             document.getElementById('popupFilterList').innerHTML = '🔄...'; 
             startBackgroundSync(); 
@@ -656,14 +687,13 @@
         
         function saveActiveSources() { localStorage.setItem('activeSourcesList', JSON.stringify(activeSources)); syncToCloud(); }
         
-        // DEVRİM 3: Yeni konu eklendiğinde sessiz ve anında çekim
         async function addDiscoveredRss(name, url) { 
             const newFeed = { id: 'custom_' + Date.now(), name: name.substring(0, 30), url: url, isCustom: true, lang: currentRegion, cat: 'News' };
             const savedFeeds = JSON.parse(localStorage.getItem('customRSSFeeds')) || []; 
             if(!savedFeeds.find(f => f.url === url)) { savedFeeds.push(newFeed); localStorage.setItem('customRSSFeeds', JSON.stringify(savedFeeds)); }
             if(!activeSources.includes(newFeed.name)) { activeSources.push(newFeed.name); saveActiveSources(); }
             
-            document.getElementById('rssSearchResults').innerHTML = `<span style="color:#10b981; font-weight:bold; margin-top:10px; display:block;">⏳ Arama sonuçları listene düşüyor...</span>`;
+            document.getElementById('rssSearchResults').innerHTML = `<span style="color:#10b981; font-weight:bold; margin-top:10px; display:block;">⏳ Haberler listene düşüyor...</span>`;
             
             currentCategory = '';
             document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
@@ -673,13 +703,12 @@
             loadCustomFeeds(); syncToCloud(); 
             document.getElementById('controlsWrapper').classList.add('collapsed'); document.getElementById('toggleIcon').innerText = '▼'; 
             
-            // Sadece bu yeni eklenen kaynağı çek ve listeye sessizce bırak
             const arts = await fetchFeedData(newFeed);
             if(arts && arts.length > 0) {
                 arts.forEach(a => { if(!allArticles.find(x => x.link === a.link)) allArticles.push(a); });
                 allArticles.sort((a,b) => b.timestamp - a.timestamp);
                 saveToLocalMemory();
-                handleSearch(true); // Ekrana tık diye düşer
+                handleSearch(true); 
             }
             document.getElementById('rssSearchResults').innerHTML = `<span style="color:#10b981; font-weight:bold; margin-top:10px; display:block;">${TRANSLATIONS[currentRegion].addedSuccess}</span>`;
         }
@@ -755,7 +784,6 @@
             });
         }
 
-        // HABER ÇEKİCİ (Multi-Proxy)
         async function fetchFeedData(feed) {
             let articles = []; 
             const targetUrl = feed.url; 
@@ -800,7 +828,6 @@
             return [];
         }
 
-        // AKILLI XML PARÇALAYICI (Google Haberler Uyumu)
         function parseXMLToArticles(textData, feed) {
             const parser = new DOMParser(); 
             const xmlDoc = parser.parseFromString(textData, "text/xml"); 
@@ -861,13 +888,12 @@
             } catch(e) { console.log("Hafıza limitine ulaşıldı."); } 
         }
 
-        // KULLANICI TETİKLEMELİ (ZORLA) GÜNCELLEME BUTONU
-        async function fetchAllRSS(isSilent = false) {
-            startBackgroundSync();
+        function fetchAllRSS() {
+            startBackgroundSync(false, true);
         }
 
-        // DEVRİM 2: GİZLİ AJAN (ARKA PLAN) TARAMA MOTORU
-        async function startBackgroundSync(isTopRefresh = false) {
+        // DEVRİM: TÜM KAYNAKLARI (FİLTRELİ OLSA BİLE) ARKA PLANDA ÇEKER
+        async function startBackgroundSync(isTopRefresh = false, forceShowSpinner = false) {
             if(isFetchingRefresh) return;
             isFetchingRefresh = true;
             
@@ -876,11 +902,10 @@
             
             fetchBtn.innerText = "🔄 " + TRANSLATIONS[currentRegion].scanning;
             fetchBtn.style.opacity = "0.7";
-            if(!isTopRefresh) endSpinner.style.display = 'block';
+            if(forceShowSpinner) endSpinner.style.display = 'block';
 
             let newCount = 0;
             
-            // FİLTREYE BAKMAKSIZIN BÜTÜN KAYNAKLARI (RSS_FEEDS) TARAR
             const CHUNK_SIZE = 3;
             for (let i = 0; i < RSS_FEEDS.length; i += CHUNK_SIZE) {
                 const chunk = RSS_FEEDS.slice(i, i + CHUNK_SIZE);
@@ -902,18 +927,16 @@
                     }
                 });
 
-                // Her parça indiğinde eğer kullanıcı en üstteyse ekranı çaktırmadan yenile (Akarak Yükleme)
                 if(chunkHasNew) {
                     allArticles.sort((a, b) => b.timestamp - a.timestamp);
                     saveToLocalMemory();
                     
                     if(window.scrollY < 100) {
-                        handleSearch(true); // Kullanıcı fark etmeden liste yenilenir
+                        handleSearch(true); 
                     }
                 }
             }
 
-            // EĞER KULLANICI AŞAĞILARA İNDİYSE ONU RAHATSIZ ETME, TOAST (UYARI) ÇIKART
             if (newCount > 0 && window.scrollY >= 100) { 
                 const toast = document.getElementById('toastNotification');
                 document.getElementById('toastText').innerText = `⬆️ ${newCount} Yeni Haber Düştü!`;
@@ -933,7 +956,6 @@
             isFetchingRefresh = false;
         }
 
-        // BİLDİRİME TIKLAYINCA EN ÜSTE ATIP YENİLERİ GÖSTERME (TWITTER MANTIĞI)
         function handleToastClick() {
             window.scrollTo({ top: 0, behavior: 'smooth' });
             handleSearch(true);
@@ -952,7 +974,7 @@
             });
             
             if (!isSilentRefresh) { document.getElementById('newsGrid').innerHTML = ''; displayedCount = 0; } else { document.getElementById('newsGrid').innerHTML = ''; displayedCount = 0; }
-            if (filteredArticles.length === 0) { document.getElementById('newsGrid').innerHTML = `<div class="status-msg"><div style="font-size:3rem; margin-bottom:15px;">🔍</div>Bekleniyor / Haber bulunamadı.</div>`; return; }
+            if (filteredArticles.length === 0) { document.getElementById('newsGrid').innerHTML = `<div class="status-msg"><div style="font-size:3rem; margin-bottom:15px;">🔍</div>Haber bekleniyor / bulunamadı.</div>`; return; }
             renderNextBatch();
         }
 
@@ -1009,7 +1031,7 @@
 
         function switchTab(tab) { document.getElementById('tabReader').classList.remove('active'); document.getElementById('tabWeb').classList.remove('active'); if(tab === 'reader') { document.getElementById('tabReader').classList.add('active'); document.getElementById('readerView').style.display = 'block'; document.getElementById('iframeView').style.display = 'none'; } else { document.getElementById('tabWeb').classList.add('active'); document.getElementById('readerView').style.display = 'none'; document.getElementById('iframeView').style.display = 'flex'; } }
 
-        // OKUMA EKRANI HIZLANDIRILDI (Corsproxy.io En Başta)
+        // OKUMA EKRANI İÇİN EN HIZLI PROXY (CORSPROXY İLK SIRADA)
         async function openModal(art) {
             const t = TRANSLATIONS[currentRegion];
             document.getElementById('modalSource').innerText = art.source; document.getElementById('modalLinkExt').href = art.link; document.getElementById('modalTitle').innerText = art.title; document.getElementById('modalDesc').innerText = art.description;
