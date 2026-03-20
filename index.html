@@ -539,15 +539,13 @@
         }
 
         window.addEventListener('popstate', (e) => {
-            document.getElementById('newsModal').style.display = 'none';
-            document.getElementById('settingsModal').style.display = 'none';
-            document.getElementById('sourceFilterModal').style.display = 'none';
-            document.body.style.overflow = 'auto';
-            document.getElementById('controlsWrapper').classList.add('collapsed');
-            document.getElementById('toggleIcon').innerText = '▼';
-            const iframe = document.getElementById('modalIframe');
-            if(iframe) { iframe.removeAttribute('srcdoc'); iframe.src = 'about:blank'; }
-        });
+    document.getElementById('newsModal').style.display = 'none';
+    document.getElementById('settingsModal').style.display = 'none';
+    document.getElementById('sourceFilterModal').style.display = 'none';
+    document.getElementById('guideModal').style.display = 'none'; // Bu satırı ekledik
+    document.body.style.overflow = 'auto';
+    // ... (varsa diğer satırlar kalsın)
+});
 
         function closeModalSafe(modalId) {
             if(history.state && history.state.modal) {
@@ -626,14 +624,16 @@
             loadCustomFeeds();
         }
 
-        document.addEventListener('click', (e) => { 
-            const wrapper = document.getElementById('controlsWrapper'); 
-            if (!wrapper.classList.contains('collapsed') && !wrapper.contains(e.target) && !e.target.closest('#loginBtn') && !e.target.closest('.settings-btn')) { 
-                wrapper.classList.add('collapsed'); document.getElementById('toggleIcon').innerText = '▼'; 
-            } 
-            const guideContent = document.getElementById('guideContent'); const guideWrapper = document.getElementById('guideBox');
-            if (guideContent.classList.contains('show') && !guideWrapper.contains(e.target)) { guideContent.classList.remove('show'); document.getElementById('guideArrow').innerText = '▼'; }
-        });
+        document.addEventListener('click', (e) => {
+    // Mevcut kodların (controlsWrapper vb.) burada duruyor olmalı, onların altına ekle:
+    
+    const guideModal = document.getElementById('guideModal');
+    if (e.target === guideModal) {
+        closeModalSafe('guideModal');
+    }
+
+    // ... (diğer mevcut tıklama kodların)
+});
         function toggleControls(event) { 
             if(event) event.stopPropagation(); 
             const wrapper = document.getElementById('controlsWrapper'); 
