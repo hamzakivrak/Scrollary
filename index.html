@@ -462,8 +462,8 @@
         const ptrIcon = document.getElementById('ptrIcon');
         const ptrText = document.getElementById('ptrText');
 
-        // TIMEOUT FONKSİYONU - Bağlantının takılı kalmasını engeller.
-        async function fetchWithTimeout(resource, timeout = 8000) {
+        // ÇOK HIZLI, İPTAL EDİLEBİLİR (ABORTABLE) FETCH
+        async function fetchWithTimeout(resource, timeout = 5000) {
             const controller = new AbortController();
             const id = setTimeout(() => controller.abort(), timeout);
             try {
@@ -671,7 +671,7 @@
             let targetUrl = urlInput.startsWith('http') ? urlInput : 'https://' + urlInput;
             try {
                 const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
-                const resH = await fetchWithTimeout(proxyUrl, 8000); const dataH = await resH.json();
+                const resH = await fetchWithTimeout(proxyUrl, 5000); const dataH = await resH.json();
                 if (dataH.contents) {
                     const parser = new DOMParser(); const doc = parser.parseFromString(dataH.contents, 'text/html');
                     const rssLinks = doc.querySelectorAll('link[type="application/rss+xml"], link[type="application/atom+xml"]');
@@ -721,26 +721,20 @@
             });
         }
 
-        // HABER ÇEKİCİ MOTOR (GÜÇLENDİRİLMİŞ ÇOK KATMANLI YAPI)
+        // HIZLI VE SAĞLAM BİREYSEL ÇEKME FONKSİYONU
         async function fetchFeedData(feed) {
             let articles = []; 
             const targetUrl = feed.url; 
             
-            // 4 Farklı Proxy. Güvenlik duvarını aşmak için tasarlandılar.
             const proxies = [ 
                 { url: `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(targetUrl)}`, type: 'json' },
                 { url: `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`, type: 'raw' },
-                { url: `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`, type: 'raw' },
                 { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`, type: 'raw' }
             ];
             
             for (let proxy of proxies) {
                 try {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 8000); 
-                    const res = await fetch(proxy.url, { signal: controller.signal });
-                    clearTimeout(timeoutId);
-                    
+                    const res = await fetchWithTimeout(proxy.url, 5000); 
                     if (!res.ok) continue;
                     
                     if (proxy.type === 'raw') {
@@ -766,14 +760,12 @@
                             if (articles.length > 0) return articles;
                         } 
                     }
-                } catch(e) { 
-                    // Sessizce diğer proxy'e geçer
-                } 
+                } catch(e) { } 
             } 
             return [];
         }
 
-        // XML OKUYUCU
+        // AKILLI XML PARÇALAYICI
         function parseXMLToArticles(textData, feed) {
             const parser = new DOMParser(); 
             const xmlDoc = parser.parseFromString(textData, "text/xml"); 
@@ -834,6 +826,7 @@
             } catch(e) { console.log("Hafıza limitine ulaşıldı."); } 
         }
 
+        // GRUPLAR HALİNDE (CHUNKING) TOPLU ÇEKME: PROXY ÇÖKERTMEZ
         async function fetchAllRSS(isSilent = false) {
             const grid = document.getElementById('newsGrid'); const btn = document.getElementById('fetchBtn'); btn.disabled = true; btn.innerText = TRANSLATIONS[currentRegion].loadingText;
             document.getElementById('controlsWrapper').classList.add('collapsed'); document.getElementById('toggleIcon').innerText = '▼'; 
@@ -842,22 +835,30 @@
             if (feedsToFetch.length === 0) { if(!isSilent) grid.innerHTML = `<div class="status-msg">Hiç kaynak seçilmedi.</div>`; btn.disabled = false; btn.innerText = TRANSLATIONS[currentRegion].fetchBtnText; return; }
             if(!isSilent) { grid.innerHTML = `<div class="status-msg"><span id="loadingText" style="color:white; font-weight:600;">${TRANSLATIONS[currentRegion].loadingText}</span><div class="loading-bar"><div class="loading-fill" id="loadingFill"></div></div></div>`; }
             
-            allArticles = []; let completedCount = 0;
+            allArticles = []; 
+            let completedCount = 0;
             
-            const fetchPromises = feedsToFetch.map(async (feed, index) => {
-                // Kaynaklar arası gecikme ile rate limit engeli aşılır
-                await new Promise(resolve => setTimeout(resolve, index * 200));
-                try { 
-                    const feedArticles = await fetchFeedData(feed); 
-                    if (feedArticles && feedArticles.length > 0) allArticles.push(...feedArticles); 
-                } catch (error) {} finally {
-                    completedCount++; const fillObj = document.getElementById('loadingFill'); const textObj = document.getElementById('loadingText');
+            // Kaynakları 4'erli gruplara böler
+            const CHUNK_SIZE = 4;
+            for (let i = 0; i < feedsToFetch.length; i += CHUNK_SIZE) {
+                const chunk = feedsToFetch.slice(i, i + CHUNK_SIZE);
+                const promises = chunk.map(feed => fetchFeedData(feed));
+                
+                // 4 kaynağın çekilmesini bekler
+                const results = await Promise.allSettled(promises);
+                
+                results.forEach((res) => {
+                    completedCount++;
+                    if (res.status === 'fulfilled' && res.value && res.value.length > 0) {
+                        allArticles.push(...res.value);
+                    }
+                    // Yükleme çubuğu animasyonu
+                    const fillObj = document.getElementById('loadingFill'); const textObj = document.getElementById('loadingText');
                     if(fillObj) fillObj.style.width = `${(completedCount / feedsToFetch.length) * 100}%`; 
-                    if(textObj) textObj.innerText = `${TRANSLATIONS[currentRegion].scanning} ${feed.name} (${completedCount}/${feedsToFetch.length})`;
-                }
-            });
+                    if(textObj) textObj.innerText = `${TRANSLATIONS[currentRegion].scanning} (${completedCount}/${feedsToFetch.length})`;
+                });
+            }
             
-            await Promise.all(fetchPromises); 
             allArticles.sort((a, b) => b.timestamp - a.timestamp); 
             saveToLocalMemory(); 
             btn.disabled = false; btn.innerText = TRANSLATIONS[currentRegion].fetchBtnText; 
@@ -867,15 +868,23 @@
         async function checkNewArticlesInBackground(isTopRefresh = false) {
             isFetchingRefresh = true; const endSpinner = document.getElementById('endRefreshSpinner'); let newCount = 0;
             const feedsToFetch = RSS_FEEDS.filter(feed => activeSources.includes(feed.name));
-            const fetchPromises = feedsToFetch.map(async (feed, index) => { 
-                await new Promise(resolve => setTimeout(resolve, index * 200));
-                try { 
-                    const feedArticles = await fetchFeedData(feed); 
-                    if(feedArticles) { feedArticles.forEach(newArt => { const exists = allArticles.find(a => a.link === newArt.link); if(!exists) { allArticles.push(newArt); newCount++; } }); }
-                } catch(e) {} 
-            });
-            await Promise.all(fetchPromises);
             
+            const CHUNK_SIZE = 4;
+            for (let i = 0; i < feedsToFetch.length; i += CHUNK_SIZE) {
+                const chunk = feedsToFetch.slice(i, i + CHUNK_SIZE);
+                const promises = chunk.map(feed => fetchFeedData(feed));
+                const results = await Promise.allSettled(promises);
+                
+                results.forEach(res => {
+                    if (res.status === 'fulfilled' && res.value) {
+                        res.value.forEach(newArt => { 
+                            const exists = allArticles.find(a => a.link === newArt.link); 
+                            if(!exists) { allArticles.push(newArt); newCount++; } 
+                        });
+                    }
+                });
+            }
+
             if (newCount > 0) { allArticles.sort((a, b) => b.timestamp - a.timestamp); saveToLocalMemory(); handleSearch(true); document.getElementById('toastText').innerText = `+${newCount}`; document.getElementById('toastNotification').classList.add('show'); setTimeout(() => { document.getElementById('toastNotification').classList.remove('show'); }, 6000); } 
             else if (isTopRefresh) { document.getElementById('toastText').innerText = `✔️`; document.getElementById('toastNotification').classList.add('show'); setTimeout(() => { document.getElementById('toastNotification').classList.remove('show'); }, 3000); }
             if (isTopRefresh) { resetPullToRefresh(); } else { endSpinner.innerText = "..."; setTimeout(() => { endSpinner.style.display = 'none'; }, 4000); }
