@@ -46,6 +46,8 @@
         body[data-theme="animated"] { background: linear-gradient(-45deg, #1e3a8a, #4c1d95, #0f172a, #064e3b); background-size: 400% 400%; animation: gradientBG 15s ease infinite; }
         body[data-theme="animated"] .news-card, body[data-theme="animated"] .controls-wrapper, body[data-theme="animated"] .guide-wrapper, body[data-theme="animated"] .global-region-wrapper, body[data-theme="animated"] .modal-content { background: rgba(0,0,0,0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
         body[data-theme="animated"] .news-content { background: transparent; }
+        
+        /* GELİŞMİŞ CYBER/NEON TEMA */
         body[data-theme="cyber"] { --bg-dark: #09090b; background-color: #09090b; background-image: linear-gradient(rgba(0, 255, 255, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 255, 255, 0.05) 1px, transparent 1px); background-size: 20px 20px; box-shadow: inset 0 0 100px rgba(255, 0, 255, 0.1); }
         body[data-theme="cyber"] .news-card, body[data-theme="cyber"] .controls-wrapper, body[data-theme="cyber"] .guide-wrapper, body[data-theme="cyber"] .global-region-wrapper, body[data-theme="cyber"] .modal-content { background: rgba(10, 10, 15, 0.85); border: 1px solid #0ff; box-shadow: 0 0 10px rgba(0, 255, 255, 0.2), inset 0 0 10px rgba(255, 0, 255, 0.1); backdrop-filter: blur(5px); }
         body[data-theme="cyber"] .source-badge { background: #f0f; color: #fff; text-shadow: 0 0 5px #fff; box-shadow: 0 0 10px #f0f; }
@@ -54,10 +56,12 @@
 
         .pull-to-refresh { position: fixed; top: -60px; left: 50%; transform: translateX(-50%); background: var(--surface); color: var(--primary); padding: 10px 20px; border-radius: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid var(--surface-light); font-weight: 700; font-size: 0.95rem; z-index: 2000; opacity: 0; display: flex; align-items: center; gap: 10px; pointer-events: none; transition: opacity 0.2s ease; }
         header { text-align: center; padding: 60px 0 20px; position: relative; transition: all 0.3s; }
+        
+        /* AYARLAR BUTONU - EN SOL ÜSTTE */
         .settings-btn { position: absolute; top: 15px; left: 15px; background: rgba(30, 41, 59, 0.9); border: 1px solid var(--surface-light); color: white; border-radius: 50%; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.2rem; transition: 0.3s; z-index: 1000; box-shadow: var(--shadow-card); }
         .settings-btn:hover { background: var(--surface-light); transform: rotate(45deg); }
 
-        header h1 { font-size: clamp(2.5rem, 6vw, 3.5rem); font-weight: 900; letter-spacing: -1px; margin-bottom: 5px; text-shadow: var(--shadow-glow); display: flex; justify-content: center; align-items: center; gap: 5px; }
+        header h1 { font-size: clamp(2.5rem, 6vw, 3.5rem); font-weight: 900; letter-spacing: -1px; margin-bottom: 5px; text-shadow: var(--shadow-glow); display: flex; justify-content: center; align-items: center; gap: 8px; }
         header h1 span { color: var(--primary); }
         header p { color: var(--text-muted); font-size: clamp(0.9rem, 3vw, 1.1rem); font-weight: 500; letter-spacing: 0.5px; margin-bottom: 20px; }
 
@@ -156,12 +160,12 @@
         .news-card img { width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.5s ease, transform 0.5s ease; pointer-events: none; }
         .news-card:hover img { transform: scale(1.05); }
         
-        /* AD SLOT VE DEFAULT GÖRSEL */
+        /* AD SLOT VE DÖNEN SPLASH GÖRSELİ (HER 10 KARTTA VE GÖRSELSİZ HABERLERDE ÇIKAR) */
         .ad-slot-card { background: rgba(0,0,0,0.3); border: 2px dashed rgba(255,255,255,0.1); position: relative; min-height: 200px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; cursor: default; }
         .ad-slot-label { position: absolute; top: 10px; left: 10px; background: #555; color: #aaa; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; text-transform: uppercase; }
         
         .card-img-wrapper[data-default-img="true"] { background: radial-gradient(circle at center, #1e293b, #0f172a); }
-        .default-splash-thumb { width: 70%; height: 70%; object-fit: contain; opacity: 0.5; animation: medallionRotate 25s linear infinite; pointer-events: none; filter: drop-shadow(0 0 10px var(--accent)); }
+        .default-splash-thumb { width: 60%; height: 60%; object-fit: contain; opacity: 0.5; animation: medallionRotate 25s linear infinite; pointer-events: none; filter: drop-shadow(0 0 10px var(--accent)); }
         @keyframes medallionRotate { 0% { transform: rotate(0deg) scale(1); } 50% { transform: rotate(180deg) scale(1.05); } 100% { transform: rotate(360deg) scale(1); } }
         
         .source-badge { position: absolute; top: 12px; left: 12px; background: var(--primary); color: white; padding: 5px 12px; border-radius: 8px; font-weight: 700; font-size: 0.75rem; z-index: 10; box-shadow: 0 4px 10px rgba(0,0,0,0.4); cursor: pointer; transition: 0.2s; pointer-events: auto; }
@@ -253,7 +257,7 @@
                     <li data-i18n="guide1">👈 Sola Kaydır: Haberi gizle (Okundu yap)</li>
                     <li data-i18n="guide2">👉 Sağa Kaydır: Arşive kaydet</li>
                     <li data-i18n="guide4">⬇️ Ekranı Aşağı Çek: Yeni haberleri tara</li>
-                    <li data-i18n="guide5">📖 Okuma Ekranı: Geri tuşuna basarak kapat</li>
+                    <li data-i18n="guide5">📖 Okuma Ekranı: Geri tuşuna basarak veya 3 kez dokunarak kapat</li>
                 </ul>
             </div>
         </div>
@@ -275,9 +279,20 @@
                 <div class="add-rss-container">
                     <div class="add-rss-header" onclick="document.getElementById('addRssForm').classList.toggle('show')" id="addRssText" data-i18n="addRssTitle">➕ İnternetten Kaynak Ekle</div>
                     <div class="add-rss-form" id="addRssForm">
-                        <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 10px; border: 1px solid var(--surface-light);"><div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;" data-i18n="addRssSearchHint">🔍 Site Adresi veya Konu Yazın:</div><div style="display:flex; gap:10px;"><input type="text" id="searchRssUrl" placeholder="Konu veya URL..." style="flex:1;" onkeydown="if(event.key === 'Enter') findRssFromUrl()"><button onclick="findRssFromUrl()" style="background:var(--accent); width:auto; padding: 10px 20px;" data-i18n="addRssSearchBtn">Bul / Ekle</button></div><div id="rssSearchResults" style="display:flex; flex-direction:column; gap:5px; margin-top:10px;"></div></div>
+                        <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 10px; border: 1px solid var(--surface-light);">
+                            <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;" data-i18n="addRssSearchHint">🔍 Site Adresi veya Konu Yazın:</div>
+                            <div style="display:flex; gap:10px;">
+                                <input type="text" id="searchRssUrl" placeholder="Konu veya URL..." style="flex:1;" onkeydown="if(event.key === 'Enter') findRssFromUrl()">
+                                <button onclick="findRssFromUrl()" style="background:var(--accent); width:auto; padding: 10px 20px;" data-i18n="addRssSearchBtn">Bul / Ekle</button>
+                            </div>
+                            <div id="rssSearchResults" style="display:flex; flex-direction:column; gap:5px; margin-top:10px;"></div>
+                        </div>
                         <div style="font-size:0.8rem; color:var(--accent); margin-top:15px; cursor:pointer; text-decoration:underline;" onclick="document.getElementById('manualAddSection').classList.toggle('show')" data-i18n="addRssManualHint">➕ Gelişmiş: Manuel Kayıt Aç</div>
-                        <div id="manualAddSection" class="manual-add-section"><input type="text" id="newRssName" data-i18n-ph="addRssNamePlace" placeholder="Source Name"><input type="url" id="newRssUrl" placeholder="RSS URL (https://...)"><button onclick="addCustomRSS()" data-i18n="addRssSaveBtn">Save to Cloud</button></div>
+                        <div id="manualAddSection" class="manual-add-section">
+                            <input type="text" id="newRssName" data-i18n-ph="addRssNamePlace" placeholder="Source Name">
+                            <input type="url" id="newRssUrl" placeholder="RSS URL (https://...)">
+                            <button onclick="addCustomRSSManual()" data-i18n="addRssSaveBtn">Save to Cloud</button>
+                        </div>
                     </div>
                 </div>
                 <button onclick="fetchAllRSS(false)" class="fetch-btn" id="fetchBtn" data-i18n="fetchBtnText">FETCH LATEST NEWS</button>
@@ -338,10 +353,11 @@
     </div>
 
     <div id="toastNotification" class="toast-notification" onclick="scrollToTop()"><span>⬆️</span> <span id="toastText">System Update!</span></div>
+
     <script>
         const TRANSLATIONS = {
-            'EN': { subtitle: "Global News, Cloud Sync & Infinity Scroll", menuTitle: "Search & Filter", regionLabel: "🌍 News Region:", themeTitle: "🎨 Themes", themes: { 'default': '🌑 Dark', 'glass': '🪟 Glass', 'metallic': '⚙️ Metal', 'hologram': '🌈 Holo', 'animated': '🌊 Flow', 'cyber': '⚡ Neon Cyber' }, layoutTitle: "📐 Layout Size", layouts: { 'list': '🔠 List', 'small': '≣ Small', 'medium': '⊞ Med', 'large': '🔲 Large', 'shorts': '📱 Shorts' }, searchPlaceholder: "Search within fetched news...", catTitle: "📚 Quick Filters", cats: { '': 'All', 'Arşiv': '💾 Archive', 'News': '📰 News', 'Tech': '💻 Tech', 'Science': '🧬 Science', 'Health': '⚕️ Health', 'Sport': '⚽ Sport', 'Finance': '📈 Finance', 'World': '🌍 World', 'Philo': '🦉 Philo' }, hideReadText: "👁️ Hide Read Articles", sourceTitle: "📰 Source Filters (Expand)", selectAllBtn: "Select All", addRssTitle: "➕ Add Custom Source", addRssSearchHint: "🔍 Search Topic or Website URL:", addRssSearchBtn: "Find / Track", addRssManualHint: "➕ Advanced: Manual Add", addRssNamePlace: "Source Name", addRssSaveBtn: "Save to Cloud", fetchBtnText: "FETCH LATEST NEWS", loadingText: "Initializing global radar...", scanning: "Scanning:", pullToRefresh: "Pull to refresh", login: "Login via Google", logout: "Exit", manageSourcesTitle: "📰 Manage Sources", searchSourcesPh: "Search sources...", hideReadPopup: "Hide Read", refreshBtn: "🔄 Refresh", applyCloseBtn: "Apply & Close", readerTab: "📖 Reader View", originalTab: "🌐 Original Site", tripleTapHint: "Press Back or Triple tap to close", loadingSite: "Loading original site...", extracting: "Extracting article text...", scrollLoading: "Loading more...", checkingUpdates: "Checking network for updates...", swipeArchive: "💾 Archive", swipeArchived: "💾 Archived", swipeHide: "👁️ Hide", readMore: "Read →", guideTitle: "💡 Quick Start Guide", guide1: "👈 Swipe Left: Hide article", guide2: "👉 Swipe Right: Save to Archive", guide4: "⬇️ Pull Down: Fetch latest updates", guide5: "📖 Reading Mode: Press Back to close", addedSuccess: "✅ Successfully Added!", adSlotText: "Sponsored Content" },
-            'TR': { subtitle: "Global Haberler ve Sınırsız Akış", menuTitle: "Haber Ara, Filtrele ve Kaynak Ekle", regionLabel: "🌍 Küresel Haber Bölgesi:", themeTitle: "🎨 Temalar", themes: { 'default': '🌑 Standart', 'glass': '🪟 Cam', 'metallic': '⚙️ Metalik', 'hologram': '🌈 Hologram', 'animated': '🌊 Hareketli', 'cyber': '⚡ Neon Cyber' }, layoutTitle: "📐 Görünüm Boyutu", layouts: { 'list': '🔠 Liste', 'small': '≣ Küçük', 'medium': '⊞ Orta', 'large': '🔲 Büyük', 'shorts': '📱 Shorts' }, searchPlaceholder: "Çekilen haberler içinde ara...", catTitle: "📚 Hızlı Konu Filtreleri", cats: { '': 'Tümü', 'Arşiv': '💾 Arşiv', 'News': '📰 Gündem', 'Tech': '💻 Teknoloji', 'Science': '🧬 Bilim', 'Health': '⚕️ Sağlık', 'Sport': '⚽ Spor', 'Finance': '📈 Ekonomi', 'World': '🌍 Dünya', 'Philo': '🦉 Felsefe' }, hideReadText: "👁️ Okunanları Gizle", sourceTitle: "📰 Kaynak Filtreleri (Genişlet)", selectAllBtn: "Tümünü Seç/Kaldır", addRssTitle: "➕ İnternetten Kaynak Ekle", addRssSearchHint: "🔍 Site Adresi veya Konu Yazın:", addRssSearchBtn: "Bul / Ekle", addRssManualHint: "➕ Gelişmiş: Manuel Kayıt Aç", addRssNamePlace: "Kaynağın Adı", addRssSaveBtn: "Buluta Kaydet", fetchBtnText: "AĞDAN YENİ HABERLERİ ÇEK", loadingText: "Radar başlatılıyor...", scanning: "Taranıyor:", pullToRefresh: "Yenilemek için çekin", login: "Google ile Giriş Yap", logout: "Çıkış", manageSourcesTitle: "📰 Kaynakları Yönet", searchSourcesPh: "Kaynak arayın...", hideReadPopup: "Okunanları Gizle", refreshBtn: "🔄 Yenile", applyCloseBtn: "Uygula ve Kapat", readerTab: "📖 Okuma Modu", originalTab: "🌐 Orijinal Site", tripleTapHint: "Geri tuşuna basarak veya 3 kez dokunarak kapat", loadingSite: "Orijinal site yükleniyor...", extracting: "Haber metni analiz ediliyor...", scrollLoading: "Daha fazla yükleniyor...", checkingUpdates: "Ağda yeni gelişme var mı kontrol ediliyor...", swipeArchive: "💾 Arşivle", swipeArchived: "💾 Arşivlendi", swipeHide: "👁️ Gizle", readMore: "Oku →", guideTitle: "💡 Kolay Kullanım Rehberi", guide1: "👈 Sola Kaydır: Haberi gizle", guide2: "👉 Sağa Kaydır: Arşive kaydet", guide4: "⬇️ Ekranı Aşağı Çek: Yeni haberleri tara", guide5: "📖 Okuma Ekranı: Geri tuşuna basarak kapat", addedSuccess: "✅ Başarıyla Eklendi!", adSlotText: "Sponsorlu İçerik Alanı" },
+            'EN': { subtitle: "Global News, Cloud Sync & Infinity Scroll", menuTitle: "Search, Filter & Add Sources", regionLabel: "🌍 News Region:", themeTitle: "🎨 Themes", themes: { 'default': '🌑 Dark', 'glass': '🪟 Glass', 'metallic': '⚙️ Metal', 'hologram': '🌈 Holo', 'animated': '🌊 Flow', 'cyber': '⚡ Neon Cyber' }, layoutTitle: "📐 Layout Size", layouts: { 'list': '🔠 List', 'small': '≣ Small', 'medium': '⊞ Med', 'large': '🔲 Large', 'shorts': '📱 Shorts' }, searchPlaceholder: "Search within fetched news...", catTitle: "📚 Quick Filters", cats: { '': 'All', 'Arşiv': '💾 Archive', 'News': '📰 News', 'Tech': '💻 Tech', 'Science': '🧬 Science', 'Health': '⚕️ Health', 'Sport': '⚽ Sport', 'Finance': '📈 Finance', 'World': '🌍 World', 'Philo': '🦉 Philo' }, hideReadText: "👁️ Hide Read Articles", sourceTitle: "📰 Source Filters (Expand)", selectAllBtn: "Select All", addRssTitle: "➕ Add Custom Source", addRssSearchHint: "🔍 Search Topic or Website URL:", addRssSearchBtn: "Find / Track", addRssManualHint: "➕ Advanced: Manual Add", addRssNamePlace: "Source Name", addRssSaveBtn: "Save to Cloud", fetchBtnText: "FETCH LATEST NEWS", loadingText: "Initializing global radar...", scanning: "Scanning:", pullToRefresh: "Pull to refresh", login: "Login via Google", logout: "Exit", manageSourcesTitle: "📰 Manage Sources", searchSourcesPh: "Search sources...", hideReadPopup: "Hide Read", refreshBtn: "🔄 Refresh", applyCloseBtn: "Apply & Close", readerTab: "📖 Reader View", originalTab: "🌐 Original Site", tripleTapHint: "Press Back or Triple tap to close", loadingSite: "Loading original site...", extracting: "Extracting article text...", scrollLoading: "Loading more...", checkingUpdates: "Checking network for updates...", swipeArchive: "💾 Archive", swipeArchived: "💾 Archived", swipeHide: "👁️ Hide", readMore: "Read →", guideTitle: "💡 Quick Start Guide", guide1: "👈 Swipe Left: Hide article", guide2: "👉 Swipe Right: Save to Archive", guide4: "⬇️ Pull Down: Fetch latest updates", guide5: "📖 Reading Mode: Press Back or tap 3 times to close", addedSuccess: "✅ Successfully Added!", adSlotText: "Sponsored Content" },
+            'TR': { subtitle: "Global Haberler ve Sınırsız Akış", menuTitle: "Haber Ara, Filtrele ve Kaynak Ekle", regionLabel: "🌍 Küresel Haber Bölgesi:", themeTitle: "🎨 Temalar", themes: { 'default': '🌑 Standart', 'glass': '🪟 Cam', 'metallic': '⚙️ Metalik', 'hologram': '🌈 Hologram', 'animated': '🌊 Hareketli', 'cyber': '⚡ Neon Cyber' }, layoutTitle: "📐 Görünüm Boyutu", layouts: { 'list': '🔠 Liste', 'small': '≣ Küçük', 'medium': '⊞ Orta', 'large': '🔲 Büyük', 'shorts': '📱 Shorts' }, searchPlaceholder: "Çekilen haberler içinde ara...", catTitle: "📚 Hızlı Konu Filtreleri", cats: { '': 'Tümü', 'Arşiv': '💾 Arşiv', 'News': '📰 Gündem', 'Tech': '💻 Teknoloji', 'Science': '🧬 Bilim', 'Health': '⚕️ Sağlık', 'Sport': '⚽ Spor', 'Finance': '📈 Ekonomi', 'World': '🌍 Dünya', 'Philo': '🦉 Felsefe' }, hideReadText: "👁️ Okunanları Gizle", sourceTitle: "📰 Kaynak Filtreleri (Genişlet)", selectAllBtn: "Tümünü Seç/Kaldır", addRssTitle: "➕ İnternetten Kaynak Ekle", addRssSearchHint: "🔍 Site Adresi veya Konu Yazın:", addRssSearchBtn: "Bul / Ekle", addRssManualHint: "➕ Gelişmiş: Manuel Kayıt Aç", addRssNamePlace: "Kaynağın Adı", addRssSaveBtn: "Buluta Kaydet", fetchBtnText: "AĞDAN YENİ HABERLERİ ÇEK", loadingText: "Radar başlatılıyor...", scanning: "Taranıyor:", pullToRefresh: "Yenilemek için çekin", login: "Google ile Giriş Yap", logout: "Çıkış", manageSourcesTitle: "📰 Kaynakları Yönet", searchSourcesPh: "Kaynak arayın...", hideReadPopup: "Okunanları Gizle", refreshBtn: "🔄 Yenile", applyCloseBtn: "Uygula ve Kapat", readerTab: "📖 Okuma Modu", originalTab: "🌐 Orijinal Site", tripleTapHint: "Geri tuşuna basarak veya 3 kez dokunarak kapat", loadingSite: "Orijinal site yükleniyor...", extracting: "Haber metni analiz ediliyor...", scrollLoading: "Daha fazla yükleniyor...", checkingUpdates: "Ağda yeni gelişme var kontrol ediliyor...", swipeArchive: "💾 Arşivle", swipeArchived: "💾 Arşivlendi", swipeHide: "👁️ Gizle", readMore: "Oku →", guideTitle: "💡 Kolay Kullanım Rehberi", guide1: "👈 Sola Kaydır: Haberi gizle (Okundu yap)", guide2: "👉 Sağa Kaydır: Arşive kaydet", guide4: "⬇️ Ekranı Aşağı Çek: Yeni haberleri tara", guide5: "📖 Okuma Ekranı: Geri tuşuna basarak veya 3 kez dokunarak kapat", addedSuccess: "✅ Başarıyla Eklendi!", adSlotText: "Sponsorlu İçerik Alanı" },
             'ES': { subtitle: "Noticias Globales y Scroll Infinito", menuTitle: "Buscar, Filtrar y Fuentes", regionLabel: "🌍 Región de Noticias:", themeTitle: "🎨 Temas", themes: { 'default': '🌑 Oscuro', 'glass': '🪟 Cristal', 'metallic': '⚙️ Metal', 'hologram': '🌈 Holo', 'animated': '🌊 Fluido', 'cyber': '⚡ Neón Cyber' }, layoutTitle: "📐 Tamaño de Vista", layouts: { 'list': '🔠 Lista', 'small': '≣ Pequeño', 'medium': '⊞ Medio', 'large': '🔲 Grande', 'shorts': '📱 Shorts' }, searchPlaceholder: "Buscar en noticias...", catTitle: "📚 Filtros", cats: { '': 'Todo', 'Arşiv': '💾 Archivo', 'News': '📰 Noticias', 'Tech': '💻 Tecno', 'Science': '🧬 Ciencia', 'Health': '⚕️ Salud', 'Sport': '⚽ Deporte', 'Finance': '📈 Finanzas', 'World': '🌍 Mundo', 'Philo': '🦉 Filo' }, hideReadText: "👁️ Ocultar Leídos", sourceTitle: "📰 Fuentes", selectAllBtn: "Seleccionar Todo", addRssTitle: "➕ Añadir Fuente", addRssSearchHint: "🔍 Buscar Tema o URL:", addRssSearchBtn: "Buscar", addRssManualHint: "➕ Manual", addRssNamePlace: "Nombre", addRssSaveBtn: "Guardar", fetchBtnText: "ACTUALIZAR", loadingText: "Iniciando radar...", scanning: "Buscando:", pullToRefresh: "Desliza para actualizar", login: "Entrar con Google", logout: "Salir", manageSourcesTitle: "📰 Fuentes", searchSourcesPh: "Buscar...", hideReadPopup: "Ocultar", refreshBtn: "🔄 Refrescar", applyCloseBtn: "Aplicar", readerTab: "📖 Lectura", originalTab: "🌐 Original", tripleTapHint: "Atrás o 3 toques para cerrar", loadingSite: "Cargando...", extracting: "Extrayendo...", scrollLoading: "Cargando más...", checkingUpdates: "Buscando actualizaciones...", swipeArchive: "💾 Guardar", swipeArchived: "💾 Guardado", swipeHide: "👁️ Ocultar", readMore: "Leer →", guideTitle: "💡 Guía", guide1: "👈 Deslizar Izq: Ocultar", guide2: "👉 Deslizar Der: Archivo", guide4: "⬇️ Deslizar Abajo: Buscar", guide5: "📖 Lectura: Atrás para cerrar", addedSuccess: "✅ ¡Añadido!", adSlotText: "Contenido Patrocinado" },
             'DE': { subtitle: "Globale News & Infinity Scroll", menuTitle: "Suche, Filter & Quellen", regionLabel: "🌍 Region:", themeTitle: "🎨 Themes", themes: { 'default': '🌑 Dunkel', 'glass': '🪟 Glas', 'metallic': '⚙️ Metall', 'hologram': '🌈 Holo', 'animated': '🌊 Fließend', 'cyber': '⚡ Neon Cyber' }, layoutTitle: "📐 Layout", layouts: { 'list': '🔠 Liste', 'small': '≣ Klein', 'medium': '⊞ Mittel', 'large': '🔲 Groß', 'shorts': '📱 Shorts' }, searchPlaceholder: "Suche...", catTitle: "📚 Filter", cats: { '': 'Alle', 'Arşiv': '💾 Archiv', 'News': '📰 News', 'Tech': '💻 Tech', 'Science': '🧬 Wissen', 'Health': '⚕️ Gesundheit', 'Sport': '⚽ Sport', 'Finance': '📈 Finanzen', 'World': '🌍 Welt', 'Philo': '🦉 Philo' }, hideReadText: "👁️ Gelesene ausblenden", sourceTitle: "📰 Quellen", selectAllBtn: "Alle", addRssTitle: "➕ Quelle hinzufügen", addRssSearchHint: "🔍 Thema/URL:", addRssSearchBtn: "Finden", addRssManualHint: "➕ Manuell", addRssNamePlace: "Name", addRssSaveBtn: "Speichern", fetchBtnText: "AKTUALISIEREN", loadingText: "Lade Radar...", scanning: "Suche:", pullToRefresh: "Zum Aktualisieren ziehen", login: "Google Login", logout: "Beenden", manageSourcesTitle: "📰 Quellen", searchSourcesPh: "Suche...", hideReadPopup: "Ausblenden", refreshBtn: "🔄 Aktualisieren", applyCloseBtn: "Anwenden", readerTab: "📖 Lesen", originalTab: "🌐 Original", tripleTapHint: "Zurück oder 3x tippen", loadingSite: "Lade...", extracting: "Extraktion...", scrollLoading: "Mehr...", checkingUpdates: "Suche Updates...", swipeArchive: "💾 Speichern", swipeArchived: "💾 Gespeichert", swipeHide: "👁️ Verbergen", readMore: "Lesen →", guideTitle: "💡 Anleitung", guide1: "👈 Links: Ausblenden", guide2: "👉 Rechts: Archiv", guide4: "⬇️ Runter: Aktualisieren", guide5: "📖 Lesen: Zurück zum Schließen", addedSuccess: "✅ Hinzugefügt!", adSlotText: "Gesponserter Inhalt" },
             'FR': { subtitle: "Actualités & Scroll Infini", menuTitle: "Recherche & Sources", regionLabel: "🌍 Région:", themeTitle: "🎨 Thèmes", themes: { 'default': '🌑 Sombre', 'glass': '🪟 Verre', 'metallic': '⚙️ Métal', 'hologram': '🌈 Holo', 'animated': '🌊 Fluide', 'cyber': '⚡ Néon Cyber' }, layoutTitle: "📐 Affichage", layouts: { 'list': '🔠 Liste', 'small': '≣ Petit', 'medium': '⊞ Moyen', 'large': '🔲 Grand', 'shorts': '📱 Shorts' }, searchPlaceholder: "Rechercher...", catTitle: "📚 Filtres", cats: { '': 'Tout', 'Arşiv': '💾 Archive', 'News': '📰 Actus', 'Tech': '💻 Tech', 'Science': '🧬 Science', 'Health': '⚕️ Santé', 'Sport': '⚽ Sport', 'Finance': '📈 Finance', 'World': '🌍 Monde', 'Philo': '🦉 Philo' }, hideReadText: "👁️ Masquer lus", sourceTitle: "📰 Sources", selectAllBtn: "Tout", addRssTitle: "➕ Ajouter Source", addRssSearchHint: "🔍 Sujet/URL:", addRssSearchBtn: "Trouver", addRssManualHint: "➕ Manuel", addRssNamePlace: "Nom", addRssSaveBtn: "Sauvegarder", fetchBtnText: "ACTUALISER", loadingText: "Chargement...", scanning: "Analyse:", pullToRefresh: "Tirer pour actualiser", login: "Connexion Google", logout: "Quitter", manageSourcesTitle: "📰 Sources", searchSourcesPh: "Rechercher...", hideReadPopup: "Masquer", refreshBtn: "🔄 Actualiser", applyCloseBtn: "Appliquer", readerTab: "📖 Lecture", originalTab: "🌐 Original", tripleTapHint: "Retour ou 3 tapes", loadingSite: "Chargement...", extracting: "Extraction...", scrollLoading: "Plus...", checkingUpdates: "Vérification...", swipeArchive: "💾 Archiver", swipeArchived: "💾 Archivé", swipeHide: "👁️ Masquer", readMore: "Lire →", guideTitle: "💡 Guide", guide1: "👈 Gauche: Masquer", guide2: "👉 Droite: Archive", guide4: "⬇️ Bas: Actualiser", guide5: "📖 Lecture: Retour pour fermer", addedSuccess: "✅ Ajouté!", adSlotText: "Contenu Sponsorisé" },
@@ -382,22 +398,19 @@
         }
 
         window.addEventListener('popstate', (e) => {
-            // Ekranda açık olan tüm modalları kapat
             document.getElementById('newsModal').style.display = 'none';
             document.getElementById('settingsModal').style.display = 'none';
             document.getElementById('sourceFilterModal').style.display = 'none';
             document.body.style.overflow = 'auto';
-            // Ana menü açıksa kapat
             document.getElementById('controlsWrapper').classList.add('collapsed');
             document.getElementById('toggleIcon').innerText = '▼';
-            // İframe'i temizle
             const iframe = document.getElementById('modalIframe');
             if(iframe) { iframe.removeAttribute('srcdoc'); iframe.src = 'about:blank'; }
         });
 
         function closeModalSafe(modalId) {
             if(history.state && history.state.modal) {
-                history.back(); // Popstate tetiklenecek ve modal kapanacak
+                history.back();
             } else {
                 document.getElementById(modalId).style.display = 'none';
                 document.body.style.overflow = 'auto';
@@ -476,7 +489,6 @@
 
         document.addEventListener('click', (e) => { 
             const wrapper = document.getElementById('controlsWrapper'); 
-            // Menü açıksa ve dışarı tıklanırsa kapat (Giriş butonu hariç)
             if (!wrapper.classList.contains('collapsed') && !wrapper.contains(e.target) && !e.target.closest('#loginBtn') && !e.target.closest('.settings-btn')) { 
                 wrapper.classList.add('collapsed'); document.getElementById('toggleIcon').innerText = '▼'; 
             } 
@@ -489,7 +501,7 @@
             const icon = document.getElementById('toggleIcon'); 
             if (wrapper.classList.contains('collapsed')) { 
                 wrapper.classList.remove('collapsed'); icon.innerText = '▲'; 
-                history.pushState({ menu: 'controls' }, ''); // Menü açıldığında da history'ye at ki geri tuşuyla kapansın
+                history.pushState({ menu: 'controls' }, '');
             } else { 
                 wrapper.classList.add('collapsed'); icon.innerText = '▼'; 
             } 
@@ -502,7 +514,6 @@
         
         function filterCategory(catKey, btnElement) { isArchiveView = (catKey === 'Arşiv' || catKey === 'Archive'); document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active')); if(btnElement) btnElement.classList.add('active'); currentCategory = catKey; handleSearch(); }
 
-        // KAYNAK FİLTRELEME PENCERESİ VE CHİPLER
         function openSourceFilterModal(event) { 
             if(event) event.stopPropagation(); 
             openModalSafe('sourceFilterModal'); 
@@ -518,24 +529,48 @@
             const regionFeeds = savedFeeds.filter(f => (f.lang || 'EN') === currentRegion);
             RSS_FEEDS.push(...regionFeeds);
             const savedActive = JSON.parse(localStorage.getItem('activeSourcesList'));
-            if (savedActive && savedActive.length > 0) { activeSources = savedActive; } else { activeSources = RSS_FEEDS.map(f => f.name); }
+            
+            if (savedActive && savedActive.length > 0) { 
+                activeSources = savedActive; 
+            } else { 
+                activeSources = RSS_FEEDS.map(f => f.name); 
+            }
             renderChips();
         }
+        
         function saveActiveSources() { localStorage.setItem('activeSourcesList', JSON.stringify(activeSources)); syncToCloud(); }
         
-        function addCustomRSS() {
-            const nameInput = document.getElementById('newRssName'); const urlInput = document.getElementById('newRssUrl'); const name = nameInput.value.trim(); const url = urlInput.value.trim();
+        // INTERNETTEN BULUNAN RSS'İ DOĞRUDAN LİSTEYE EKLER (KUSURSUZ ÇÖZÜM)
+        function addDiscoveredRss(name, url) { 
+            const newFeed = { id: 'custom_' + Date.now(), name: name.substring(0, 25), url: url, isCustom: true, lang: currentRegion, cat: 'News' };
+            const savedFeeds = JSON.parse(localStorage.getItem('customRSSFeeds')) || []; 
+            if(!savedFeeds.find(f => f.url === url)) { savedFeeds.push(newFeed); localStorage.setItem('customRSSFeeds', JSON.stringify(savedFeeds)); }
+            if(!activeSources.includes(newFeed.name)) { activeSources.push(newFeed.name); saveActiveSources(); }
+            
+            document.getElementById('rssSearchResults').innerHTML = `<span style="color:#10b981; font-weight:bold; margin-top:10px; display:block;">✅ ${TRANSLATIONS[currentRegion].addedSuccess}</span>`;
+            
+            loadCustomFeeds(); syncToCloud(); 
+            document.getElementById('controlsWrapper').classList.add('collapsed'); document.getElementById('toggleIcon').innerText = '▼'; fetchAllRSS(false); 
+        }
+
+        // MANUEL EKLENEN RSS İÇİN
+        function addCustomRSSManual() {
+            const nameInput = document.getElementById('newRssName'); const urlInput = document.getElementById('newRssUrl'); 
+            const name = nameInput.value.trim(); const url = urlInput.value.trim();
             if(!name || !url) return;
-            const newFeed = { id: 'custom_' + Date.now(), name: name, url: url, isCustom: true, lang: currentRegion, cat: 'News' };
+            
+            const newFeed = { id: 'custom_' + Date.now(), name: name.substring(0, 25), url: url, isCustom: true, lang: currentRegion, cat: 'News' };
             const savedFeeds = JSON.parse(localStorage.getItem('customRSSFeeds')) || []; savedFeeds.push(newFeed); localStorage.setItem('customRSSFeeds', JSON.stringify(savedFeeds));
-            activeSources.push(name); saveActiveSources(); loadCustomFeeds(); 
-            nameInput.value = ''; urlInput.value = ''; document.getElementById('manualAddSection').classList.remove('show'); syncToCloud(); 
+            if(!activeSources.includes(name)) { activeSources.push(name); saveActiveSources(); }
+            
+            nameInput.value = ''; urlInput.value = ''; document.getElementById('manualAddSection').classList.remove('show'); 
+            loadCustomFeeds(); syncToCloud(); 
             document.getElementById('controlsWrapper').classList.add('collapsed'); document.getElementById('toggleIcon').innerText = '▼'; fetchAllRSS(false); 
         }
         
         function deleteCustomRSS(id, event) { event.stopPropagation(); if(!confirm("Delete?")) return; let savedFeeds = JSON.parse(localStorage.getItem('customRSSFeeds')) || []; savedFeeds = savedFeeds.filter(f => f.id !== id); localStorage.setItem('customRSSFeeds', JSON.stringify(savedFeeds)); syncToCloud(); loadCustomFeeds(); handleSearch(); }
         function toggleSourceState(sourceName) { if(activeSources.includes(sourceName)) { activeSources = activeSources.filter(s => s !== sourceName); } else { activeSources.push(sourceName); } saveActiveSources(); renderChips(); handleSearch(); }
-        function toggleAllSourcesState(event) { if(event) event.stopPropagation(); if(activeSources.length === RSS_FEEDS.length) { activeSources = []; } else { activeSources = RSS_FEEDS.map(f => f.name); } saveActiveSources(); renderChips(); handleSearch(); }
+        function toggleAllSourcesState(event) { event.stopPropagation(); if(activeSources.length === RSS_FEEDS.length) { activeSources = []; } else { activeSources = RSS_FEEDS.map(f => f.name); } saveActiveSources(); renderChips(); handleSearch(); }
         
         function renderChips() {
             const listMain = document.getElementById('filterList');
@@ -556,9 +591,7 @@
 
         const fetchWithTimeout = (url, timeout = 7000) => { return Promise.race([fetch(url), new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeout))]); };
 
-        function addDiscoveredRss(name, url) { document.getElementById('newRssName').value = name.substring(0,25); document.getElementById('newRssUrl').value = url; document.getElementById('rssSearchResults').innerHTML = `<span style="color:#10b981; font-weight:bold; margin-top:10px; display:block;">${TRANSLATIONS[currentRegion].addedSuccess}</span>`; addCustomRSS(); }
-
-        // İNTERNETTEN GOOGLE NEWS ÜZERİNDEN ARAMA (ONARILDI - V1.4 SÜRÜMÜNE DÖNDÜLDÜ)
+        // İNTERNETTEN GOOGLE NEWS ARAMA (ONARILDI - YENİDEN KUSURSUZ ÇALIŞIYOR)
         async function findRssFromUrl() {
             const urlInput = document.getElementById('searchRssUrl').value.trim(); if (!urlInput) return;
             const resultsDiv = document.getElementById('rssSearchResults'); resultsDiv.innerHTML = '⏳...';
@@ -692,7 +725,7 @@
             const nextBatch = filteredArticles.slice(displayedCount, displayedCount + ITEMS_PER_PAGE); const t = TRANSLATIONS[currentRegion];
             
             nextBatch.forEach((art, i) => {
-                // HER 10 KARTTA 1 REKLAM YUVASI EKLENİR (DÖNEN SPLASH RESİMLİ)
+                // HER 10 KARTTA 1 REKLAM YUVASI EKLENİR
                 if ((displayedCount + i) % 10 === 0 && (displayedCount + i) !== 0) {
                     const adWrapper = document.createElement('div'); adWrapper.className = 'swipe-wrapper ad-slot-wrapper';
                     adWrapper.innerHTML = `
