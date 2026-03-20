@@ -445,7 +445,6 @@
         const firebaseConfig = { apiKey: "AIzaSyCVIiXeaZKfS9QpXO6LU1LlKVfbyuiTZbE", authDomain: "scrollary.firebaseapp.com", projectId: "scrollary", storageBucket: "scrollary.firebasestorage.app", messagingSenderId: "636511730600", appId: "1:636511730600:web:d61b1335232cdcfe6e3b9d", measurementId: "G-MXHQDXS8LH" };
         firebase.initializeApp(firebaseConfig); const auth = firebase.auth(); const db = firebase.firestore(); const provider = new firebase.auth.GoogleAuthProvider();
 
-        // 8 DİL İÇİN EN AZ 15'ER DEV KAYNAK EKLENDİ
         const GLOBAL_RSS_DB = {
             'TR': [ { id: 'sozcu', name: 'Sözcü', url: 'https://www.sozcu.com.tr/rss/tum-haberler.xml', cat: 'News' }, { id: 'cumhuriyet', name: 'Cumhuriyet', url: 'https://www.cumhuriyet.com.tr/rss', cat: 'News' }, { id: 'sabah', name: 'Sabah', url: 'https://www.sabah.com.tr/rss/sondakika.xml', cat: 'News' }, { id: 'haberturk', name: 'Habertürk', url: 'https://www.haberturk.com/rss', cat: 'News' }, { id: 'yenisafak', name: 'Yeni Şafak', url: 'https://www.yenisafak.com/rss', cat: 'News' }, { id: 't24', name: 'T24', url: 'https://t24.com.tr/rss', cat: 'News' }, { id: 'webtekno', name: 'Webtekno', url: 'https://www.webtekno.com/rss.xml', cat: 'Tech' }, { id: 'shiftdelete', name: 'ShiftDelete', url: 'https://shiftdelete.net/rss', cat: 'Tech' }, { id: 'donanim', name: 'DonanımHaber', url: 'https://www.donanimhaber.com/rss/tum/', cat: 'Tech' }, { id: 'evrim', name: 'Evrim Ağacı', url: 'https://evrimagaci.org/rss.xml', cat: 'Science' }, { id: 'kozmik', name: 'Kozmik Anafor', url: 'https://www.kozmikanafor.com/feed/', cat: 'Science' }, { id: 'ntvspor', name: 'NTV Spor', url: 'https://www.ntvspor.net/rss', cat: 'Sport' }, { id: 'fanatik', name: 'Fanatik', url: 'https://www.fanatik.com.tr/rss/anasayfa.xml', cat: 'Sport' }, { id: 'bloomberg', name: 'Bloomberg HT', url: 'https://www.bloomberght.com/rss', cat: 'Finance' }, { id: 'trt', name: 'TRT Haber', url: 'https://www.trthaber.com/rss_sondakika.xml', cat: 'News' }, { id: 'bbctr', name: 'BBC Türkçe', url: 'https://feeds.bbci.co.uk/turkce/rss.xml', cat: 'World' }, { id: 'sputnik', name: 'Sputnik TR', url: 'https://sputniknews.com.tr/export/rss2/archive/index.xml', cat: 'World' }, { id: 'independent', name: 'Independent TR', url: 'https://www.indyturk.com/rss.xml', cat: 'World' }, { id: 'onedio', name: 'Onedio', url: 'https://onedio.com/support/rss.xml', cat: 'News' }, { id: 'dusunbil', name: 'Düşünbil', url: 'https://dusunbil.com/feed/', cat: 'Philo' } ],
             'EN': [ { id: 'bbc', name: 'BBC News', url: 'http://feeds.bbci.co.uk/news/rss.xml', cat: 'News' }, { id: 'cnn', name: 'CNN Global', url: 'http://rss.cnn.com/rss/edition.rss', cat: 'News' }, { id: 'guardian', name: 'The Guardian', url: 'https://www.theguardian.com/world/rss', cat: 'World' }, { id: 'reuters', name: 'Reuters World', url: 'https://www.reutersagency.com/feed/?best-topics=world-news&type=rss', cat: 'World' }, { id: 'fox', name: 'Fox News', url: 'http://feeds.foxnews.com/foxnews/world', cat: 'World' }, { id: 'aljazeera', name: 'Al Jazeera EN', url: 'https://www.aljazeera.com/xml/rss/all.xml', cat: 'World' }, { id: 'tc', name: 'TechCrunch', url: 'https://techcrunch.com/feed/', cat: 'Tech' }, { id: 'verge', name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml', cat: 'Tech' }, { id: 'wired', name: 'Wired', url: 'https://www.wired.com/feed/rss', cat: 'Tech' }, { id: 'nature', name: 'Nature', url: 'https://www.nature.com/nature.rss', cat: 'Science' }, { id: 'sciam', name: 'Scientific American', url: 'http://rss.sciam.com/ScientificAmerican-Global', cat: 'Science' }, { id: 'healthline', name: 'Healthline', url: 'https://www.healthline.com/rss', cat: 'Health' }, { id: 'espn', name: 'ESPN', url: 'https://www.espn.com/espn/rss/news', cat: 'Sport' }, { id: 'skysports', name: 'Sky Sports', url: 'https://www.skysports.com/rss/12040', cat: 'Sport' }, { id: 'ft', name: 'Financial Times', url: 'https://www.ft.com/rss/home/us', cat: 'Finance' }, { id: 'wsj', name: 'WSJ', url: 'https://feeds.a.dj.com/rss/RSSWorldNews.xml', cat: 'Finance' }, { id: 'time', name: 'TIME', url: 'https://time.com/feed/', cat: 'World' }, { id: 'philo', name: 'Philosophy Now', url: 'https://philosophynow.org/rss', cat: 'Philo' } ],
@@ -462,37 +461,35 @@
         let archivedArticles = JSON.parse(localStorage.getItem('archivedArticlesList')) || [];
         let readArticles = JSON.parse(localStorage.getItem('readArticlesList')) || [];
         let showReadArticles = false; let displayedCount = 0; let isFetchingRefresh = false; const ITEMS_PER_PAGE = 20;
-        // EKSİK OLAN DOM ELEMENTLERİ
-const ptrEl = document.getElementById('pullToRefresh');
-const ptrIcon = document.getElementById('ptrIcon');
-const ptrText = document.getElementById('ptrText');
+        
+        const ptrEl = document.getElementById('pullToRefresh');
+        const ptrIcon = document.getElementById('ptrIcon');
+        const ptrText = document.getElementById('ptrText');
 
-// EKSİK OLAN ZAMAN AŞIMI FONKSİYONU (Haberlerin takılıp kalmasını önler)
-async function fetchWithTimeout(resource, timeout = 6000) {
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), timeout);
-    try {
-        const response = await fetch(resource, { signal: controller.signal });
-        clearTimeout(id);
-        return response;
-    } catch (error) {
-        clearTimeout(id);
-        throw error;
-    }
-}
+        // YABANCI SİTELER İÇİN SÜRE UZATILDI (10 Saniye)
+        async function fetchWithTimeout(resource, timeout = 10000) {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeout);
+            try {
+                const response = await fetch(resource, { signal: controller.signal });
+                clearTimeout(id);
+                return response;
+            } catch (error) {
+                clearTimeout(id);
+                throw error;
+            }
+        }
         
         let currentTheme = localStorage.getItem('appTheme') || 'hologram';
         let currentLayout = localStorage.getItem('appLayout') || 'medium';
         let initialFetchDone = false; 
 
-        // İLK AÇILIŞ DİLİ (KULLANICI BROWSERINA GÖRE ANINDA YÜKLEME)
         function detectUserRegion() {
             const savedRegion = localStorage.getItem('scrollaryRegion'); if (savedRegion) return savedRegion;
             const shortLang = (navigator.language || navigator.userLanguage).substring(0, 2).toUpperCase();
             return ['TR', 'EN', 'ES', 'DE', 'FR', 'RU', 'AR', 'HI'].includes(shortLang) ? shortLang : 'EN';
         }
         
-        // PENCERE YÜKLENDİĞİNDE DOĞRU BÖLGEYLE BAŞLA
         window.onload = () => {
             currentRegion = detectUserRegion(); 
             document.getElementById('regionSelect').value = currentRegion;
@@ -502,7 +499,6 @@ async function fetchWithTimeout(resource, timeout = 6000) {
             setGridSize(currentLayout, null, true);
         };
 
-        // GERİ TUŞU / HISTORY API YÖNETİMİ
         function openModalSafe(modalId) {
             document.getElementById(modalId).style.display = 'flex';
             document.body.style.overflow = 'hidden';
@@ -510,15 +506,12 @@ async function fetchWithTimeout(resource, timeout = 6000) {
         }
 
         window.addEventListener('popstate', (e) => {
-            // Ekranda açık olan tüm modalları kapat
             document.getElementById('newsModal').style.display = 'none';
             document.getElementById('settingsModal').style.display = 'none';
             document.getElementById('sourceFilterModal').style.display = 'none';
             document.body.style.overflow = 'auto';
-            // Ana menü açıksa kapat
             document.getElementById('controlsWrapper').classList.add('collapsed');
             document.getElementById('toggleIcon').innerText = '▼';
-            // İframe'i temizle
             const iframe = document.getElementById('modalIframe');
             if(iframe) { iframe.removeAttribute('srcdoc'); iframe.src = 'about:blank'; }
         });
@@ -644,7 +637,6 @@ async function fetchWithTimeout(resource, timeout = 6000) {
         
         function saveActiveSources() { localStorage.setItem('activeSourcesList', JSON.stringify(activeSources)); syncToCloud(); }
         
-        // INTERNETTEN BULUNAN VEYA GOOGLE NEWS ÜZERİNDEN GELEN RSS'İ LİSTEYE EKLER
         function addDiscoveredRss(name, url) { 
             const newFeed = { id: 'custom_' + Date.now(), name: name.substring(0, 30), url: url, isCustom: true, lang: currentRegion, cat: 'News' };
             const savedFeeds = JSON.parse(localStorage.getItem('customRSSFeeds')) || []; 
@@ -653,24 +645,31 @@ async function fetchWithTimeout(resource, timeout = 6000) {
             
             document.getElementById('rssSearchResults').innerHTML = `<span style="color:#10b981; font-weight:bold; margin-top:10px; display:block;">${TRANSLATIONS[currentRegion].addedSuccess}</span>`;
             
+            // KULLANICI YENİ KAYNAK EKLEDİĞİNDE FİLTREYİ SIFIRLA Kİ ANINDA GÖRSÜN
+            currentCategory = '';
+            document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+            const catBtns = document.querySelectorAll('.cat-btn');
+            if(catBtns.length > 0) catBtns[0].classList.add('active'); // Tümü butonunu seçili yap
+
             loadCustomFeeds(); syncToCloud(); 
             document.getElementById('controlsWrapper').classList.add('collapsed'); document.getElementById('toggleIcon').innerText = '▼'; fetchAllRSS(false); 
         }
 
-        // AKILLI GOOGLE HABERLER YEDEKLEMESİ
+        // GOOGLE HABERLER BÖLGE KODU DÜZELTİLDİ
         async function findRssFromUrl() {
             const urlInput = document.getElementById('searchRssUrl').value.trim(); if (!urlInput) return;
             const resultsDiv = document.getElementById('rssSearchResults'); resultsDiv.innerHTML = '⏳ Aranıyor...';
             const isUrl = urlInput.includes('.') && !urlInput.includes(' ');
             
-            // Google News URL'sini önceden hazırla (Dil ve Bölgeye Göre)
-            let hl = currentRegion.toLowerCase() + '-' + currentRegion; if(currentRegion === 'EN') hl = 'en-US';
-            let gl = currentRegion; if(currentRegion==='EN') gl = 'US';
+            let hl = currentRegion.toLowerCase(); 
+            let gl = currentRegion.toUpperCase();
+            if (currentRegion === 'EN') { hl = 'en-US'; gl = 'US'; }
+            else if (currentRegion === 'ES') { hl = 'es'; gl = 'ES'; }
+            
             const gNewsUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(urlInput)}&hl=${hl}&gl=${gl}&ceid=${gl}:${hl.split('-')[0]}`;
             let cleanTitle = urlInput.replace(/'/g, "\\'");
             
             if (!isUrl) {
-                // EĞER SADECE KELİME YAZILDIYSA DİREKT GOOGLE HABERLER'İ VER
                 resultsDiv.innerHTML = `<span style="color:#10b981; font-weight:bold;">✅ Konu bulundu:</span><br><button style="background:var(--surface-light); text-align:left; font-size:0.85rem; color:white; padding:10px; border-radius:5px; width:100%; margin-top:8px; cursor:pointer;" onclick="addDiscoveredRss('${cleanTitle}', '${gNewsUrl}')">➕ Google Haberler: ${urlInput}</button>`;
                 return;
             }
@@ -678,7 +677,7 @@ async function fetchWithTimeout(resource, timeout = 6000) {
             let targetUrl = urlInput.startsWith('http') ? urlInput : 'https://' + urlInput;
             try {
                 const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
-                const resH = await fetch(proxyUrl); const dataH = await resH.json();
+                const resH = await fetchWithTimeout(proxyUrl, 10000); const dataH = await resH.json();
                 if (dataH.contents) {
                     const parser = new DOMParser(); const doc = parser.parseFromString(dataH.contents, 'text/html');
                     const rssLinks = doc.querySelectorAll('link[type="application/rss+xml"], link[type="application/atom+xml"]');
@@ -695,12 +694,10 @@ async function fetchWithTimeout(resource, timeout = 6000) {
                 }
                 throw new Error("No RSS found on site");
             } catch (err) { 
-                // EĞER SİTEDE RSS BULUNAMAZSA, YİNE DE O SİTE İÇİN GOOGLE HABERLER'İ YEDEK OLARAK SUN
                 resultsDiv.innerHTML = `⚠️ Sitede açık RSS bulunamadı.<br><span style="color:#10b981; font-weight:bold;">✅ Alternatif (Google Haberler):</span><br><button style="background:var(--surface-light); text-align:left; font-size:0.85rem; color:white; padding:10px; border-radius:5px; width:100%; margin-top:8px; cursor:pointer;" onclick="addDiscoveredRss('${cleanTitle}', '${gNewsUrl}')">➕ Haber Taraması: ${urlInput}</button>`;
             }
         }
 
-        // MANUEL EKLENEN RSS İÇİN
         function addCustomRSSManual() {
             const nameInput = document.getElementById('newRssName'); const urlInput = document.getElementById('newRssUrl'); 
             const name = nameInput.value.trim(); const url = urlInput.value.trim();
@@ -730,22 +727,26 @@ async function fetchWithTimeout(resource, timeout = 6000) {
             });
         }
 
+        // RSS VE ATOM FEED GÜVENLİK DÜZELTMESİ (includes('<rss') || includes('<feed'))
         async function fetchFeedData(feed) {
             let articles = []; const cb = `_cb=${Date.now()}`; const urlWithCb = feed.url.includes('?') ? `${feed.url}&${cb}` : `${feed.url}?${cb}`;
             const proxies = [ 
                 { url: `https://api.allorigins.win/get?url=${encodeURIComponent(urlWithCb)}`, type: 'json_contents' },
-                { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(urlWithCb)}`, type: 'raw' },
-                { url: `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(urlWithCb)}`, type: 'rss2json' }
+                { url: `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(urlWithCb)}`, type: 'rss2json' },
+                { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(urlWithCb)}`, type: 'raw' }
             ];
             for (let proxy of proxies) {
                 try {
-                    const res = await fetchWithTimeout(proxy.url, 6000); if (!res.ok) continue;
+                    const res = await fetchWithTimeout(proxy.url, 10000); if (!res.ok) continue;
                     if (proxy.type === 'json_contents') {
                         const data = await res.json();
-                        if (data.contents && data.contents.includes('<rss')) { articles = parseXMLToArticles(data.contents, feed); if (articles.length > 0) return articles; }
+                        // DÜZELTME: Hem RSS hem ATOM formatlarına izin ver
+                        if (data.contents && (data.contents.includes('<rss') || data.contents.includes('<feed') || data.contents.includes('<?xml'))) { 
+                            articles = parseXMLToArticles(data.contents, feed); if (articles.length > 0) return articles; 
+                        }
                     } else if (proxy.type === 'rss2json') { 
                         const data = await res.json(); 
-                        if (data.items) { 
+                        if (data.items && data.items.length > 0) { 
                             articles = data.items.map(item => {
                                 let img = item.thumbnail || item.enclosure?.link || "";
                                 if(!img) { const dMatch = (item.description||"").match(/<img[^>]+src=["']([^"']+)["']/i); if(dMatch) img = dMatch[1]; }
@@ -756,7 +757,9 @@ async function fetchWithTimeout(resource, timeout = 6000) {
                         } 
                     } else if (proxy.type === 'raw') {
                         const text = await res.text(); 
-                        if (text.includes("<rss") || text.includes("<feed")) { articles = parseXMLToArticles(text, feed); if (articles.length > 0) return articles; }
+                        if (text.includes("<rss") || text.includes("<feed") || text.includes("<?xml")) { 
+                            articles = parseXMLToArticles(text, feed); if (articles.length > 0) return articles; 
+                        }
                     }
                 } catch(e) { } 
             } return [];
@@ -783,6 +786,7 @@ async function fetchWithTimeout(resource, timeout = 6000) {
 
         function saveToLocalMemory() { const toSave = allArticles.slice(0, 300); localStorage.setItem('savedNewsArticles', JSON.stringify(toSave)); }
 
+        // DARBOĞAZI ÖNLEYEN GECİKMELİ (STAGGERED) YÜKLEME
         async function fetchAllRSS(isSilent = false) {
             const grid = document.getElementById('newsGrid'); const btn = document.getElementById('fetchBtn'); btn.disabled = true; btn.innerText = TRANSLATIONS[currentRegion].loadingText;
             document.getElementById('controlsWrapper').classList.add('collapsed'); document.getElementById('toggleIcon').innerText = '▼'; 
@@ -790,20 +794,37 @@ async function fetchWithTimeout(resource, timeout = 6000) {
             if (feedsToFetch.length === 0) { if(!isSilent) grid.innerHTML = `<div class="status-msg">No sources selected.</div>`; btn.disabled = false; btn.innerText = TRANSLATIONS[currentRegion].fetchBtnText; return; }
             if(!isSilent) { grid.innerHTML = `<div class="status-msg"><span id="loadingText" style="color:white; font-weight:600;">${TRANSLATIONS[currentRegion].loadingText}</span><div class="loading-bar"><div class="loading-fill" id="loadingFill"></div></div></div>`; }
             allArticles = []; let completedCount = 0;
-            const fetchPromises = feedsToFetch.map(async (feed) => {
-                try { const feedArticles = await fetchFeedData(feed); if (feedArticles.length > 0) allArticles.push(...feedArticles); } catch (error) {} finally {
+            
+            const fetchPromises = feedsToFetch.map(async (feed, index) => {
+                // 300ms gecikme eklendi (Proxy Çökmesini ve Rate Limit'i engeller)
+                await new Promise(resolve => setTimeout(resolve, index * 300));
+                try { 
+                    const feedArticles = await fetchFeedData(feed); 
+                    if (feedArticles && feedArticles.length > 0) allArticles.push(...feedArticles); 
+                } catch (error) {} finally {
                     completedCount++; const fillObj = document.getElementById('loadingFill'); const textObj = document.getElementById('loadingText');
                     if(fillObj) fillObj.style.width = `${(completedCount / feedsToFetch.length) * 100}%`; 
                     if(textObj) textObj.innerText = `${TRANSLATIONS[currentRegion].scanning} ${feed.name} (${completedCount}/${feedsToFetch.length})`;
                 }
             });
-            await Promise.all(fetchPromises); allArticles.sort((a, b) => b.timestamp - a.timestamp); saveToLocalMemory(); btn.disabled = false; btn.innerText = TRANSLATIONS[currentRegion].fetchBtnText; handleSearch(); 
+            await Promise.all(fetchPromises); 
+            allArticles.sort((a, b) => b.timestamp - a.timestamp); 
+            saveToLocalMemory(); btn.disabled = false; btn.innerText = TRANSLATIONS[currentRegion].fetchBtnText; 
+            handleSearch(); 
         }
 
         async function checkNewArticlesInBackground(isTopRefresh = false) {
             isFetchingRefresh = true; const endSpinner = document.getElementById('endRefreshSpinner'); let newCount = 0;
             const feedsToFetch = RSS_FEEDS.filter(feed => activeSources.includes(feed.name));
-            const fetchPromises = feedsToFetch.map(async (feed) => { try { const feedArticles = await fetchFeedData(feed); feedArticles.forEach(newArt => { const exists = allArticles.find(a => a.link === newArt.link); if(!exists) { allArticles.push(newArt); newCount++; } }); } catch(e) {} });
+            const fetchPromises = feedsToFetch.map(async (feed, index) => { 
+                await new Promise(resolve => setTimeout(resolve, index * 300)); // Gecikme
+                try { 
+                    const feedArticles = await fetchFeedData(feed); 
+                    if(feedArticles) {
+                        feedArticles.forEach(newArt => { const exists = allArticles.find(a => a.link === newArt.link); if(!exists) { allArticles.push(newArt); newCount++; } }); 
+                    }
+                } catch(e) {} 
+            });
             await Promise.all(fetchPromises);
             if (newCount > 0) { allArticles.sort((a, b) => b.timestamp - a.timestamp); saveToLocalMemory(); handleSearch(true); document.getElementById('toastText').innerText = `+${newCount}`; document.getElementById('toastNotification').classList.add('show'); setTimeout(() => { document.getElementById('toastNotification').classList.remove('show'); }, 6000); } 
             else if (isTopRefresh) { document.getElementById('toastText').innerText = `✔️`; document.getElementById('toastNotification').classList.add('show'); setTimeout(() => { document.getElementById('toastNotification').classList.remove('show'); }, 3000); }
@@ -832,7 +853,6 @@ async function fetchWithTimeout(resource, timeout = 6000) {
             const nextBatch = filteredArticles.slice(displayedCount, displayedCount + ITEMS_PER_PAGE); const t = TRANSLATIONS[currentRegion];
             
             nextBatch.forEach((art, i) => {
-                // HER 10 KARTTA 1 REKLAM YUVASI EKLENİR (DÖNEN SPLASH RESİMLİ)
                 if ((displayedCount + i) % 10 === 0 && (displayedCount + i) !== 0) {
                     const adWrapper = document.createElement('div'); adWrapper.className = 'swipe-wrapper ad-slot-wrapper';
                     adWrapper.innerHTML = `
@@ -852,7 +872,6 @@ async function fetchWithTimeout(resource, timeout = 6000) {
 
                 let isDefault = !art.image;
                 let safeImgUrl = art.image ? art.image.replace(/"/g, '&quot;') : '';
-                // GÖRSELİ OLMAYANLAR İÇİN DÖNEN SPLASH RESMİ (LİSTEDE)
                 let imgHtml = !isDefault ? `<img src="${safeImgUrl}" onload="this.style.opacity=1; this.parentElement.classList.remove('img-skeleton');" onerror="this.onerror=null; this.style.display='none'; this.parentElement.insertAdjacentHTML('beforeend', '<img src=\\'splash.png\\' class=\\'default-splash-thumb\\'>'); this.parentElement.setAttribute('data-default-img', 'true'); this.parentElement.classList.remove('img-skeleton');">` : '<img src="splash.png" class="default-splash-thumb">';
 
                 wrapper.innerHTML = `
@@ -888,7 +907,6 @@ async function fetchWithTimeout(resource, timeout = 6000) {
             const imgEl = document.getElementById('modalImg'); 
             const modalBody = document.getElementById('modalBodyArea');
             
-            // MODAL İÇİNDEKİ RESİM MANTIĞI: (Bozuk resimler burada DÖNMEYECEK, direkt gizlenecek)
             if(!art.image) { 
                 modalBody.setAttribute('data-default-img', 'true'); 
                 imgEl.style.display = 'none'; 
@@ -896,11 +914,11 @@ async function fetchWithTimeout(resource, timeout = 6000) {
                 modalBody.removeAttribute('data-default-img'); 
                 imgEl.src = art.image; 
                 imgEl.style.display = 'block'; 
-                imgEl.className = 'reader-image'; // class'ı sıfırla ki dönmesin
+                imgEl.className = 'reader-image';
             }
 
             switchTab('reader'); 
-            openModalSafe('newsModal'); // HISTORY API İLE AÇ
+            openModalSafe('newsModal'); 
             
             const textContainer = document.getElementById('fullTextContainer'); textContainer.innerHTML = `<div class="loading-pulse">${t.extracting}</div>`;
             const iframe = document.getElementById('modalIframe'); const banner = document.getElementById('iframeBanner'); iframe.removeAttribute('srcdoc'); iframe.src = 'about:blank'; banner.innerHTML = `<span style="animation: pulse 1.5s infinite;">⏳</span> ${t.loadingSite}`;
@@ -908,7 +926,7 @@ async function fetchWithTimeout(resource, timeout = 6000) {
             try {
                 if(art.link.includes('news.google.com')) throw new Error("Redirect");
                 const proxies = [ `https://api.allorigins.win/raw?url=${encodeURIComponent(art.link)}`, `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(art.link)}` ];
-                let html = null; for (let proxy of proxies) { try { const res = await fetchWithTimeout(proxy, 6000); if (res.ok) { const text = await res.text(); if (text && !text.includes('security service to protect itself')) { html = text; break; } } } catch(e) {} }
+                let html = null; for (let proxy of proxies) { try { const res = await fetchWithTimeout(proxy, 10000); if (res.ok) { const text = await res.text(); if (text && !text.includes('security service to protect itself')) { html = text; break; } } } catch(e) {} }
                 if (!html) throw new Error("Fetch failed");
                 const parser = new DOMParser(); const doc = parser.parseFromString(html, 'text/html'); const paragraphs = Array.from(doc.querySelectorAll('p, .content p, .news-text p, article p'));
                 const validText = paragraphs.map(p => p.textContent.trim()).filter(txt => txt.length > 70); const uniqueText = [...new Set(validText)];
@@ -936,6 +954,17 @@ async function fetchWithTimeout(resource, timeout = 6000) {
         document.addEventListener('touchstart', e => handleDragStart(e.touches[0].clientX, e.touches[0].clientY, e.target), {passive: true}); document.addEventListener('touchmove', e => handleDragMove(e.touches[0].clientX, e.touches[0].clientY), {passive: true}); document.addEventListener('touchend', e => handleDragEnd()); document.addEventListener('mousedown', e => { const card = e.target.closest('.news-card'); if(card) { isDragging = true; handleDragStart(e.clientX, e.clientY, e.target); } }); document.addEventListener('mousemove', e => { if (!isDragging) return; handleDragMove(e.clientX, e.clientY); }); document.addEventListener('mouseup', e => { if (!isDragging) return; isDragging = false; handleDragEnd(); }); function resetPullToRefresh() { ptrEl.style.transform = `translateX(-50%) translateY(0)`; ptrEl.style.opacity = 0; touchStartY = 0; pullDistance = 0; setTimeout(() => { ptrIcon.innerText = "⬇️"; ptrText.innerText = TRANSLATIONS[currentRegion].pullToRefresh; }, 300); }
         window.addEventListener('scroll', () => { if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 400) { if (displayedCount < filteredArticles.length) { const spinner = document.getElementById('scrollSpinner'); spinner.style.display = 'block'; setTimeout(() => { renderNextBatch(); spinner.style.display = 'none'; }, 100); } else if (filteredArticles.length > 0 && !isFetchingRefresh) { isFetchingRefresh = true; document.getElementById('endRefreshSpinner').style.display = 'block'; checkNewArticlesInBackground(false); } } });
         document.addEventListener('DOMContentLoaded', () => { const newsGrid = document.getElementById('newsGrid'); newsGrid.addEventListener('scroll', () => { if(document.body.classList.contains('shorts-mode')) { if ((newsGrid.scrollTop + newsGrid.clientHeight) >= newsGrid.scrollHeight - 600) { if (displayedCount < filteredArticles.length) { renderNextBatch(); } else if (filteredArticles.length > 0 && !isFetchingRefresh) { checkNewArticlesInBackground(false); } } } }); });
+        
+        function copyPapara() {
+            const paparaInput = document.getElementById("paparaInput");
+            const numberOnly = paparaInput.value.replace("Papara No: ", "");
+            navigator.clipboard.writeText(numberOnly).then(() => {
+                const toast = document.getElementById('toastNotification');
+                document.getElementById('toastText').innerText = "Papara Numarası Kopyalandı! ✔️";
+                toast.classList.add('show');
+                setTimeout(() => { toast.classList.remove('show'); }, 3000);
+            });
+        }
     </script>
 </body>
 </html>
