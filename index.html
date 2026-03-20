@@ -442,8 +442,8 @@
         firebase.initializeApp(firebaseConfig); const auth = firebase.auth(); const db = firebase.firestore(); const provider = new firebase.auth.GoogleAuthProvider();
 
         const GLOBAL_RSS_DB = {
-            'TR': [ { id: 'sozcu', name: 'Sözcü', url: 'https://www.sozcu.com.tr/rss/tum-haberler.xml', cat: 'News' }, { id: 'cumhuriyet', name: 'Cumhuriyet', url: 'https://www.cumhuriyet.com.tr/rss', cat: 'News' }, { id: 'sabah', name: 'Sabah', url: 'https://www.sabah.com.tr/rss/sondakika.xml', cat: 'News' }, { id: 'haberturk', name: 'Habertürk', url: 'https://www.haberturk.com/rss', cat: 'News' }, { id: 'yenisafak', name: 'Yeni Şafak', url: 'https://www.yenisafak.com/rss', cat: 'News' }, { id: 't24', name: 'T24', url: 'https://t24.com.tr/rss', cat: 'News' }, { id: 'webtekno', name: 'Webtekno', url: 'https://www.webtekno.com/rss.xml', cat: 'Tech' }, { id: 'shiftdelete', name: 'ShiftDelete', url: 'https://shiftdelete.net/rss', cat: 'Tech' }, { id: 'donanim', name: 'DonanımHaber', url: 'https://www.donanimhaber.com/rss/tum/', cat: 'Tech' }, { id: 'evrim', name: 'Evrim Ağacı', url: 'https://evrimagaci.org/rss.xml', cat: 'Science' }, { id: 'kozmik', name: 'Kozmik Anafor', url: 'https://www.kozmikanafor.com/feed/', cat: 'Science' }, { id: 'ntvspor', name: 'NTV Spor', url: 'https://www.ntvspor.net/rss', cat: 'Sport' }, { id: 'fanatik', name: 'Fanatik', url: 'https://www.fanatik.com.tr/rss/anasayfa.xml', cat: 'Sport' }, { id: 'bloomberg', name: 'Bloomberg HT', url: 'https://www.bloomberght.com/rss', cat: 'Finance' }, { id: 'trt', name: 'TRT Haber', url: 'https://www.trthaber.com/rss_sondakika.xml', cat: 'News' }, { id: 'bbctr', name: 'BBC Türkçe', url: 'https://feeds.bbci.co.uk/turkce/rss.xml', cat: 'World' }, { id: 'sputnik', name: 'Sputnik TR', url: 'https://sputniknews.com.tr/export/rss2/archive/index.xml', cat: 'World' }, { id: 'independent', name: 'Independent TR', url: 'https://www.indyturk.com/rss.xml', cat: 'World' }, { id: 'onedio', name: 'Onedio', url: 'https://onedio.com/support/rss.xml', cat: 'News' }, { id: 'dusunbil', name: 'Düşünbil', url: 'https://dusunbil.com/feed/', cat: 'Philo' } ],
-            'EN': [ { id: 'bbc', name: 'BBC News', url: 'http://feeds.bbci.co.uk/news/rss.xml', cat: 'News' }, { id: 'cnn', name: 'CNN Global', url: 'http://rss.cnn.com/rss/edition.rss', cat: 'News' }, { id: 'guardian', name: 'The Guardian', url: 'https://www.theguardian.com/world/rss', cat: 'World' }, { id: 'reuters', name: 'Reuters World', url: 'https://www.reutersagency.com/feed/?best-topics=world-news&type=rss', cat: 'World' }, { id: 'fox', name: 'Fox News', url: 'http://feeds.foxnews.com/foxnews/world', cat: 'World' }, { id: 'aljazeera', name: 'Al Jazeera EN', url: 'https://www.aljazeera.com/xml/rss/all.xml', cat: 'World' }, { id: 'tc', name: 'TechCrunch', url: 'https://techcrunch.com/feed/', cat: 'Tech' }, { id: 'verge', name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml', cat: 'Tech' }, { id: 'wired', name: 'Wired', url: 'https://www.wired.com/feed/rss', cat: 'Tech' }, { id: 'nature', name: 'Nature', url: 'https://www.nature.com/nature.rss', cat: 'Science' }, { id: 'sciam', name: 'Scientific American', url: 'http://rss.sciam.com/ScientificAmerican-Global', cat: 'Science' }, { id: 'healthline', name: 'Healthline', url: 'https://www.healthline.com/rss', cat: 'Health' }, { id: 'espn', name: 'ESPN', url: 'https://www.espn.com/espn/rss/news', cat: 'Sport' }, { id: 'skysports', name: 'Sky Sports', url: 'https://www.skysports.com/rss/12040', cat: 'Sport' }, { id: 'ft', name: 'Financial Times', url: 'https://www.ft.com/rss/home/us', cat: 'Finance' }, { id: 'wsj', name: 'WSJ', url: 'https://feeds.a.dj.com/rss/RSSWorldNews.xml', cat: 'Finance' }, { id: 'time', name: 'TIME', url: 'https://time.com/feed/', cat: 'World' }, { id: 'philo', name: 'Philosophy Now', url: 'https://philosophynow.org/rss', cat: 'Philo' } ],
+            'TR': [ { id: 'sozcu', name: 'Sözcü', url: 'https://www.sozcu.com.tr/rss/tum-haberler.xml', cat: 'News' }, { id: 'cumhuriyet', name: 'Cumhuriyet', url: 'https://www.cumhuriyet.com.tr/rss', cat: 'News' }, { id: 'sabah', name: 'Sabah', url: 'https://www.sabah.com.tr/rss/sondakika.xml', cat: 'News' }, { id: 'haberturk', name: 'Habertürk', url: 'https://www.haberturk.com/rss', cat: 'News' }, { id: 'yenisafak', name: 'Yeni Şafak', url: 'https://www.yenisafak.com/rss', cat: 'News' }, { id: 't24', name: 'T24', url: 'https://t24.com.tr/rss', cat: 'News' }, { id: 'webtekno', name: 'Webtekno', url: 'https://www.webtekno.com/rss.xml', cat: 'Tech' }, { id: 'shiftdelete', name: 'ShiftDelete', url: 'https://shiftdelete.net/feed', cat: 'Tech' }, { id: 'donanim', name: 'DonanımHaber', url: 'https://www.donanimhaber.com/rss/tum/', cat: 'Tech' }, { id: 'evrim', name: 'Evrim Ağacı', url: 'https://evrimagaci.org/rss.xml', cat: 'Science' }, { id: 'kozmik', name: 'Kozmik Anafor', url: 'https://www.kozmikanafor.com/feed/', cat: 'Science' }, { id: 'ntvspor', name: 'NTV Spor', url: 'https://www.ntvspor.net/rss', cat: 'Sport' }, { id: 'fanatik', name: 'Fanatik', url: 'https://www.fanatik.com.tr/rss/anasayfa.xml', cat: 'Sport' }, { id: 'bloomberg', name: 'Bloomberg HT', url: 'https://www.bloomberght.com/rss', cat: 'Finance' }, { id: 'trt', name: 'TRT Haber', url: 'https://www.trthaber.com/rss_sondakika.xml', cat: 'News' }, { id: 'bbctr', name: 'BBC Türkçe', url: 'https://feeds.bbci.co.uk/turkce/rss.xml', cat: 'World' }, { id: 'sputnik', name: 'Sputnik TR', url: 'https://sputniknews.com.tr/export/rss2/archive/index.xml', cat: 'World' }, { id: 'independent', name: 'Independent TR', url: 'https://www.indyturk.com/rss.xml', cat: 'World' }, { id: 'onedio', name: 'Onedio', url: 'https://onedio.com/support/rss.xml', cat: 'News' }, { id: 'dusunbil', name: 'Düşünbil', url: 'https://dusunbil.com/feed/', cat: 'Philo' } ],
+            'EN': [ { id: 'bbc', name: 'BBC News', url: 'http://feeds.bbci.co.uk/news/rss.xml', cat: 'News' }, { id: 'cnn', name: 'CNN Global', url: 'http://rss.cnn.com/rss/edition.rss', cat: 'News' }, { id: 'guardian', name: 'The Guardian', url: 'https://www.theguardian.com/world/rss', cat: 'World' }, { id: 'reuters', name: 'Reuters World', url: 'https://www.reutersagency.com/feed/?best-topics=world-news&type=rss', cat: 'World' }, { id: 'fox', name: 'Fox News', url: 'http://feeds.foxnews.com/foxnews/world', cat: 'World' }, { id: 'aljazeera', name: 'Al Jazeera EN', url: 'https://www.aljazeera.com/xml/rss/all.xml', cat: 'World' }, { id: 'tc', name: 'TechCrunch', url: 'https://techcrunch.com/feed/', cat: 'Tech' }, { id: 'verge', name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml', cat: 'Tech' }, { id: 'wired', name: 'Wired', url: 'https://www.wired.com/feed/rss', cat: 'Tech' }, { id: 'nature', name: 'Nature', url: 'https://www.nature.com/nature.rss', cat: 'Science' }, { id: 'sciam', name: 'Scientific American', url: 'http://rss.sciam.com/ScientificAmerican-Global', cat: 'Science' }, { id: 'healthline', name: 'Healthline', url: 'https://www.healthline.com/rss', cat: 'Health' }, { id: 'espn', name: 'ESPN', url: 'https://www.espn.com/espn/rss/news', cat: 'Sport' }, { id: 'skysports', name: 'Sky Sports', url: 'https://www.skysports.com/rss/12040', cat: 'Sport' }, { id: 'ft', name: 'Financial Times', url: 'https://www.ft.com/?format=rss', cat: 'Finance' }, { id: 'wsj', name: 'WSJ', url: 'https://feeds.a.dj.com/rss/RSSWorldNews.xml', cat: 'Finance' }, { id: 'time', name: 'TIME', url: 'https://time.com/feed/', cat: 'World' }, { id: 'philo', name: 'Philosophy Now', url: 'https://philosophynow.org/rss', cat: 'Philo' } ],
             'DE': [ { id: 'spiegel', name: 'Der Spiegel', url: 'https://www.spiegel.de/schlagzeilen/tops/index.rss', cat: 'News' }, { id: 'tagesschau', name: 'Tagesschau', url: 'https://www.tagesschau.de/xml/rss2/', cat: 'News' }, { id: 'faz', name: 'FAZ', url: 'https://www.faz.net/rss/aktuell/', cat: 'News' }, { id: 'sz', name: 'Süddeutsche Zeitung', url: 'https://rss.sueddeutsche.de/rss/Topthemen', cat: 'News' }, { id: 'zeit', name: 'Die Zeit', url: 'https://newsfeed.zeit.de/index', cat: 'World' }, { id: 'taz', name: 'Taz', url: 'https://taz.de/!p4608;rss/', cat: 'News' }, { id: 'focus', name: 'Focus Online', url: 'https://rss.focus.de/fol/XML/rss_folnews.xml', cat: 'News' }, { id: 'heise', name: 'Heise Online', url: 'https://www.heise.de/rss/heise-atom.xml', cat: 'Tech' }, { id: 'golem', name: 'Golem', url: 'https://rss.golem.de/rss.php?feed=RSS2.0', cat: 'Tech' }, { id: 'spektrum', name: 'Spektrum', url: 'https://www.spektrum.de/rss/alles', cat: 'Science' }, { id: 'kicker', name: 'Kicker', url: 'https://rss.kicker.de/news/aktuell', cat: 'Sport' }, { id: 'sport1', name: 'Sport1', url: 'https://www.sport1.de/news/rss.xml', cat: 'Sport' }, { id: 'handelsblatt', name: 'Handelsblatt', url: 'https://www.handelsblatt.com/contentexport/feed/top-themen', cat: 'Finance' }, { id: 'wiwo', name: 'WirtschaftsWoche', url: 'https://www.wiwo.de/contentexport/feed/rss/schlagzeilen', cat: 'Finance' }, { id: 'philomag', name: 'Philo Magazin', url: 'https://www.philomag.de/rss.xml', cat: 'Philo' } ],
             'ES': [ { id: 'elpais', name: 'El País', url: 'https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada', cat: 'News' }, { id: 'elmundo', name: 'El Mundo', url: 'https://e00-elmundo.uecdn.es/elmundo/rss/portada.xml', cat: 'News' }, { id: 'abc', name: 'ABC.es', url: 'https://www.abc.es/rss/2.0/espana/', cat: 'News' }, { id: 'rtve', name: 'RTVE', url: 'https://www.rtve.es/api/noticias/rss', cat: 'World' }, { id: 'cnn', name: 'CNN Español', url: 'http://cnnespanol.cnn.com/feed/', cat: 'World' }, { id: 'bbcmundo', name: 'BBC Mundo', url: 'http://www.bbc.co.uk/mundo/temas/america_latina/index.xml', cat: 'World' }, { id: 'xataka', name: 'Xataka', url: 'https://www.xataka.com/feed.xml', cat: 'Tech' }, { id: 'hiper', name: 'Hipertextual', url: 'https://hipertextual.com/feed', cat: 'Tech' }, { id: 'genbeta', name: 'Genbeta', url: 'https://www.genbeta.com/feed.xml', cat: 'Tech' }, { id: 'muy', name: 'Muy Interesante', url: 'https://www.muyinteresante.es/feed', cat: 'Science' }, { id: 'infosalus', name: 'InfoSalus', url: 'https://www.infosalus.com/rss/', cat: 'Health' }, { id: 'marca', name: 'Marca', url: 'https://e00-marca.uecdn.es/rss/futbol/primera-division.xml', cat: 'Sport' }, { id: 'as', name: 'Diario AS', url: 'https://as.com/rss/futbol/primera.xml', cat: 'Sport' }, { id: 'expansion', name: 'Expansión', url: 'https://e00-expansion.uecdn.es/rss/empresas.xml', cat: 'Finance' }, { id: 'filosofia', name: 'Filosofía&Co', url: 'https://filco.es/feed/', cat: 'Philo' } ],
             'FR': [ { id: 'lemonde', name: 'Le Monde', url: 'https://www.lemonde.fr/rss/une.xml', cat: 'News' }, { id: 'figaro', name: 'Le Figaro', url: 'https://www.lefigaro.fr/rss/figaro_actualites.xml', cat: 'News' }, { id: 'libe', name: 'Libération', url: 'https://www.liberation.fr/arc/outboundfeeds/rss-all/collection/accueil-une/?outputType=xml', cat: 'News' }, { id: 'leparisien', name: 'Le Parisien', url: 'https://www.leparisien.fr/arc/outboundfeeds/rss/actualites-a-la-une.xml', cat: 'News' }, { id: 'vingtmin', name: '20 Minutes', url: 'https://www.20minutes.fr/feeds/rss-une.xml', cat: 'News' }, { id: 'france24', name: 'France 24', url: 'https://www.france24.com/fr/rss', cat: 'World' }, { id: 'rtbf', name: 'RTBF Info', url: 'https://rss.rtbf.be/article/rss/highlight_rtbfinfo_info-accueil.xml', cat: 'World' }, { id: 'numerama', name: 'Numerama', url: 'https://www.numerama.com/feed/', cat: 'Tech' }, { id: 'clubic', name: 'Clubic', url: 'https://www.clubic.com/api/rss/news.xml', cat: 'Tech' }, { id: 'futura', name: 'Futura Sciences', url: 'https://www.futura-sciences.com/rss/actualites.xml', cat: 'Science' }, { id: 'doctissimo', name: 'Doctissimo', url: 'https://www.doctissimo.fr/rss/news.xml', cat: 'Health' }, { id: 'equipe', name: 'L\'Équipe', url: 'https://dwh.lequipe.fr/api/edito/rss?path=/', cat: 'Sport' }, { id: 'echos', name: 'Les Echos', url: 'https://services.lesechos.fr/rss/les-echos-accueil.xml', cat: 'Finance' }, { id: 'tribune', name: 'La Tribune', url: 'https://www.latribune.fr/feed.xml', cat: 'Finance' }, { id: 'philomag', name: 'Philosophie Mag', url: 'https://www.philomag.com/rss.xml', cat: 'Philo' } ],
@@ -463,7 +463,7 @@
         const ptrText = document.getElementById('ptrText');
 
         // TIMEOUT FONKSİYONU - Bağlantının takılı kalmasını engeller.
-        async function fetchWithTimeout(resource, timeout = 10000) {
+        async function fetchWithTimeout(resource, timeout = 8000) {
             const controller = new AbortController();
             const id = setTimeout(() => controller.abort(), timeout);
             try {
@@ -670,8 +670,8 @@
             
             let targetUrl = urlInput.startsWith('http') ? urlInput : 'https://' + urlInput;
             try {
-                const proxyUrl = `https://api.allorigins.win/get?disableCache=true&url=${encodeURIComponent(targetUrl)}`;
-                const resH = await fetchWithTimeout(proxyUrl, 10000); const dataH = await resH.json();
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+                const resH = await fetchWithTimeout(proxyUrl, 8000); const dataH = await resH.json();
                 if (dataH.contents) {
                     const parser = new DOMParser(); const doc = parser.parseFromString(dataH.contents, 'text/html');
                     const rssLinks = doc.querySelectorAll('link[type="application/rss+xml"], link[type="application/atom+xml"]');
@@ -721,60 +721,59 @@
             });
         }
 
-        // HABER ÇEKİCİ (Güvenlik duvarlarını ve format uyuşmazlıklarını aşar)
+        // HABER ÇEKİCİ MOTOR (GÜÇLENDİRİLMİŞ ÇOK KATMANLI YAPI)
         async function fetchFeedData(feed) {
             let articles = []; 
-            // DÜZELTME: Sıkı Cloudflare kullanan sitelerin (Örn: Cumhuriyet) engellememesi için Cache Buster (_cb=) kaldırıldı.
             const targetUrl = feed.url; 
             
+            // 4 Farklı Proxy. Güvenlik duvarını aşmak için tasarlandılar.
             const proxies = [ 
-                { url: `https://api.allorigins.win/get?disableCache=true&url=${encodeURIComponent(targetUrl)}`, type: 'json_contents' },
-                { url: `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(targetUrl)}`, type: 'rss2json' },
-                { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`, type: 'raw' },
-                { url: `https://thingproxy.freeboard.io/fetch/${encodeURIComponent(targetUrl)}`, type: 'raw' }
+                { url: `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(targetUrl)}`, type: 'json' },
+                { url: `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`, type: 'raw' },
+                { url: `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`, type: 'raw' },
+                { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`, type: 'raw' }
             ];
             
             for (let proxy of proxies) {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 10000); 
                 try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 8000); 
                     const res = await fetch(proxy.url, { signal: controller.signal });
                     clearTimeout(timeoutId);
+                    
                     if (!res.ok) continue;
                     
-                    if (proxy.type === 'json_contents') {
-                        const data = await res.json(); 
-                        if (data.contents) {
-                            const tLower = data.contents.trim().toLowerCase();
-                            if (tLower.includes("<rss") || tLower.includes("<feed") || tLower.includes("<?xml") || tLower.includes("<rdf") || tLower.includes("<channel")) {
-                                articles = parseXMLToArticles(data.contents, feed); 
-                                if (articles.length > 0) return articles;
-                            }
+                    if (proxy.type === 'raw') {
+                        const text = await res.text(); 
+                        const tLower = text.trim().toLowerCase();
+                        if (tLower.includes("<rss") || tLower.includes("<feed") || tLower.includes("<?xml") || tLower.includes("<rdf") || tLower.includes("<channel")) {
+                            articles = parseXMLToArticles(text, feed); 
+                            if (articles.length > 0) return articles;
                         }
-                    } else if (proxy.type === 'rss2json') { 
+                    } else if (proxy.type === 'json') { 
                         const data = await res.json();
                         if (data.status === "ok" && data.items && data.items.length > 0) { 
                             articles = data.items.map(item => {
-                                let img = item.thumbnail || item.enclosure?.link || "";
+                                let img = item.thumbnail || (item.enclosure && item.enclosure.link) || "";
                                 if(!img) { const dMatch = (item.description||"").match(/<img[^>]+src=["']([^"']+)["']/i); if(dMatch) img = dMatch[1]; }
                                 let pubDate = new Date((item.pubDate||"").replace(/-/g, '/')); if(isNaN(pubDate.getTime())) pubDate = new Date();
-                                return { title: item.title, description: (item.description||"").replace(/<[^>]*>?/gm, '').trim().substring(0, 180)+'...', link: item.link, image: img || '', source: feed.name, date: pubDate, timestamp: pubDate.getTime(), categories: feed.cat ? [feed.cat] : (item.categories||[]) };
+                                
+                                let cleanDesc = (item.description || "").replace(/<[^>]*>?/gm, '').trim();
+                                cleanDesc = cleanDesc.length > 180 ? cleanDesc.substring(0, 180) + '...' : cleanDesc;
+
+                                return { title: item.title, description: cleanDesc, link: item.link, image: img || '', source: feed.name, date: pubDate, timestamp: pubDate.getTime(), categories: feed.cat ? [feed.cat] : (item.categories||[]) };
                             });
                             if (articles.length > 0) return articles;
                         } 
-                    } else if (proxy.type === 'raw') {
-                        const text = await res.text(); 
-                        const tLower = text.trim().toLowerCase();
-                        if (tLower.includes("<rss") || tLower.includes("<feed") || tLower.includes("<?xml") || tLower.includes("<rdf") || tLower.includes("<channel")) { 
-                            articles = parseXMLToArticles(text, feed); 
-                            if (articles.length > 0) return articles; 
-                        }
                     }
-                } catch(e) { clearTimeout(timeoutId); } 
-            } return [];
+                } catch(e) { 
+                    // Sessizce diğer proxy'e geçer
+                } 
+            } 
+            return [];
         }
 
-        // XML OKUYUCU (Tüm Etiketleri Ayıklar)
+        // XML OKUYUCU
         function parseXMLToArticles(textData, feed) {
             const parser = new DOMParser(); 
             const xmlDoc = parser.parseFromString(textData, "text/xml"); 
@@ -846,6 +845,7 @@
             allArticles = []; let completedCount = 0;
             
             const fetchPromises = feedsToFetch.map(async (feed, index) => {
+                // Kaynaklar arası gecikme ile rate limit engeli aşılır
                 await new Promise(resolve => setTimeout(resolve, index * 200));
                 try { 
                     const feedArticles = await fetchFeedData(feed); 
