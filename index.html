@@ -462,8 +462,8 @@
         const ptrIcon = document.getElementById('ptrIcon');
         const ptrText = document.getElementById('ptrText');
 
-        // GÜVENLİ TIMEOUT: Takılı kalmayı engeller
-        async function fetchWithTimeout(resource, timeout = 8000) {
+        // TIMEOUT FONKSİYONU - Bağlantının takılı kalmasını engeller.
+        async function fetchWithTimeout(resource, timeout = 10000) {
             const controller = new AbortController();
             const id = setTimeout(() => controller.abort(), timeout);
             try {
@@ -670,8 +670,8 @@
             
             let targetUrl = urlInput.startsWith('http') ? urlInput : 'https://' + urlInput;
             try {
-                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
-                const resH = await fetchWithTimeout(proxyUrl, 8000); const dataH = await resH.json();
+                const proxyUrl = `https://api.allorigins.win/get?disableCache=true&url=${encodeURIComponent(targetUrl)}`;
+                const resH = await fetchWithTimeout(proxyUrl, 10000); const dataH = await resH.json();
                 if (dataH.contents) {
                     const parser = new DOMParser(); const doc = parser.parseFromString(dataH.contents, 'text/html');
                     const rssLinks = doc.querySelectorAll('link[type="application/rss+xml"], link[type="application/atom+xml"]');
@@ -721,109 +721,118 @@
             });
         }
 
-        // HABER ÇEKİCİ (Güvenlik duvarlarını aşar, takılı kalmaz)
+        // HABER ÇEKİCİ (Güvenlik duvarlarını ve format uyuşmazlıklarını aşar)
         async function fetchFeedData(feed) {
-            let articles = []; const cb = `_cb=${Date.now()}`; const urlWithCb = feed.url.includes('?') ? `${feed.url}&${cb}` : `${feed.url}?${cb}`;
+            let articles = []; 
+            // DÜZELTME: Sıkı Cloudflare kullanan sitelerin (Örn: Cumhuriyet) engellememesi için Cache Buster (_cb=) kaldırıldı.
+            const targetUrl = feed.url; 
             
             const proxies = [ 
-                `https://api.allorigins.win/get?url=${encodeURIComponent(urlWithCb)}`,
-                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(urlWithCb)}`
+                { url: `https://api.allorigins.win/get?disableCache=true&url=${encodeURIComponent(targetUrl)}`, type: 'json_contents' },
+                { url: `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(targetUrl)}`, type: 'rss2json' },
+                { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`, type: 'raw' },
+                { url: `https://thingproxy.freeboard.io/fetch/${encodeURIComponent(targetUrl)}`, type: 'raw' }
             ];
             
             for (let proxy of proxies) {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000); 
                 try {
-                    const res = await fetchWithTimeout(proxy, 8000);
+                    const res = await fetch(proxy.url, { signal: controller.signal });
+                    clearTimeout(timeoutId);
                     if (!res.ok) continue;
                     
-                    let text = "";
-                    if (proxy.includes('allorigins')) {
-                        const json = await res.json();
-                        text = json.contents;
-                    } else {
-                        text = await res.text();
+                    if (proxy.type === 'json_contents') {
+                        const data = await res.json(); 
+                        if (data.contents) {
+                            const tLower = data.contents.trim().toLowerCase();
+                            if (tLower.includes("<rss") || tLower.includes("<feed") || tLower.includes("<?xml") || tLower.includes("<rdf") || tLower.includes("<channel")) {
+                                articles = parseXMLToArticles(data.contents, feed); 
+                                if (articles.length > 0) return articles;
+                            }
+                        }
+                    } else if (proxy.type === 'rss2json') { 
+                        const data = await res.json();
+                        if (data.status === "ok" && data.items && data.items.length > 0) { 
+                            articles = data.items.map(item => {
+                                let img = item.thumbnail || item.enclosure?.link || "";
+                                if(!img) { const dMatch = (item.description||"").match(/<img[^>]+src=["']([^"']+)["']/i); if(dMatch) img = dMatch[1]; }
+                                let pubDate = new Date((item.pubDate||"").replace(/-/g, '/')); if(isNaN(pubDate.getTime())) pubDate = new Date();
+                                return { title: item.title, description: (item.description||"").replace(/<[^>]*>?/gm, '').trim().substring(0, 180)+'...', link: item.link, image: img || '', source: feed.name, date: pubDate, timestamp: pubDate.getTime(), categories: feed.cat ? [feed.cat] : (item.categories||[]) };
+                            });
+                            if (articles.length > 0) return articles;
+                        } 
+                    } else if (proxy.type === 'raw') {
+                        const text = await res.text(); 
+                        const tLower = text.trim().toLowerCase();
+                        if (tLower.includes("<rss") || tLower.includes("<feed") || tLower.includes("<?xml") || tLower.includes("<rdf") || tLower.includes("<channel")) { 
+                            articles = parseXMLToArticles(text, feed); 
+                            if (articles.length > 0) return articles; 
+                        }
                     }
-
-                    if (text && (text.includes('<rss') || text.includes('<feed') || text.includes('<?xml') || text.includes('<rdf'))) {
-                        articles = parseXMLToArticles(text, feed);
-                        if (articles.length > 0) return articles;
-                    }
-                } catch(e) { } 
-            } 
-            return [];
+                } catch(e) { clearTimeout(timeoutId); } 
+            } return [];
         }
 
-        // AGRESİF XML OKUYUCU (Etiketleri söküp alır, bozuk veriyi çöpe atmaz)
+        // XML OKUYUCU (Tüm Etiketleri Ayıklar)
         function parseXMLToArticles(textData, feed) {
             const parser = new DOMParser(); 
             const xmlDoc = parser.parseFromString(textData, "text/xml"); 
             const items = [...Array.from(xmlDoc.getElementsByTagName("item")), ...Array.from(xmlDoc.getElementsByTagName("entry"))];
-            
-            let result = []; 
-            let baseUrl = ""; 
-            try { baseUrl = new URL(feed.url).origin; } catch(e){}
+            let result = []; let baseUrl = ""; try { baseUrl = new URL(feed.url).origin; } catch(e){}
             
             items.forEach(item => {
                 try {
                     let title = "Haber Başlığı"; 
-                    const titleNode = item.querySelector("title");
+                    const titleNode = item.getElementsByTagName("title")[0];
                     if (titleNode) title = titleNode.textContent.trim() || "Haber Başlığı";
 
                     let link = "#"; 
-                    const linkNode = item.querySelector("link");
+                    const linkNode = item.getElementsByTagName("link")[0];
                     if (linkNode) { 
-                        link = linkNode.textContent.trim(); 
-                        if (!link) link = linkNode.getAttribute("href") || "#"; 
+                        link = linkNode.textContent ? linkNode.textContent.trim() : ""; 
+                        if(!link) link = linkNode.getAttribute("href") || "#"; 
                     }
 
                     let desc = ""; 
-                    const descNode = item.querySelector("description, summary, content");
-                    if (descNode) desc = descNode.textContent.trim();
+                    const descNode = item.getElementsByTagName("description")[0] || item.getElementsByTagName("summary")[0] || item.getElementsByTagName("content")[0];
+                    if (descNode) desc = descNode.textContent || "";
                     
                     const contentEnc = item.getElementsByTagName("content:encoded")[0] || item.getElementsByTagNameNS("*", "encoded")[0];
-                    if (!desc && contentEnc) desc = contentEnc.textContent.trim();
+                    if (!desc && contentEnc) desc = contentEnc.textContent || "";
 
-                    let fullText = desc + " " + (contentEnc ? contentEnc.textContent : "");
+                    let fullText = desc + " " + (contentEnc ? (contentEnc.textContent || "") : "");
 
                     let pubDate = new Date();
-                    const pubNodes = item.querySelector("pubDate, published, updated, date");
-                    if (pubNodes && pubNodes.textContent) { 
-                        const parsed = new Date(pubNodes.textContent); 
-                        if (!isNaN(parsed.getTime())) pubDate = parsed; 
-                    }
-                    if (pubDate.getTime() > Date.now() + 3600000) pubDate = new Date();
+                    const pubNodes = item.getElementsByTagName("pubDate")[0] || item.getElementsByTagName("published")[0] || item.getElementsByTagName("updated")[0] || item.getElementsByTagName("date")[0];
+                    if (pubNodes && pubNodes.textContent) { const parsed = new Date(pubNodes.textContent); if (!isNaN(parsed.getTime())) pubDate = parsed; }
+                    if (pubDate.getTime() > Date.now() + 3600000) { pubDate = new Date(); }
 
                     let image = "";
-                    const enclosure = item.querySelector("enclosure");
+                    const enclosure = item.getElementsByTagName("enclosure")[0];
                     const mediaContent = item.getElementsByTagName("media:content")[0] || item.getElementsByTagNameNS("*", "content")[0];
                     const mediaThumb = item.getElementsByTagName("media:thumbnail")[0] || item.getElementsByTagNameNS("*", "thumbnail")[0];
 
                     if (enclosure && enclosure.getAttribute("url")) image = enclosure.getAttribute("url");
                     else if (mediaContent && mediaContent.getAttribute("url")) image = mediaContent.getAttribute("url");
                     else if (mediaThumb && mediaThumb.getAttribute("url")) image = mediaThumb.getAttribute("url");
-                    else { 
-                        const imgMatch = fullText.match(/<img[^>]+src=["']([^"']+)["']/i); 
-                        if (imgMatch && imgMatch[1]) image = imgMatch[1]; 
-                    }
+                    else { const imgMatch = fullText.match(/<img[^>]+src=["']([^"']+)["']/i); if (imgMatch && imgMatch[1]) image = imgMatch[1]; }
 
-                    if (image && image.startsWith('/')) image = baseUrl + image; 
-                    if (image && image.startsWith('http:')) image = image.replace('http:', 'https:');
+                    if (image && image.startsWith('/')) image = baseUrl + image; if (image && image.startsWith('http:')) image = image.replace('http:', 'https:');
 
                     let categories = feed.cat ? [feed.cat] : []; 
+                    desc = desc ? desc.replace(/<[^>]*>?/gm, '').trim().substring(0, 180) + '...' : '';
                     
-                    let cleanDesc = desc.replace(/<[^>]*>?/gm, '').trim();
-                    cleanDesc = cleanDesc.length > 180 ? cleanDesc.substring(0, 180) + '...' : cleanDesc;
-                    
-                    result.push({ title: title, description: cleanDesc, link: link, image: image || '', source: feed.name, date: pubDate, timestamp: pubDate.getTime(), categories: categories });
-                } catch(err) { console.error(err); } 
-            }); 
-            return result;
+                    result.push({ title, description: desc, link, image: image || '', source: feed.name, date: pubDate, timestamp: pubDate.getTime(), categories });
+                } catch(err) {} 
+            }); return result;
         }
 
         function saveToLocalMemory() { 
             try {
                 const toSave = allArticles.slice(0, 300); 
                 localStorage.setItem('savedNewsArticles', JSON.stringify(toSave)); 
-            } catch(e) { console.log("Hafıza limiti."); } 
+            } catch(e) { console.log("Hafıza limitine ulaşıldı."); } 
         }
 
         async function fetchAllRSS(isSilent = false) {
@@ -831,13 +840,13 @@
             document.getElementById('controlsWrapper').classList.add('collapsed'); document.getElementById('toggleIcon').innerText = '▼'; 
             const feedsToFetch = RSS_FEEDS.filter(feed => activeSources.includes(feed.name));
             
-            if (feedsToFetch.length === 0) { if(!isSilent) grid.innerHTML = `<div class="status-msg">Hiçbir kaynak seçilmedi.</div>`; btn.disabled = false; btn.innerText = TRANSLATIONS[currentRegion].fetchBtnText; return; }
+            if (feedsToFetch.length === 0) { if(!isSilent) grid.innerHTML = `<div class="status-msg">Hiç kaynak seçilmedi.</div>`; btn.disabled = false; btn.innerText = TRANSLATIONS[currentRegion].fetchBtnText; return; }
             if(!isSilent) { grid.innerHTML = `<div class="status-msg"><span id="loadingText" style="color:white; font-weight:600;">${TRANSLATIONS[currentRegion].loadingText}</span><div class="loading-bar"><div class="loading-fill" id="loadingFill"></div></div></div>`; }
             
             allArticles = []; let completedCount = 0;
             
             const fetchPromises = feedsToFetch.map(async (feed, index) => {
-                await new Promise(resolve => setTimeout(resolve, index * 150));
+                await new Promise(resolve => setTimeout(resolve, index * 200));
                 try { 
                     const feedArticles = await fetchFeedData(feed); 
                     if (feedArticles && feedArticles.length > 0) allArticles.push(...feedArticles); 
@@ -847,8 +856,8 @@
                     if(textObj) textObj.innerText = `${TRANSLATIONS[currentRegion].scanning} ${feed.name} (${completedCount}/${feedsToFetch.length})`;
                 }
             });
-            await Promise.all(fetchPromises); 
             
+            await Promise.all(fetchPromises); 
             allArticles.sort((a, b) => b.timestamp - a.timestamp); 
             saveToLocalMemory(); 
             btn.disabled = false; btn.innerText = TRANSLATIONS[currentRegion].fetchBtnText; 
@@ -859,7 +868,7 @@
             isFetchingRefresh = true; const endSpinner = document.getElementById('endRefreshSpinner'); let newCount = 0;
             const feedsToFetch = RSS_FEEDS.filter(feed => activeSources.includes(feed.name));
             const fetchPromises = feedsToFetch.map(async (feed, index) => { 
-                await new Promise(resolve => setTimeout(resolve, index * 150));
+                await new Promise(resolve => setTimeout(resolve, index * 200));
                 try { 
                     const feedArticles = await fetchFeedData(feed); 
                     if(feedArticles) { feedArticles.forEach(newArt => { const exists = allArticles.find(a => a.link === newArt.link); if(!exists) { allArticles.push(newArt); newCount++; } }); }
@@ -885,7 +894,7 @@
             });
             
             if (!isSilentRefresh) { document.getElementById('newsGrid').innerHTML = ''; displayedCount = 0; } else { document.getElementById('newsGrid').innerHTML = ''; displayedCount = 0; }
-            if (filteredArticles.length === 0) { document.getElementById('newsGrid').innerHTML = `<div class="status-msg"><div style="font-size:3rem; margin-bottom:15px;">🔍</div>Hiç haber bulunamadı.</div>`; return; }
+            if (filteredArticles.length === 0) { document.getElementById('newsGrid').innerHTML = `<div class="status-msg"><div style="font-size:3rem; margin-bottom:15px;">🔍</div>Haber bulunamadı.</div>`; return; }
             renderNextBatch();
         }
 
