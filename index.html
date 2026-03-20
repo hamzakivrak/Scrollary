@@ -318,7 +318,7 @@
     </div>
 
     <div id="settingsModal" class="modal" style="z-index: 2500;">
-    <div class="modal-content" style="max-width: 500px; height: 85vh; display: flex; flex-direction: column;">
+    <div class="modal-content" style="max-width: 500px; height: 85vh; max-height: 85vh; display: flex; flex-direction: column;">
         
         <div class="modal-header" style="flex-shrink: 0;">
             <div class="modal-top-row">
@@ -327,10 +327,10 @@
             </div>
         </div>
         
-        <div class="modal-body" style="flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 20px;">
+        <div class="modal-body" style="flex: 1; overflow-y: auto; display: block; padding: 20px; padding-bottom: 60px; -webkit-overflow-scrolling: touch; cursor: default;">
             
             <details class="setting-item">
-                <summary style="pointer-events: auto; cursor: pointer;">Hesap Girişi</summary>
+                <summary>Hesap Girişi</summary>
                 <div class="setting-detail">
                     <button id="loginBtn" class="btn-login" style="width:100%; justify-content:center; padding:12px;" onclick="signInWithGoogle()" data-i18n="login">Google ile Giriş Yap</button>
                     <div id="userInfo" class="user-profile" style="display:none; justify-content:space-between; align-items:center; padding:10px 15px; background: rgba(255,255,255,0.05); border-radius: 8px;">
@@ -344,31 +344,31 @@
             </details>
 
             <details class="setting-item">
-                <summary style="pointer-events: auto; cursor: pointer;" data-i18n="themeTitle">🎨 Tema Seçimi</summary>
+                <summary data-i18n="themeTitle">🎨 Tema Seçimi</summary>
                 <div class="setting-detail">
                     <div class="view-controls" id="themeBtnsWrapper" style="margin-bottom:0;"></div>
                 </div>
             </details>
 
             <details class="setting-item">
-                <summary style="pointer-events: auto; cursor: pointer;" data-i18n="layoutTitle">📐 Görünüm Boyutu</summary>
+                <summary data-i18n="layoutTitle">📐 Görünüm Boyutu</summary>
                 <div class="setting-detail">
                     <div class="view-controls" id="layoutBtnsWrapper"></div>
                 </div>
             </details>
 
-            <details class="setting-item">
-                <summary style="pointer-events: auto; cursor: pointer;">Destek & Geri Bildirim</summary>
-                <div class="setting-detail">
+            <details class="setting-item" id="supportSection">
+                <summary>Destek & Geri Bildirim</summary>
+                <div class="setting-detail" style="user-select: auto;">
                     
                     <h4 style="color: var(--text-main); margin: 0 0 5px 0;">Projeye Destek Olun ☕</h4>
                     <p style="color: var(--text-muted); font-size: 0.85rem; margin:0 0 10px 0;">Scrollary'nin sunucu maliyetlerine ve gelişimine katkıda bulunmak isterseniz destek olabilirsiniz.</p>
                     
-                    <a href="https://shopier.com/SENIN_LINKIN" target="_blank" style="display: block; text-align: center; background: #22C55E; color: #fff; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 0.95rem; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.1); pointer-events: auto;">💳 Kredi Kartı ile Destek Ol</a>
+                    <a href="https://shopier.com/SENIN_LINKIN" target="_blank" style="display: block; text-align: center; background: #22C55E; color: #fff; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 0.95rem; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.1);">💳 Kredi Kartı ile Destek Ol</a>
 
                     <div style="display: flex; gap: 10px; margin-bottom: 20px;">
                         <input type="text" value="Papara No: 1234567890" id="paparaInput" readonly style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--surface-light); background: rgba(0,0,0,0.3); color: white; outline: none; text-align: center; font-weight: bold; font-size: 0.9rem;">
-                        <button onclick="copyPapara()" style="background: var(--accent); color: white; border: none; border-radius: 8px; padding: 0 15px; font-weight: bold; cursor: pointer; pointer-events: auto;">Kopyala</button>
+                        <button onclick="copyPapara()" style="background: var(--accent); color: white; border: none; border-radius: 8px; padding: 0 15px; font-weight: bold; cursor: pointer;">Kopyala</button>
                     </div>
 
                     <hr style="border: 0; border-top: 1px solid var(--surface-light); margin-bottom: 15px;">
@@ -376,18 +376,21 @@
                     <h4 style="color: var(--text-main); margin: 0 0 5px 0;">Bize Ulaşın ✉️</h4>
                     <p style="color: var(--text-muted); font-size: 0.85rem; margin:0 0 10px 0;">Hata bildirimi veya önerileriniz doğrudan geliştiriciye iletilecektir.</p>
                     
-                    <form action="https://formspree.io/f/BURAYA_SENIN_KODUN_GELECEK" method="POST" target="_blank" style="display: flex; flex-direction: column; gap: 10px; pointer-events: auto;">
+                    <form action="https://formspree.io/f/xjgazvzb" method="POST" target="_blank" style="display: flex; flex-direction: column; gap: 10px;">
                         <input type="hidden" name="_subject" value="Scrollary'den Yeni Geri Bildirim!">
-                        <input type="email" name="Kullanici_Eposta" placeholder="E-posta Adresiniz" required style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--surface-light); background:var(--bg-dark); color:white; outline:none; font-family:inherit;">
-                        <textarea name="Mesaj" placeholder="Mesajınızı buraya yazın..." required style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--surface-light); background:var(--bg-dark); color:white; resize:vertical; min-height:80px; outline:none; font-family:inherit;"></textarea>
-                        <button type="submit" class="btn-login" style="padding:10px; font-size: 0.95rem; cursor: pointer; pointer-events: auto;">Mesajı Gönder 🚀</button>
+                        
+                        <input type="email" name="Kullanici_Eposta" placeholder="E-posta Adresiniz" required style="width:100%; padding:12px; border-radius:8px; border:1px solid var(--surface-light); background:var(--bg-dark); color:white; outline:none; font-family:inherit; font-size:16px;">
+                        
+                        <textarea name="Mesaj" placeholder="Mesajınızı buraya yazın..." required style="width:100%; padding:12px; border-radius:8px; border:1px solid var(--surface-light); background:var(--bg-dark); color:white; resize:vertical; min-height:100px; outline:none; font-family:inherit; font-size:16px;"></textarea>
+                        
+                        <button type="submit" class="btn-login" style="padding:12px; font-size: 1rem; cursor: pointer;">Mesajı Gönder 🚀</button>
                     </form>
 
                 </div>
             </details>
 
             <details class="setting-item">
-                <summary style="pointer-events: auto; cursor: pointer;">Hakkında</summary>
+                <summary>Hakkında</summary>
                 <div class="setting-detail" style="color: var(--text-muted); font-size: 0.9rem;">
                     <p style="margin:0;"><strong>Scrollary News Radar</strong></p>
                     <p style="margin:0;">Sürüm: 2.1.0</p>
