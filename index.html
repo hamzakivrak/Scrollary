@@ -1371,8 +1371,7 @@
                         showTooltip(text, rect);
                     }
                 }
-                // DÜZELTME: "else { hideTooltip(); }" kısmını sildik. 
-                // Kapatma işini sadece boşluğa tıklama olayına bıraktık ki mobilde damlalar çıkarken kendi kendine kapanmasın.
+                // BURADAKİ 'else' BLOĞU TAMAMEN SİLİNDİ Kİ BALONCUK KENDİ KENDİNE KAPANMASIN!
             }, 400); 
         });
 
@@ -1389,17 +1388,16 @@
             tooltip.style.left = (rect.left + (rect.width/2)) + 'px';
 
             const translated = await getTranslation(text, targetLang);
-
-            // Çeviri metnini ve SESLENDİRME butonunu HTML olarak ekliyoruz
             const safeText = encodeURIComponent(text);
+
+            // DÜZELTME: Butona tıklarken seçimin bozulmasını engelleyen kodlar eklendi
             tooltip.innerHTML = `
                 <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
                     <span>${translated}</span>
-                    <button onclick="listenSingleWord('${safeText}')" style="background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; font-size: 1rem; transition: 0.2s;">🔊</button>
+                    <button onmousedown="event.preventDefault();" ontouchstart="event.preventDefault();" onclick="listenSingleWord('${safeText}', event)" style="background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; font-size: 1rem; transition: 0.2s;">🔊</button>
                 </div>
             `;
 
-            // Ekrandan taşmaları önlemek için sağ-sol düzeltmesi
             setTimeout(() => {
                 const tRect = tooltip.getBoundingClientRect();
                 if (tRect.right > window.innerWidth) {
@@ -1411,17 +1409,18 @@
         }
 
         // Tıklanan kelimeyi/seçimi seslendiren yepyeni fonksiyonumuz
-        function listenSingleWord(encodedText) {
-            window.speechSynthesis.cancel(); // Varsa önceki konuşmayı sustur
+        function listenSingleWord(encodedText, event) {
+            // DÜZELTME: Tıklama olayının arka plana geçip baloncuğu kapatmasını engeller
+            if(event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            window.speechSynthesis.cancel(); 
             const text = decodeURIComponent(encodedText);
             const utterance = new SpeechSynthesisUtterance(text);
-            
-            // Orijinal metnin dilini haberin çekildiği bölgeye göre ayarla
             utterance.lang = typeof ttsLangMap !== 'undefined' && ttsLangMap[currentRegion] ? ttsLangMap[currentRegion] : 'en-US';
-            
             window.speechSynthesis.speak(utterance);
         }
-
         function hideTooltip() {
             document.getElementById('wordTooltip').style.display = 'none';
         }
@@ -1489,6 +1488,7 @@
             utterance.lang = ttsLangMap[currentRegion] || 'en-US';
             window.speechSynthesis.speak(utterance);
         }
+        document.getElementById('modalBodyArea').addEventListener('scroll', () => { hideTooltip(); }, {passive: true});        
     </script>
 </body>
 </html>
