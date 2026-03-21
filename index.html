@@ -1737,43 +1737,7 @@
             recognition.start();
         }
             
-            const recognition = new SpeechRecognition();
-            recognition.lang = VOICE_LANG_MAP[currentRegion] || 'tr-TR';
-            recognition.interimResults = false;
-            recognition.maxAlternatives = 1;
-
-            const fab = document.getElementById('micFab');
-            const title = document.getElementById('voiceTitle');
-            const inputEl = document.getElementById('voiceTextInput');
-            const actionsDiv = document.getElementById('voiceActions');
-
-            recognition.onstart = function() {
-                fab.classList.add('listening');
-                title.innerText = "🎙️ Asistan Dinliyor...";
-                inputEl.value = "";
-                inputEl.placeholder = "Lütfen komutunuzu söyleyin...";
-                actionsDiv.innerHTML = '';
-                openModalSafe('voiceModal');
-            };
-
-            recognition.onresult = function(event) {
-                const transcript = event.results[0][0].transcript;
-                inputEl.value = transcript;
-                reparseVoiceCommand(); 
-            };
-
-            recognition.onerror = function(event) {
-                title.innerText = "❌ Hata Oluştu";
-                inputEl.placeholder = "Sizi duyamadım veya mikrofon izni verilmedi.";
-            };
-
-            recognition.onend = function() {
-                fab.classList.remove('listening');
-            };
-
-            recognition.start();
-        }
-
+            
         // Kullanıcı metni kendisi de değiştirip tetikleyebilir!
         function reparseVoiceCommand() {
             const text = document.getElementById('voiceTextInput').value.trim();
