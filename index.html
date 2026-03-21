@@ -1590,6 +1590,17 @@
         /* --- YENİ EKLENEN: SESLİ ASİSTAN MOTORU (GLOBAL ÇAPRAZ DİL DESTEKLİ) --- */
         const VOICE_LANG_MAP = { 'TR': 'tr-TR', 'EN': 'en-US', 'DE': 'de-DE', 'ES': 'es-ES', 'FR': 'fr-FR', 'RU': 'ru-RU', 'AR': 'ar-SA', 'HI': 'hi-IN' };
         
+        // YENİ EKLENEN: Her dil için kullanıcıya gösterilecek ipucu metinleri
+        const VOICE_HINTS = {
+            'TR': "Örn: 'Almanca haberlere geç', 'Maden ara', 'Filtreleri temizle'",
+            'EN': "Ex: 'Switch to German', 'Search for mining', 'Clear filters'",
+            'DE': "Bsp: 'Zu Englisch wechseln', 'Suche nach Bergbau', 'Filter löschen'",
+            'ES': "Ej: 'Cambiar a inglés', 'Buscar minería', 'Limpiar filtros'",
+            'FR': "Ex: 'Passer en anglais', 'Chercher mine', 'Effacer les filtres'",
+            'RU': "Пример: 'Перейти на английский', 'Искать шахту', 'Очистить фильтры'",
+            'AR': "مثال: 'التبديل إلى الإنجليزية' ، 'البحث عن تعدين' ، 'مسح الفلاتر'",
+            'HI': "उदाहरण: 'अंग्रेजी पर जाएं', 'माइनिंग खोजें', 'फ़िल्टर साफ़ करें'"
+        };
         // Çok Dilli Niyet Sözlüğü (Intent Dictionary) - Tüm varyasyonlarla zenginleştirildi!
         const INTENT_DICT = {
             'TR': {
@@ -1664,6 +1675,67 @@
                 alert("Üzgünüm, tarayıcınız sesli asistanı desteklemiyor. (Chrome/Safari tavsiye edilir)"); 
                 return; 
             }
+            
+            const recognition = new SpeechRecognition();
+            recognition.lang = VOICE_LANG_MAP[currentRegion] || 'tr-TR';
+            
+            // GÜNCELLEME: Hemen kapanmaması için sürekli dinleme modunu açtık
+            recognition.continuous = true; 
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+
+            const fab = document.getElementById('micFab');
+            const title = document.getElementById('voiceTitle');
+            const inputEl = document.getElementById('voiceTextInput');
+            const actionsDiv = document.getElementById('voiceActions');
+            
+            let stopTimer; // 20 saniye sayacı için
+
+            recognition.onstart = function() {
+                fab.classList.add('listening');
+                title.innerText = "🎙️ Asistan Dinliyor...";
+                inputEl.value = "";
+                
+                // GÜNCELLEME: Seçili dile göre ipucu metnini placeholder'a yazdırıyoruz
+                const hintText = VOICE_HINTS[currentRegion] || VOICE_HINTS['EN'];
+                inputEl.placeholder = hintText;
+                
+                actionsDiv.innerHTML = '';
+                openModalSafe('voiceModal');
+
+                // GÜNCELLEME: 20 saniye boyunca ses gelmezse veya işlem bitmezse mikrofonu kapat
+                stopTimer = setTimeout(() => {
+                    recognition.stop();
+                    if(inputEl.value === "") {
+                        title.innerText = "💤 Dinleme sonlandırıldı.";
+                    }
+                }, 20000);
+            };
+
+            recognition.onresult = function(event) {
+                // Sürekli dinleme (continuous) açık olduğu için tüm sonuçları birleştirip alıyoruz
+                let finalTranscript = '';
+                for (let i = 0; i < event.results.length; i++) {
+                    finalTranscript += event.results[i][0].transcript + ' ';
+                }
+                
+                inputEl.value = finalTranscript.trim();
+                reparseVoiceCommand(); 
+            };
+
+            recognition.onerror = function(event) {
+                title.innerText = "❌ Hata Oluştu";
+                inputEl.placeholder = "Sizi duyamadım veya mikrofon izni verilmedi.";
+                clearTimeout(stopTimer);
+            };
+
+            recognition.onend = function() {
+                fab.classList.remove('listening');
+                clearTimeout(stopTimer); // Mikrofon kendi kapandığında da sayacı temizle
+            };
+
+            recognition.start();
+        }
             
             const recognition = new SpeechRecognition();
             recognition.lang = VOICE_LANG_MAP[currentRegion] || 'tr-TR';
