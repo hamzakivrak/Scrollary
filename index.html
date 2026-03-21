@@ -1384,7 +1384,13 @@
             tooltip.style.left = (rect.left + (rect.width/2)) + 'px';
 
             const translated = await getTranslation(text, targetLang);
-            tooltip.innerText = translated;
+            // Çeviri metnini ve mini dinleme butonunu HTML olarak ekliyoruz
+            tooltip.innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <span>${translated}</span>
+                    <button onclick="listenSingleWord('${encodeURIComponent(text)}')" style="background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; font-size: 1rem; transition: 0.2s;" onmouseover="this.style.background='var(--accent)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">🔊</button>
+                </div>
+            `;
 
             setTimeout(() => {
                 const tRect = tooltip.getBoundingClientRect();
@@ -1453,6 +1459,14 @@
                 btn.classList.remove('playing');
                 btn.innerText = '🔊';
             };
+            window.speechSynthesis.speak(utterance);
+        }
+        // Seçilen tek kelimeyi/cümleyi seslendirme fonksiyonu
+        function listenSingleWord(encodedText) {
+            window.speechSynthesis.cancel();
+            const text = decodeURIComponent(encodedText); // Metni güvenli hale getirmiştik, burada çözüyoruz
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = ttsLangMap[currentRegion] || 'en-US';
             window.speechSynthesis.speak(utterance);
         }
     </script>
