@@ -373,8 +373,7 @@
             </div>
             <div class="controls-content" id="controlsContent">
                 
-                <div style="display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px;">
-                    <button id="tabBtn_search" class="c-tab active" onclick="switchControlTab('search')" data-i18n="tabSearch">🔍 Ara</button>
+                <div style="display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; position: sticky; top: 0; z-index: 10; background: var(--surface); padding-top: 15px; margin-top: -15px;">                    <button id="tabBtn_search" class="c-tab active" onclick="switchControlTab('search')" data-i18n="tabSearch">🔍 Ara</button>
                     <button id="tabBtn_filter" class="c-tab" onclick="switchControlTab('filter')" data-i18n="tabFilter">📚 Filtrele</button>
                     <button id="tabBtn_add" class="c-tab" onclick="switchControlTab('add')" data-i18n="tabAddSource">➕ Kaynak Ekle</button>
                 </div>
@@ -1165,11 +1164,37 @@
             const oldIframe = document.getElementById('modalIframe'); const iframe = document.createElement('iframe'); iframe.id = 'modalIframe'; iframe.className = 'modal-iframe'; iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups'); oldIframe.parentNode.replaceChild(iframe, oldIframe); const banner = document.getElementById('iframeBanner'); banner.innerHTML = `<span style="animation: pulse 1.5s infinite;">⏳</span> ${t.loadingSite}`;
 
             let html = null;
-            const encodedUrl = encodeURIComponent(art.link);
+            let targetUrl = art.link;
 
-            // Çift Aşamalı Proxy Sistemi
+            // 1. ADIM: Google News Yönlendirmesini Çözme (Unwrap)
+            if (targetUrl.includes('news.google.com')) {
+                try {
+                    // Yönlendirme sayfasını proxy üzerinden alıyoruz
+                    const resolveRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`);
+                    const resolveData = await resolveRes.json();
+                    const tempHtml = resolveData.contents;
+                    
+                    // HTML içindeki gerçek habere giden linki (href) yakalama
+                    const aMatch = tempHtml.match(/<a[^>]+href=["'](https:\/\/[^"']+)["']/i);
+                    if (aMatch && aMatch[1] && !aMatch[1].includes('google.com')) {
+                        targetUrl = aMatch[1];
+                    } else {
+                        const metaMatch = tempHtml.match(/URL=['"]?(https:\/\/[^'"]+)['"]?/i);
+                        if (metaMatch && metaMatch[1]) targetUrl = metaMatch[1];
+                    }
+                    
+                    // Orijinal siteyi aç butonunu da gerçek linkle güncelleyelim
+                    document.getElementById('modalLinkExt').href = targetUrl;
+                } catch (err) {
+                    console.log("Google News çözümlenemedi:", err);
+                }
+            }
+
+            const encodedUrl = encodeURIComponent(targetUrl);
+
+            // Çift Aşamalı Proxy Sistemi (Artık gerçek 'targetUrl' kullanılıyor)
             const proxyGroup1 = [ `https://corsproxy.io/?${encodedUrl}`, `https://api.allorigins.win/raw?url=${encodedUrl}`, `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}` ];
-            const proxyGroup2 = [ `https://thingproxy.freeboard.io/fetch/${art.link}`, `https://cors.eu.org/${art.link}`, `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}` ];
+            const proxyGroup2 = [ `https://thingproxy.freeboard.io/fetch/${targetUrl}`, `https://cors.eu.org/${targetUrl}`, `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}` ];
 
             async function fireProxies(proxies, timeoutMs) {
                 const fetchPromises = proxies.map(proxy =>
@@ -1184,7 +1209,12 @@
             }
 
             try {
-                if(art.link.includes('news.google.com')) throw new Error("Redirect");
+                // 'news.google.com' ise hata fırlatan o eski satırı tamamen kaldırdık!
+                try { html = await fireProxies(proxyGroup1, 3000); } 
+                catch (e1) {
+                    try { html = await fireProxies(proxyGroup2, 4000); } 
+                    catch (e2) { html = null; }
+                }
 
                 try { html = await fireProxies(proxyGroup1, 3000); } 
                 catch (e1) {
@@ -1212,8 +1242,7 @@
                 } else { throw new Error("Okunabilir metin bulunamadı"); }
                 
                 html = html.replace(/<meta[^>]+http-equiv=['"]?refresh['"]?[^>]*>/gi, ''); html = html.replace(/window\.location\.replace/gi, 'console.log'); html = html.replace(/window\.location\.href\s*=/gi, 'console.log=');
-                const urlObj = new URL(art.link); const baseUrl = urlObj.protocol + "//" + urlObj.host + "/";
-                if (html.toLowerCase().includes('<head>')) { html = html.replace(/<head>/i, `<head><base href="${baseUrl}">`); } else { html = `<base href="${baseUrl}">` + html; }
+                const urlObj = new URL(targetUrl); const baseUrl = urlObj.protocol + "//" + urlObj.host + "/";                if (html.toLowerCase().includes('<head>')) { html = html.replace(/<head>/i, `<head><base href="${baseUrl}">`); } else { html = `<base href="${baseUrl}">` + html; }
                 const scriptFix = `<script> window.onload = function() { const links = document.querySelectorAll('a'); links.forEach(l => l.setAttribute('target', '_blank')); }; <\/script>`;
                 html = html.replace(/<\/body>/i, scriptFix + '</body>'); iframe.srcdoc = html; iframe.onload = () => { banner.innerHTML = `✅`; setTimeout(()=>{ banner.style.display='none'; }, 2000); };
             } catch (err) { 
