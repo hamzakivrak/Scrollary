@@ -1166,42 +1166,64 @@
             let html = null;
             let targetUrl = art.link;
 
-            // 1. ADIM: Google News Yönlendirmesini Çözme (Unwrap)
+            // 1. AŞAMA: Google News Yönlendirmesini Çözme
             if (targetUrl.includes('news.google.com')) {
                 try {
-                    // Yönlendirme sayfasını proxy üzerinden alıyoruz
-                    const resolveRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`);
-                    const resolveData = await resolveRes.json();
-                    const tempHtml = resolveData.contents;
-                    
-                    // HTML içindeki gerçek habere giden linki (href) yakalama
-                    const aMatch = tempHtml.match(/<a[^>]+href=["'](https:\/\/[^"']+)["']/i);
-                    if (aMatch && aMatch[1] && !aMatch[1].includes('google.com')) {
-                        targetUrl = aMatch[1];
-                    } else {
-                        const metaMatch = tempHtml.match(/URL=['"]?(https:\/\/[^'"]+)['"]?/i);
-                        if (metaMatch && metaMatch[1]) targetUrl = metaMatch[1];
-                    }
-                    
-                    // Orijinal siteyi aç butonunu da gerçek linkle güncelleyelim
-                    document.getElementById('modalLinkExt').href = targetUrl;
+                    const encodedGNews = encodeURIComponent(targetUrl);
+                    const unwrapProxies = [
+                        `https://api.allorigins.win/raw?url=${encodedGNews}`,
+                        `https://corsproxy.io/?${encodedGNews}`
+                    ];
+
+                    const unwrapPromises = unwrapProxies.map(proxy =>
+                        fetchWithTimeout(proxy, 3000).then(async res => {
+                            if (!res.ok) throw new Error("Unwrap proxy failed");
+                            const text = await res.text();
+                            
+                            const allLinks = [...text.matchAll(/href=["'](https?:\/\/[^"']+)["']/gi)];
+                            const realLinkMatch = allLinks.find(m => 
+                                !m[1].includes('google.com') && 
+                                !m[1].includes('gstatic.com') &&
+                                !m[1].includes('schema.org')
+                            );
+
+                            if (realLinkMatch && realLinkMatch[1]) return realLinkMatch[1];
+                            
+                            const jsMatch = text.match(/window\.location\.replace\(['"]([^'"]+)['"]\)/i);
+                            if (jsMatch && jsMatch[1]) return jsMatch[1];
+
+                            throw new Error("Sayfada yönlendirme linki bulunamadı");
+                        })
+                    );
+
+                    targetUrl = await Promise.any(unwrapPromises);
+                    document.getElementById('modalLinkExt').href = targetUrl; 
                 } catch (err) {
-                    console.log("Google News çözümlenemedi:", err);
+                    console.log("Google News redirect çözülemedi:", err);
                 }
             }
 
+            // 2. AŞAMA: Asıl İçeriği Çekme
             const encodedUrl = encodeURIComponent(targetUrl);
 
-            // Çift Aşamalı Proxy Sistemi (Artık gerçek 'targetUrl' kullanılıyor)
-            const proxyGroup1 = [ `https://corsproxy.io/?${encodedUrl}`, `https://api.allorigins.win/raw?url=${encodedUrl}`, `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}` ];
-            const proxyGroup2 = [ `https://thingproxy.freeboard.io/fetch/${targetUrl}`, `https://cors.eu.org/${targetUrl}`, `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}` ];
+            const proxyGroup1 = [ 
+                `https://corsproxy.io/?${encodedUrl}`, 
+                `https://api.allorigins.win/raw?url=${encodedUrl}`, 
+                `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}` 
+            ];
+            const proxyGroup2 = [ 
+                `https://cors.eu.org/${targetUrl}`, 
+                `https://thingproxy.freeboard.io/fetch/${targetUrl}` 
+            ];
 
             async function fireProxies(proxies, timeoutMs) {
                 const fetchPromises = proxies.map(proxy =>
                     fetchWithTimeout(proxy, timeoutMs).then(async res => {
                         if (!res.ok) throw new Error("Sunucu hatasi");
                         const text = await res.text();
-                        if (!text || text.includes('security service to protect itself') || text.length < 500) throw new Error("Engellendi");
+                        if (!text || text.includes('security service to protect itself') || text.length < 500) {
+                            throw new Error("Engellendi veya metin yetersiz");
+                        }
                         return text;
                     })
                 );
@@ -1209,16 +1231,9 @@
             }
 
             try {
-                // 'news.google.com' ise hata fırlatan o eski satırı tamamen kaldırdık!
-                try { html = await fireProxies(proxyGroup1, 3000); } 
+                try { html = await fireProxies(proxyGroup1, 4000); } 
                 catch (e1) {
-                    try { html = await fireProxies(proxyGroup2, 4000); } 
-                    catch (e2) { html = null; }
-                }
-
-                try { html = await fireProxies(proxyGroup1, 3000); } 
-                catch (e1) {
-                    try { html = await fireProxies(proxyGroup2, 4000); } 
+                    try { html = await fireProxies(proxyGroup2, 4500); } 
                     catch (e2) { html = null; }
                 }
 
