@@ -1166,29 +1166,45 @@
             let html = null;
             let targetUrl = art.link;
 
-            // 1. AŞAMA: Google News Yönlendirmesini Çözme
+            // 1. AŞAMA: Google News Yönlendirmesini Çözme (En Gelişmiş Avcı)
             if (targetUrl.includes('news.google.com')) {
                 try {
                     const encodedGNews = encodeURIComponent(targetUrl);
+                    // Yönlendirmeyi aşmak için farklı teknikler kullanan proxyler
                     const unwrapProxies = [
-                        `https://api.allorigins.win/raw?url=${encodedGNews}`,
-                        `https://corsproxy.io/?${encodedGNews}`
+                        `https://api.allorigins.win/get?url=${encodedGNews}`, // JSON döner, güvenlik duvarını kör eder
+                        `https://corsproxy.io/?${encodedGNews}`,
+                        `https://api.codetabs.com/v1/proxy?quest=${encodedGNews}`
                     ];
 
                     const unwrapPromises = unwrapProxies.map(proxy =>
-                        fetchWithTimeout(proxy, 3000).then(async res => {
+                        fetchWithTimeout(proxy, 3500).then(async res => {
                             if (!res.ok) throw new Error("Unwrap proxy failed");
-                            const text = await res.text();
+                            let text = await res.text();
                             
+                            // allorigins /get kullanıldıysa JSON'dan HTML'i dışarı çıkar
+                            if (proxy.includes('allorigins.win/get')) {
+                                try { text = JSON.parse(text).contents || text; } catch(e){}
+                            }
+                            
+                            // Taktik 1: <c-wiz> içindeki data-n-au (YENİ Google News Formatı!)
+                            const dataAuMatch = text.match(/data-n-au=["'](https?:\/\/[^"']+)["']/i);
+                            if (dataAuMatch && dataAuMatch[1]) return dataAuMatch[1];
+
+                            // Taktik 2: Meta Refresh URL'si
+                            const metaMatch = text.match(/content=["']0;W?URL=['"]?(https?:\/\/[^'"]+)['"]?["']/i) || text.match(/URL=['"]?(https?:\/\/[^'"]+)['"]?/i);
+                            if (metaMatch && metaMatch[1] && !metaMatch[1].includes('google.com')) return metaMatch[1];
+
+                            // Taktik 3: Sayfadaki ilk geçerli dış link
                             const allLinks = [...text.matchAll(/href=["'](https?:\/\/[^"']+)["']/gi)];
                             const realLinkMatch = allLinks.find(m => 
                                 !m[1].includes('google.com') && 
                                 !m[1].includes('gstatic.com') &&
                                 !m[1].includes('schema.org')
                             );
-
                             if (realLinkMatch && realLinkMatch[1]) return realLinkMatch[1];
                             
+                            // Taktik 4: Javascript Yönlendirmesi
                             const jsMatch = text.match(/window\.location\.replace\(['"]([^'"]+)['"]\)/i);
                             if (jsMatch && jsMatch[1]) return jsMatch[1];
 
@@ -1203,26 +1219,35 @@
                 }
             }
 
-            // 2. AŞAMA: Asıl İçeriği Çekme
+            // 2. AŞAMA: Asıl İçeriği Çekme (Cloudflare/Güvenlik Duvarı Atlatma Modeli)
             const encodedUrl = encodeURIComponent(targetUrl);
 
+            // allorigins.win/get formatı JSON döndürdüğü için çoğu sitenin güvenlik duvarı bunu "bot html çekiyor" diye yakalayamaz
             const proxyGroup1 = [ 
+                `https://api.allorigins.win/get?url=${encodedUrl}`,
                 `https://corsproxy.io/?${encodedUrl}`, 
-                `https://api.allorigins.win/raw?url=${encodedUrl}`, 
                 `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}` 
             ];
+            
             const proxyGroup2 = [ 
-                `https://cors.eu.org/${targetUrl}`, 
-                `https://thingproxy.freeboard.io/fetch/${targetUrl}` 
+                `https://api.allorigins.win/raw?url=${encodedUrl}`,
+                `https://thingproxy.freeboard.io/fetch/${targetUrl}`
             ];
 
             async function fireProxies(proxies, timeoutMs) {
                 const fetchPromises = proxies.map(proxy =>
                     fetchWithTimeout(proxy, timeoutMs).then(async res => {
                         if (!res.ok) throw new Error("Sunucu hatasi");
-                        const text = await res.text();
-                        if (!text || text.includes('security service to protect itself') || text.length < 500) {
-                            throw new Error("Engellendi veya metin yetersiz");
+                        let text = await res.text();
+                        
+                        // JSON yanıtını HTML'e dönüştür (allorigins /get proxy'si için)
+                        if (proxy.includes('allorigins.win/get')) {
+                            try { text = JSON.parse(text).contents || ""; } catch(e){}
+                        }
+
+                        // Çok güçlü güvenlik duvarı filtresi (Cloudflare, Just a moment, Sucuri, vb.)
+                        if (!text || text.includes('security service to protect itself') || text.includes('Cloudflare') || text.includes('Just a moment') || text.length < 500) {
+                            throw new Error("Güvenlik duvarı engelledi veya metin yetersiz");
                         }
                         return text;
                     })
@@ -1231,13 +1256,15 @@
             }
 
             try {
+                // İlk saldırı (Max 4 saniye)
                 try { html = await fireProxies(proxyGroup1, 4000); } 
                 catch (e1) {
+                    // İkinci dalga (Max 4.5 saniye)
                     try { html = await fireProxies(proxyGroup2, 4500); } 
                     catch (e2) { html = null; }
                 }
 
-                if (!html) throw new Error("Bütün proxy denemeleri başarısız oldu.");
+                if (!html) throw new Error("Bütün proxy denemeleri ve güvenlik duvarı atlatmaları başarısız oldu.");
 
                 const parser = new DOMParser(); const doc = parser.parseFromString(html, 'text/html'); const paragraphs = Array.from(doc.querySelectorAll('p, .content p, .news-text p, article p'));
                 const validText = paragraphs.map(p => p.textContent.trim()).filter(txt => txt.length > 70); const uniqueText = [...new Set(validText)];
