@@ -1344,12 +1344,18 @@
 
         // Tıklanan kelimenin altında tooltip açma (Seçimi JS ile ZORLAMAYIZ)
         function translateSingleWord(spanEl, event) {
-            // Kelimeye tek tıklandığında CSS ile kırmızı yapıyoruz ki yerel (native) okları engellemesin
             document.querySelectorAll('.t-word').forEach(el => el.classList.remove('highlighted'));
             spanEl.classList.add('highlighted');
             
+            const cleanText = spanEl.innerText.replace(/[.,!?;:"()]/g, '');
             const rect = spanEl.getBoundingClientRect();
-            showTooltip(spanEl.innerText.replace(/[.,!?;:"()]/g, ''), rect);
+            showTooltip(cleanText, rect);
+
+            // DÜZELTME: Kelimeye tıklandığı anda anında seslendirmeyi de başlat!
+            window.speechSynthesis.cancel(); 
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            utterance.lang = typeof ttsLangMap !== 'undefined' && ttsLangMap[currentRegion] ? ttsLangMap[currentRegion] : 'en-US';
+            window.speechSynthesis.speak(utterance);
         }
 
         let tooltipTimeout;
