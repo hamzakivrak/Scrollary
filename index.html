@@ -265,6 +265,18 @@
         .c-tab.active { color: var(--primary); border-bottom-color: var(--primary); background: rgba(225, 29, 72, 0.05); }
         .c-pane { display: none; animation: fadeIn 0.3s ease; }
         .c-pane.active { display: block; }
+        
+        /* --- YENİ EKLENEN YAPIŞKAN BUTON STİLLERİ --- */
+        .sticky-icon-btn { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.1rem; transition: 0.3s; z-index: 1000; padding: 0; flex-shrink: 0; }
+        .sticky-icon-btn:hover { background: var(--surface-light); transform: scale(1.1); }
+        .sticky-region-select { background: rgba(15, 23, 42, 0.8); color: white; border: 1px solid var(--accent); padding: 6px 10px; border-radius: 8px; font-weight: bold; outline: none; cursor: pointer; font-size: 0.85rem; max-width: 120px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; }
+        
+        @media (max-width: 600px) {
+            .sticky-region-select { max-width: 90px; font-size: 0.75rem; padding: 4px 6px; }
+            .sticky-icon-btn { width: 30px; height: 30px; font-size: 0.95rem; }
+            .controls-toggle { padding: 12px 15px; }
+            #menuTitle { font-size: 0.85rem; }
+        }
     </style>
 </head>
 <body>
@@ -279,28 +291,31 @@
     <div class="container">
         
        <header id="mainHeader">
-            <button onclick="openModalSafe('settingsModal')" class="settings-btn" title="Ayarlar">⚙️</button>
-            <button onclick="openModalSafe('guideModal')" class="help-btn" title="Kullanım Rehberi">❓</button>
-            
             <h1><img src="icon.png" alt="S" style="height: 2em; vertical-align: baseline; border-radius: 10%; margin-right: -2px;">crollary <span>.</span></h1>
             <p id="headerDesc" data-i18n="subtitle">Sourced from You, Your News Source</p>
         </header>
 
-        <div class="global-region-wrapper">
-            <span id="regionLabel" data-i18n="regionLabel">🌍 Küresel Haber Bölgesi:</span>
-            <select id="regionSelect" onchange="switchGlobalRegion(this.value)">
-                <option value="EN">🌐 English (Global/US)</option><option value="TR">🇹🇷 Türkçe (Türkiye)</option>
-                <option value="ES">🇪🇸 Español (Spain/LatAm)</option><option value="DE">🇩🇪 Deutsch (Germany)</option>
-                <option value="FR">🇫🇷 Français (France/Africa)</option><option value="RU">🇷🇺 Русский (Russia/CIS)</option>
-                <option value="AR">🇦🇪 العربية (MENA)</option><option value="HI">🇮🇳 हिन्दी (India)</option>
-            </select>
-        </div>
-
        
         <div class="controls-wrapper collapsed" id="controlsWrapper">
-            <div class="controls-toggle" onclick="toggleControls(event)">
-                <span><span style="margin-right:8px;">🔎</span> <span id="menuTitle" data-i18n="menuTitle">Haber Ara, Filtrele ve Kaynak Ekle</span></span>
-                <span class="toggle-icon" id="toggleIcon">▼</span>
+            <div class="controls-toggle" style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center; width: 100%;" onclick="toggleControls(event)">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <button onclick="openModalSafe('settingsModal'); event.stopPropagation();" class="sticky-icon-btn" title="Ayarlar">⚙️</button>
+                    <span style="cursor:pointer; display: flex; align-items: center;"><span style="margin-right:8px;">🔎</span> <span id="menuTitle" data-i18n="menuTitle">Haber Ara...</span></span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <select id="regionSelect" class="sticky-region-select" onchange="switchGlobalRegion(this.value); event.stopPropagation();" onclick="event.stopPropagation();">
+                        <option value="EN">🌐 English (Global/US)</option>
+                        <option value="TR">🇹🇷 Türkçe (Türkiye)</option>
+                        <option value="ES">🇪🇸 Español (Spain/LatAm)</option>
+                        <option value="DE">🇩🇪 Deutsch (Germany)</option>
+                        <option value="FR">🇫🇷 Français (France/Africa)</option>
+                        <option value="RU">🇷🇺 Русский (Russia/CIS)</option>
+                        <option value="AR">🇦🇪 العربية (MENA)</option>
+                        <option value="HI">🇮🇳 हिन्दी (India)</option>
+                    </select>
+                    <button onclick="openModalSafe('guideModal'); event.stopPropagation();" class="sticky-icon-btn" title="Kullanım Rehberi">❓</button>
+                    <span class="toggle-icon" id="toggleIcon">▼</span>
+                </div>
             </div>
             <div class="controls-content" id="controlsContent">
                 
@@ -1156,6 +1171,45 @@ try {
             document.getElementById('tabBtn_' + tabId).classList.add('active');
             document.getElementById('pane_' + tabId).classList.add('active');
         }
+        
+        // --- YENİ EKLENEN KLAVYE KONTROLLERİ (SCROLL & ZOOM) ---
+        const layoutOrder = ['list', 'small', 'medium', 'large'];
+        document.addEventListener('keydown', function(e) {
+            // Input veya text alanlarındayken tuşları engelleme
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+            // Zoom In / Zoom Out (Ctrl + / Ctrl - veya doğrudan + / -)
+            if ((e.ctrlKey && (e.key === '+' || e.key === '-' || e.key === '=')) || (!e.ctrlKey && (e.key === '+' || e.key === '-'))) {
+                e.preventDefault(); // Tarayıcının varsayılan yakınlaştırmasını durdurur
+                let direction = (e.key === '+' || e.key === '=') ? 1 : -1;
+                let currentIndex = layoutOrder.indexOf(currentLayout);
+                if (currentIndex === -1) currentIndex = 2; // Varsayılan olarak medium'dan başlasın
+
+                let newIndex = currentIndex + direction;
+                if (newIndex < 0) newIndex = 0;
+                if (newIndex >= layoutOrder.length) newIndex = layoutOrder.length - 1;
+
+                if (newIndex !== currentIndex) {
+                    setGridSize(layoutOrder[newIndex], null);
+                    // Kullanıcıya üstten şık bir uyarı ver
+                    const toast = document.getElementById('toastNotification');
+                    document.getElementById('toastText').innerText = "🔍 Görünüm: " + TRANSLATIONS[currentRegion].layouts[layoutOrder[newIndex]];
+                    toast.classList.add('show');
+                    setTimeout(() => { toast.classList.remove('show'); }, 1500);
+                }
+            }
+
+            // Yukarı / Aşağı Ok Tuşları ile Yumuşak Kaydırma (Smooth Scroll)
+            if (!e.ctrlKey && e.key === 'ArrowDown') {
+                e.preventDefault();
+                window.scrollBy({ top: 300, left: 0, behavior: 'smooth' });
+            }
+            if (!e.ctrlKey && e.key === 'ArrowUp') {
+                e.preventDefault();
+                window.scrollBy({ top: -300, left: 0, behavior: 'smooth' });
+            }
+        }, { passive: false });
+
     </script>
 </body>
 </html>
