@@ -1311,6 +1311,7 @@
                         </div>
                     </div>`;
             }
+        }  
 
         let tapCount = 0; let tapTimeout; document.getElementById('modalBodyArea').addEventListener('click', (e) => { if(e.target.tagName === 'A' || e.target.tagName === 'BUTTON') return; tapCount++; clearTimeout(tapTimeout); if(tapCount >= 3) { closeModalSafe('newsModal'); tapCount = 0; } else { tapTimeout = setTimeout(() => { tapCount = 0; }, 600); } });
 
