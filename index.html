@@ -116,7 +116,7 @@
         .guide-content ul li { font-size: 0.95rem; color: var(--text-main); margin-bottom: 12px; display: flex; align-items: flex-start; gap: 10px; line-height: 1.4; font-weight: 500; }
         .guide-content ul li:last-child { margin-bottom: 0; }
 
-        /* GÜNCELLEME: İnce Bildirim Üstteyken Menünün Aşağı Kayması İçin Eklenen Düzenleme */
+        /* GÜNCELLEME: Menü Wrapper ve Üst Çubuk İletişimi */
         .controls-wrapper { margin-bottom: 25px; box-shadow: var(--shadow-card); position: sticky; top: 10px; z-index: 100; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1), top 0.4s ease; }
         body:has(.toast-notification.show) .controls-wrapper { top: 50px !important; }
         
@@ -128,6 +128,14 @@
         .controls-wrapper.collapsed .controls-toggle { background: rgba(225, 29, 72, 0.95); color: white; padding: 12px 25px; border-radius: var(--radius-lg); box-shadow: 0 4px 15px rgba(225, 29, 72, 0.3); }
         .controls-wrapper.collapsed .toggle-icon { background: rgba(0,0,0,0.2); }
         .controls-wrapper.collapsed .controls-content { display: none; }
+
+        /* GÜNCELLEME: YAPIŞKAN SEKME (STICKY TABS) STİLLERİ */
+        .sticky-tabs { display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; position: sticky; top: 0; z-index: 20; padding: 15px 0 10px 0; margin-top: -15px; background: var(--surface); transition: background 0.3s; }
+        body[data-theme="glass"] .sticky-tabs { background: rgba(30, 41, 59, 0.95); backdrop-filter: blur(10px); }
+        body[data-theme="animated"] .sticky-tabs { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); }
+        body[data-theme="hologram"] .sticky-tabs { background: rgba(15, 12, 41, 0.95); backdrop-filter: blur(10px); }
+        body[data-theme="metallic"] .sticky-tabs { background: #222; }
+        body[data-theme="cyber"] .sticky-tabs { background: rgba(10, 10, 15, 0.95); }
 
         .search-box { margin: 10px 0 15px; position: relative; display: flex; gap: 10px; }
         .search-box input { flex: 1; padding: 15px 20px 15px 45px; border-radius: var(--radius-md); border: 1px solid var(--surface-light); background: rgba(15, 23, 42, 0.6); color: white; font-size: 1.05rem; outline: none; transition: all 0.3s; }
@@ -146,7 +154,6 @@
         .filter-section-title:hover { color: white; }
         .select-all-btn { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.85rem; font-weight: 600; }
 
-        /* GÜNCELLEME: Mobilde Filtre Bölümü Artık Taşmıyor, İçi Kaydırılabilir */
         .chip-container { display: none; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; padding-right: 5px; max-height: 250px; overflow-y: auto; align-items: flex-start; align-content: flex-start; -webkit-overflow-scrolling: touch; }
         .chip-container.show { display: flex; animation: fadeIn 0.3s ease; }
         .chip { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 16px; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--surface-light); border-radius: 30px; font-size: 0.9rem; font-weight: 500; color: var(--text-muted); cursor: pointer; transition: all 0.2s ease; user-select: none; }
@@ -263,7 +270,6 @@
         .modal-iframe { width: 100%; flex-grow: 1; border: none; background: #fff; }
         .status-msg { text-align: center; padding: 50px 20px; color: var(--text-muted); grid-column: 1 / -1; font-size: 1.1rem; font-weight: 500; }
         
-        /* GÜNCELLEME: Toast Tasarımı, İnce, Düz, Yukarıda ve Çubuğu Engellemez */
         .toast-notification { position: fixed; top: 0; left: 0; width: 100%; transform: translateY(-100%); background: var(--primary); color: white; padding: 10px 20px; font-weight: 700; font-size: 0.95rem; box-shadow: 0 4px 15px rgba(225, 29, 72, 0.5); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 4000; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; border-radius: 0; }
         .toast-notification.show { transform: translateY(0); }
         
@@ -379,7 +385,7 @@
             </div>
             <div class="controls-content" id="controlsContent">
                 
-                <div style="display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px;">
+                <div class="sticky-tabs">
                     <button id="tabBtn_search" class="c-tab active" onclick="switchControlTab('search')" data-i18n="tabSearch">🔍 Ara</button>
                     <button id="tabBtn_filter" class="c-tab" onclick="switchControlTab('filter')" data-i18n="tabFilter">📚 Filtrele</button>
                     <button id="tabBtn_add" class="c-tab" onclick="switchControlTab('add')" data-i18n="tabAddSource">➕ Kaynak Ekle</button>
@@ -527,7 +533,7 @@
                     <summary>Hakkında</summary>
                     <div class="setting-detail" style="color: var(--text-muted); font-size: 0.9rem;">
                         <p style="margin:0;"><strong>Scrollary News Radar</strong></p>
-                        <p style="margin:0;">Sürüm: 2.6.0 AI Voice Assistant</p>
+                        <p style="margin:0;">Sürüm: 2.7.0 AI Voice Assistant</p>
                         <p style="margin:0;">Tüm hakları saklıdır © 2026</p>
                     </div>
                 </details>
@@ -1679,9 +1685,9 @@
             };
 
             recognition.onresult = function(event) {
-                const transcript = event.results[0][0].transcript.toLowerCase();
+                const transcript = event.results[0][0].transcript;
                 inputEl.value = transcript;
-                reparseVoiceCommand(); // Analiz fonksiyonuna gönder
+                reparseVoiceCommand(); 
             };
 
             recognition.onerror = function(event) {
@@ -1696,9 +1702,9 @@
             recognition.start();
         }
 
-        // GÜNCELLEME: Kullanıcı metni kendisi de değiştirip tetikleyebilir!
+        // Kullanıcı metni kendisi de değiştirip tetikleyebilir!
         function reparseVoiceCommand() {
-            const text = document.getElementById('voiceTextInput').value.trim().toLowerCase();
+            const text = document.getElementById('voiceTextInput').value.trim();
             if(!text) return;
 
             const title = document.getElementById('voiceTitle');
@@ -1720,8 +1726,10 @@
             }
         }
 
-        // GÜNCELLEME: Sadece seçili dilde değil, her dilde eşleşme arar (Global Intent)
-        function parseVoiceCommand(text) {
+        // Sadece seçili dilde değil, her dilde eşleşme arar (Global Intent)
+        function parseVoiceCommand(rawText) {
+            const text = rawText.toLowerCase();
+            const normalizedText = rawText.toLocaleLowerCase(currentRegion === 'TR' ? 'tr-TR' : 'en-US');
             const actions = [];
             let queryMatched = false;
 
@@ -1792,7 +1800,7 @@
                     query = query.replace(/içinde|geçen/gi, '').replace(/\s+/g, ' ').trim();
                     
                     if (query.length > 2) {
-                        queryMatched = true; // Diğer dillerde tekrar aynı aramayı eşleştirmemesi için
+                        queryMatched = true; 
                         actions.push({
                             label: `🔍 "${query}" Kelimesini Ara`,
                             action: () => {
@@ -1806,7 +1814,49 @@
                 }
             }
 
-            // GÜNCELLEME: Aynı butondan birden fazla oluşmaması için tekrar eden eylemleri filtrele
+            // 7. Kaynak Filtreleme (Akıllı Eşleşme ve "Cumhuriyet Gazetesi" algısı)
+            const matchedSources = [];
+            const sourceKeywords = ['filtrele', 'sadece', 'göster', 'kaynak', 'gazete', 'filter', 'source', 'only'];
+            const isFilterIntent = sourceKeywords.some(kw => normalizedText.includes(kw));
+
+            RSS_FEEDS.forEach(feed => {
+                let sourceName = feed.name.toLocaleLowerCase(currentRegion === 'TR' ? 'tr-TR' : 'en-US');
+                
+                if (normalizedText.includes(sourceName)) {
+                    if(!matchedSources.includes(feed.name)) matchedSources.push(feed.name);
+                } else {
+                    // Örn: "BBC Türkçe" kaynağı için sadece "BBC" dendiyse
+                    const firstWord = sourceName.split(' ')[0];
+                    if (firstWord.length > 2 && normalizedText.includes(firstWord)) {
+                        if(!matchedSources.includes(feed.name)) matchedSources.push(feed.name);
+                    }
+                }
+            });
+
+            if (matchedSources.length > 0) {
+                actions.push({
+                    label: `📰 Filtrele: ${matchedSources.join(', ')}`,
+                    action: () => {
+                        activeSources = [...matchedSources];
+                        saveActiveSources();
+                        renderChips();
+                        switchControlTab('filter');
+                        handleSearch();
+                        window.scrollTo(0,0);
+                    }
+                });
+            } else if (isFilterIntent && matchedSources.length === 0) {
+                // "Gazeteleri filtrele" dedi ama anlamadık, o zaman seçenek sunalım
+                actions.push({
+                    label: `⚙️ Kaynakları Filtrele (Menüyü Aç)`,
+                    action: () => {
+                        switchControlTab('filter');
+                        window.scrollTo(0,0);
+                    }
+                });
+            }
+
+            // Aynı butondan birden fazla oluşmaması için tekrar eden eylemleri filtrele
             const uniqueActions = [];
             const seenLabels = new Set();
             for (const act of actions) {
@@ -1816,12 +1866,12 @@
                 }
             }
 
-            // GÜNCELLEME: Yarım yamalak anladıysa veya spesifik komut bulamadıysa Fallback (Kurtarıcı) öneriler sun
+            // Yarım yamalak anladıysa veya spesifik komut bulamadıysa Fallback (Kurtarıcı) öneriler sun
             if (uniqueActions.length === 0 && text.length > 2) {
                 uniqueActions.push({
-                    label: `🔍 Sadece "${text}" Olarak Ara`,
+                    label: `🔍 Sadece "${rawText}" Olarak Ara`,
                     action: () => {
-                        document.getElementById('searchInput').value = text;
+                        document.getElementById('searchInput').value = rawText;
                         switchControlTab('search');
                         handleSearch();
                         window.scrollTo(0,0);
