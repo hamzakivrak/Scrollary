@@ -266,16 +266,24 @@
         .c-pane { display: none; animation: fadeIn 0.3s ease; }
         .c-pane.active { display: block; }
         
-        /* --- YENİ EKLENEN YAPIŞKAN BUTON STİLLERİ --- */
+       /* --- YENİ EKLENEN YAPIŞKAN BUTON VE LOGO STİLLERİ --- */
         .sticky-icon-btn { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.1rem; transition: 0.3s; z-index: 1000; padding: 0; flex-shrink: 0; }
         .sticky-icon-btn:hover { background: var(--surface-light); transform: scale(1.1); }
-        .sticky-region-select { background: rgba(15, 23, 42, 0.8); color: white; border: 1px solid var(--accent); padding: 6px 10px; border-radius: 8px; font-weight: bold; outline: none; cursor: pointer; font-size: 0.85rem; max-width: 120px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; }
+        .sticky-region-select { background: rgba(15, 23, 42, 0.8); color: white; border: 1px solid var(--accent); padding: 6px 10px; border-radius: 8px; font-weight: bold; outline: none; cursor: pointer; font-size: 0.85rem; max-width: 120px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; flex-shrink: 0;}
         
+        .sticky-logo { width: 0; opacity: 0; border-radius: 20%; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); object-fit: cover; margin-right: 0; pointer-events: none; }
+        .controls-wrapper.is-scrolled .sticky-logo { width: 26px; opacity: 1; margin-right: 5px; }
+        
+        .controls-toggle { flex-wrap: nowrap !important; gap: 8px !important; padding: 12px 15px; }
+        .menu-left-part { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; overflow: hidden; }
+        #menuTitle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        .menu-right-part { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
         @media (max-width: 600px) {
-            .sticky-region-select { max-width: 90px; font-size: 0.75rem; padding: 4px 6px; }
-            .sticky-icon-btn { width: 30px; height: 30px; font-size: 0.95rem; }
-            .controls-toggle { padding: 12px 15px; }
-            #menuTitle { font-size: 0.85rem; }
+            .controls-toggle { padding: 10px; gap: 5px !important; }
+            .sticky-region-select { max-width: 80px; font-size: 0.75rem; padding: 4px; }
+            .sticky-icon-btn { width: 32px; height: 32px; font-size: 0.95rem; }
+            .controls-wrapper.is-scrolled .sticky-logo { width: 22px; }
         }
     </style>
 </head>
@@ -297,12 +305,13 @@
 
        
         <div class="controls-wrapper collapsed" id="controlsWrapper">
-            <div class="controls-toggle" style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center; width: 100%;" onclick="toggleControls(event)">
-                <div style="display: flex; align-items: center; gap: 12px;">
+            <div class="controls-toggle" onclick="toggleControls(event)">
+                <div class="menu-left-part">
                     <button onclick="openModalSafe('settingsModal'); event.stopPropagation();" class="sticky-icon-btn" title="Ayarlar">⚙️</button>
-                    <span style="cursor:pointer; display: flex; align-items: center;"><span style="margin-right:8px;">🔎</span> <span id="menuTitle" data-i18n="menuTitle">Haber Ara...</span></span>
+                    <img src="icon.png" class="sticky-logo" alt="S">
+                    <span style="cursor:pointer; display: flex; align-items: center; overflow: hidden; min-width:0;"><span style="margin-right:5px; flex-shrink:0;">🔎</span> <span id="menuTitle" data-i18n="menuTitle">Haber Ara...</span></span>
                 </div>
-                <div style="display: flex; align-items: center; gap: 8px;">
+                <div class="menu-right-part">
                     <select id="regionSelect" class="sticky-region-select" onchange="switchGlobalRegion(this.value); event.stopPropagation();" onclick="event.stopPropagation();">
                         <option value="EN">🌐 English (Global/US)</option>
                         <option value="TR">🇹🇷 Türkçe (Türkiye)</option>
@@ -1153,8 +1162,14 @@ try {
             if (swipingCard) { const wrapper = swipingCard.closest('.swipe-wrapper'); const link = wrapper.dataset.link; swipingCard.classList.remove('swiping'); if(swipeCurrentX > 100) { swipingCard.style.transform = `translateX(100%)`; setTimeout(() => { archiveArticleByLink(link); wrapper.style.display = 'none'; }, 300); } else if(swipeCurrentX < -100) { swipingCard.style.transform = `translateX(-100%)`; setTimeout(() => { markAsRead(link, true); wrapper.style.display = 'none'; }, 300); } else { swipingCard.style.transform = `translateX(0px)`; } swipingCard = null; }
         }
         document.addEventListener('touchstart', e => handleDragStart(e.touches[0].clientX, e.touches[0].clientY, e.target), {passive: true}); document.addEventListener('touchmove', e => handleDragMove(e.touches[0].clientX, e.touches[0].clientY), {passive: true}); document.addEventListener('touchend', e => handleDragEnd()); document.addEventListener('mousedown', e => { const card = e.target.closest('.news-card'); if(card) { this.isDragging = true; handleDragStart(e.clientX, e.clientY, e.target); } }); document.addEventListener('mousemove', e => { if (!this.isDragging) return; handleDragMove(e.clientX, e.clientY); }); document.addEventListener('mouseup', e => { if (!this.isDragging) return; this.isDragging = false; handleDragEnd(); }); function resetPullToRefresh() { ptrEl.style.transform = `translateX(-50%) translateY(0)`; ptrEl.style.opacity = 0; touchStartY = 0; pullDistance = 0; setTimeout(() => { ptrIcon.innerText = "⬇️"; ptrText.innerText = TRANSLATIONS[currentRegion].pullToRefresh; }, 300); }
-        window.addEventListener('scroll', () => { if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 400) { if (displayedCount < filteredArticles.length) { const spinner = document.getElementById('scrollSpinner'); spinner.style.display = 'block'; setTimeout(() => { renderNextBatch(); spinner.style.display = 'none'; }, 100); } else if (filteredArticles.length > 0 && !isFetchingRefresh) { fetchAllRSS(true); } } });
-        
+        window.addEventListener('scroll', () => { 
+            // 1. Kısım: Aşağı inildiğini anla ve logoyu göster
+            const cWrap = document.getElementById('controlsWrapper');
+            if (window.scrollY > 60) { cWrap.classList.add('is-scrolled'); } else { cWrap.classList.remove('is-scrolled'); }
+            
+            // 2. Kısım: Sayfa sonuna gelindiğinde yeni haberleri yükle
+            if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 400) { if (displayedCount < filteredArticles.length) { const spinner = document.getElementById('scrollSpinner'); spinner.style.display = 'block'; setTimeout(() => { renderNextBatch(); spinner.style.display = 'none'; }, 100); } else if (filteredArticles.length > 0 && !isFetchingRefresh) { fetchAllRSS(true); } } 
+        });        
         function copyPapara() {
             const paparaInput = document.getElementById("paparaInput");
             const numberOnly = paparaInput.value.replace("Papara No: ", "");
