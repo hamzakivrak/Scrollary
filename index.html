@@ -116,7 +116,10 @@
         .guide-content ul li { font-size: 0.95rem; color: var(--text-main); margin-bottom: 12px; display: flex; align-items: flex-start; gap: 10px; line-height: 1.4; font-weight: 500; }
         .guide-content ul li:last-child { margin-bottom: 0; }
 
-        .controls-wrapper { margin-bottom: 25px; box-shadow: var(--shadow-card); position: sticky; top: 10px; z-index: 100; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        /* GÜNCELLEME: İnce Bildirim Üstteyken Menünün Aşağı Kayması İçin Eklenen Düzenleme */
+        .controls-wrapper { margin-bottom: 25px; box-shadow: var(--shadow-card); position: sticky; top: 10px; z-index: 100; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1), top 0.4s ease; }
+        body:has(.toast-notification.show) .controls-wrapper { top: 50px !important; }
+        
         .controls-toggle { display: flex; justify-content: space-between; align-items: center; padding: 15px 25px; font-size: 1rem; font-weight: 600; color: var(--text-main); cursor: pointer; user-select: none; transition: all 0.3s; }
         .controls-toggle:hover { color: var(--primary); }
         .toggle-icon { background: rgba(255,255,255,0.1); padding: 5px 10px; border-radius: 8px; font-size: 0.8rem; transition: 0.3s; }
@@ -143,7 +146,8 @@
         .filter-section-title:hover { color: white; }
         .select-all-btn { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.85rem; font-weight: 600; }
 
-        .chip-container { display: none; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; padding-right: 5px; }
+        /* GÜNCELLEME: Mobilde Filtre Bölümü Artık Taşmıyor, İçi Kaydırılabilir */
+        .chip-container { display: none; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; padding-right: 5px; max-height: 250px; overflow-y: auto; align-items: flex-start; align-content: flex-start; -webkit-overflow-scrolling: touch; }
         .chip-container.show { display: flex; animation: fadeIn 0.3s ease; }
         .chip { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 16px; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--surface-light); border-radius: 30px; font-size: 0.9rem; font-weight: 500; color: var(--text-muted); cursor: pointer; transition: all 0.2s ease; user-select: none; }
         .chip input { display: none; }
@@ -259,8 +263,9 @@
         .modal-iframe { width: 100%; flex-grow: 1; border: none; background: #fff; }
         .status-msg { text-align: center; padding: 50px 20px; color: var(--text-muted); grid-column: 1 / -1; font-size: 1.1rem; font-weight: 500; }
         
-        .toast-notification { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-150px); background: var(--primary); color: white; padding: 12px 25px; border-radius: 30px; font-weight: 700; font-size: 1rem; box-shadow: 0 10px 25px rgba(225, 29, 72, 0.5); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 1500; cursor: pointer; display: flex; align-items: center; gap: 10px; }
-        .toast-notification.show { transform: translateX(-50%) translateY(0); }
+        /* GÜNCELLEME: Toast Tasarımı, İnce, Düz, Yukarıda ve Çubuğu Engellemez */
+        .toast-notification { position: fixed; top: 0; left: 0; width: 100%; transform: translateY(-100%); background: var(--primary); color: white; padding: 10px 20px; font-weight: 700; font-size: 0.95rem; box-shadow: 0 4px 15px rgba(225, 29, 72, 0.5); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 4000; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; border-radius: 0; }
+        .toast-notification.show { transform: translateY(0); }
         
         .view-controls { display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; }
         .view-btn { padding: 6px 12px; background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); border-radius: 8px; font-size: 0.85rem; cursor: pointer; transition: 0.2s; font-weight: 600; }
@@ -325,7 +330,6 @@
         input, textarea, select { pointer-events: auto !important; user-select: auto !important; -webkit-user-select: auto !important; cursor: text !important; }
         #readerView, #readerView * { user-select: text !important; -webkit-user-select: text !important; }
 
-        /* --- YENİ EKLENEN: ASİSTAN FAB (MİKROFON) VE ANİMASYON --- */
         .mic-fab { position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; background: var(--primary); border-radius: 50%; box-shadow: 0 4px 15px rgba(225,29,72,0.4); display: flex; align-items: center; justify-content: center; font-size: 1.8rem; cursor: pointer; z-index: 2000; border: none; transition: 0.3s; color: white; }
         .mic-fab:hover { transform: scale(1.1); background: var(--primary-hover); }
         .mic-fab.listening { animation: pulseMic 1.5s infinite; background: var(--danger); }
@@ -347,11 +351,10 @@
     <div class="container">
         
        <header id="mainHeader">
-<h1 class="hologram-header"><img src="icon.png" alt="S" style="height: 2em; vertical-align: baseline; border-radius: 10%; margin-right: -2px;">crollary <span>.</span></h1>            
+           <h1 class="hologram-header"><img src="icon.png" alt="S" style="height: 2em; vertical-align: baseline; border-radius: 10%; margin-right: -2px;">crollary <span>.</span></h1>            
            <p id="headerDesc" data-i18n="subtitle">Sourced from You, Your News Source</p>
         </header>
 
-       
         <div class="controls-wrapper collapsed" id="controlsWrapper">
             <div class="controls-toggle" onclick="toggleControls(event)">
                 <div class="menu-left-part">
@@ -425,10 +428,15 @@
     <button class="mic-fab" id="micFab" onclick="startVoiceAssistant()">🎙️</button>
     
     <div id="voiceModal" class="modal" style="z-index: 2600;">
-        <div class="modal-content" style="max-width: 400px; height: auto; text-align: center; padding: 20px; border-radius: 20px;">
+        <div class="modal-content" style="max-width: 450px; height: auto; text-align: center; padding: 20px; border-radius: 20px;">
             <h3 id="voiceTitle" style="color: white; margin-top: 0;">🎙️ Asistan Dinliyor...</h3>
-            <p id="voiceText" style="margin: 15px 0; font-size: 1.1rem; color: var(--accent); font-style: italic;">Lütfen konuşun...</p>
-            <div id="voiceActions" style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+            
+            <div style="display:flex; gap: 8px; margin: 15px 0;">
+                <input type="text" id="voiceTextInput" style="flex:1; padding: 12px; border-radius: 8px; border: 1px solid var(--accent); background: #0f172a; color: white; font-size: 1rem; outline: none;" placeholder="Söyledikleriniz burada görünecek...">
+                <button onclick="reparseVoiceCommand()" style="background: var(--accent); color: white; border: none; border-radius: 8px; padding: 0 15px; font-weight: bold; cursor: pointer;">🔄 Yorumla</button>
+            </div>
+
+            <div id="voiceActions" style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px; max-height: 250px; overflow-y: auto;">
                 </div>
             <button onclick="closeModalSafe('voiceModal')" style="background: rgba(239, 68, 68, 0.2); color: var(--danger); border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 15px;">İptal / Kapat</button>
         </div>
@@ -519,7 +527,7 @@
                     <summary>Hakkında</summary>
                     <div class="setting-detail" style="color: var(--text-muted); font-size: 0.9rem;">
                         <p style="margin:0;"><strong>Scrollary News Radar</strong></p>
-                        <p style="margin:0;">Sürüm: 2.5.0 Voice AI</p>
+                        <p style="margin:0;">Sürüm: 2.6.0 AI Voice Assistant</p>
                         <p style="margin:0;">Tüm hakları saklıdır © 2026</p>
                     </div>
                 </details>
@@ -772,7 +780,7 @@
         function changeTheme(themeName, btnElement) { document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active')); if(btnElement) btnElement.classList.add('active'); else { Array.from(document.querySelectorAll('.theme-btn')).find(b => b.getAttribute('onclick').includes(themeName))?.classList.add('active'); } document.body.setAttribute('data-theme', themeName); currentTheme = themeName; localStorage.setItem('appTheme', themeName); syncToCloud(); }
         function toggleReadVisibility(show) { showReadArticles = show; document.getElementById('showReadMain').checked = show; handleSearch(); }
         function markAsRead(link, fromSwipe = false) { if (!readArticles.includes(link)) { readArticles.push(link); localStorage.setItem('readArticlesList', JSON.stringify(readArticles)); syncToCloud(); if (!fromSwipe && !showReadArticles) handleSearch(true); else if (!fromSwipe) handleSearch(true); } }
-        function archiveArticleByLink(link) { const art = allArticles.find(a => a.link === link) || archivedArticles.find(a => a.link === link); if(!art) return; if(!archivedArticles.find(a => a.link === link)) { archivedArticles.push(art); localStorage.setItem('archivedArticlesList', JSON.stringify(archivedArticles)); syncToCloud(); } document.getElementById('toastText').innerText = TRANSLATIONS[currentRegion].swipeArchived; document.getElementById('toastNotification').classList.add('show'); setTimeout(() => { document.getElementById('toastNotification').classList.remove('show'); }, 3000); }
+        function archiveArticleByLink(link) { const art = allArticles.find(a => a.link === link) || archivedArticles.find(a => a.link === link); if(!art) return; if(!archivedArticles.find(a => a.link === link)) { archivedArticles.push(art); localStorage.setItem('archivedArticlesList', JSON.stringify(archivedArticles)); syncToCloud(); } showToastGlobal(TRANSLATIONS[currentRegion].swipeArchived); }
         function setGridSize(size, btnElement, skipSave = false) { document.querySelectorAll('.view-btn:not(.theme-btn)').forEach(b => b.classList.remove('active')); if(btnElement) btnElement.classList.add('active'); else { Array.from(document.querySelectorAll('.view-btn:not(.theme-btn)')).find(b => b.getAttribute('onclick').includes(size))?.classList.add('active'); } const grid = document.getElementById('newsGrid'); grid.className = 'news-grid grid-' + size; if (size === 'shorts') document.body.classList.add('shorts-mode'); else document.body.classList.remove('shorts-mode'); if(!skipSave) { currentLayout = size; localStorage.setItem('appLayout', size); } }
         
         function filterCategory(catKey, btnElement) { isArchiveView = (catKey === 'Arşiv' || catKey === 'Archive'); document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active')); if(btnElement) btnElement.classList.add('active'); currentCategory = catKey; handleSearch(); }
@@ -1054,14 +1062,9 @@
             }
 
             if (newCount > 0 && window.scrollY >= 100) { 
-                const toast = document.getElementById('toastNotification');
-                document.getElementById('toastText').innerText = `⬆️ ${newCount} Yeni Haber Düştü!`;
-                toast.classList.add('show'); 
+                showToastGlobal(`⬆️ ${newCount} Yeni Haber Düştü!`);
             } else if (isSilent && newCount === 0) { 
-                const toast = document.getElementById('toastNotification');
-                document.getElementById('toastText').innerText = `✔️ En günceldesiniz`;
-                toast.classList.add('show'); 
-                setTimeout(() => { toast.classList.remove('show'); }, 3000); 
+                showToastGlobal(`✔️ En günceldesiniz`, 3000);
             }
             
             if (isSilent) { resetPullToRefresh(); } 
@@ -1072,6 +1075,14 @@
             isFetchingRefresh = false;
             
             if(!isSilent) handleSearch(true);
+        }
+
+        // Global, İnce ve Çubuğu İten Toast Fonksiyonu
+        function showToastGlobal(message, duration = 3000) {
+            const toast = document.getElementById('toastNotification');
+            document.getElementById('toastText').innerText = message;
+            toast.classList.add('show');
+            setTimeout(() => { toast.classList.remove('show'); }, duration);
         }
 
         function handleToastClick() {
@@ -1362,10 +1373,7 @@
             const paparaInput = document.getElementById("paparaInput");
             const numberOnly = paparaInput.value.replace("Papara No: ", "");
             navigator.clipboard.writeText(numberOnly).then(() => {
-                const toast = document.getElementById('toastNotification');
-                document.getElementById('toastText').innerText = "Papara Numarası Kopyalandı! ✔️";
-                toast.classList.add('show');
-                setTimeout(() => { toast.classList.remove('show'); }, 3000);
+                showToastGlobal("Papara Numarası Kopyalandı! ✔️", 3000);
             });
         }
         function switchControlTab(tabId) {
@@ -1399,10 +1407,7 @@
 
                 if (newIndex !== currentIndex) {
                     setGridSize(layoutOrder[newIndex], null);
-                    const toast = document.getElementById('toastNotification');
-                    document.getElementById('toastText').innerText = "🔍 Görünüm: " + TRANSLATIONS[currentRegion].layouts[layoutOrder[newIndex]];
-                    toast.classList.add('show');
-                    setTimeout(() => { toast.classList.remove('show'); }, 1500);
+                    showToastGlobal("🔍 Görünüm: " + TRANSLATIONS[currentRegion].layouts[layoutOrder[newIndex]], 1500);
                 }
             }
 
@@ -1576,49 +1581,73 @@
         }
         document.getElementById('modalBodyArea').addEventListener('scroll', () => { hideTooltip(); }, {passive: true});        
 
-        /* --- YENİ EKLENEN: SESLİ ASİSTAN MOTORU --- */
+        /* --- YENİ EKLENEN: SESLİ ASİSTAN MOTORU (GLOBAL ÇAPRAZ DİL DESTEKLİ) --- */
         const VOICE_LANG_MAP = { 'TR': 'tr-TR', 'EN': 'en-US', 'DE': 'de-DE', 'ES': 'es-ES', 'FR': 'fr-FR', 'RU': 'ru-RU', 'AR': 'ar-SA', 'HI': 'hi-IN' };
         
-        // Çok Dilli Niyet Sözlüğü (Intent Dictionary)
+        // Çok Dilli Niyet Sözlüğü (Intent Dictionary) - Tüm varyasyonlarla zenginleştirildi!
         const INTENT_DICT = {
             'TR': {
                 search: ['ara', 'bul', 'göster', 'hakkında', 'getir', 'nedir', 'haberleri'],
-                clear: ['temizle', 'kaldır', 'sıfırla', 'iptal'],
+                clearSearch: ['arama kelimelerini sil', 'arama çubuğunu boşalt', 'arama çubuğunu temizle', 'aramayı temizle', 'aramayı sil'],
+                clearFilters: ['filtreleri kaldır', 'filtreyi temizle', 'tüm filtreleri temizle', 'filtreleri sıfırla'],
+                hideRead: ['okunanları gizle', 'okunan haberleri gizle', 'okuduklarımı gizle'],
+                showRead: ['okunanları göster', 'okunan haberleri göster', 'okuduklarımı göster'],
                 regions: { 'TR': ['türkçe', 'türkiye'], 'EN': ['ingilizce', 'amerikan', 'global'], 'DE': ['almanca', 'almanya'], 'ES': ['ispanyolca', 'ispanya'], 'FR': ['fransızca', 'fransa'], 'RU': ['rusça', 'rusya'], 'AR': ['arapça', 'arap'], 'HI': ['hintçe', 'hindistan'] }
             },
             'EN': {
                 search: ['search', 'find', 'show', 'about', 'news'],
-                clear: ['clear', 'remove', 'reset', 'clean'],
+                clearSearch: ['clear search', 'empty search bar', 'clear bar', 'clear search bar'],
+                clearFilters: ['clear filters', 'remove filters', 'reset filters'],
+                hideRead: ['hide read', 'hide read news', 'hide read articles'],
+                showRead: ['show read', 'show read news', 'show read articles'],
                 regions: { 'TR': ['turkish', 'turkey'], 'EN': ['english', 'global', 'us'], 'DE': ['german', 'germany'], 'ES': ['spanish', 'spain'], 'FR': ['french', 'france'], 'RU': ['russian', 'russia'], 'AR': ['arabic', 'arab'], 'HI': ['hindi', 'india'] }
             },
             'DE': {
                 search: ['suche', 'finde', 'zeige', 'über', 'nachrichten'],
-                clear: ['löschen', 'entfernen', 'zurücksetzen'],
+                clearSearch: ['suche löschen', 'suchleiste leeren', 'suche zurücksetzen'],
+                clearFilters: ['filter löschen', 'alle filter entfernen', 'filter zurücksetzen'],
+                hideRead: ['gelesene verbergen', 'gelesene ausblenden'],
+                showRead: ['gelesene zeigen', 'gelesene einblenden'],
                 regions: { 'TR': ['türkisch', 'türkei'], 'EN': ['englisch', 'global'], 'DE': ['deutsch', 'deutschland'], 'ES': ['spanisch', 'spanien'], 'FR': ['französisch', 'frankreich'], 'RU': ['russisch', 'russland'], 'AR': ['arabisch'], 'HI': ['hindi'] }
             },
             'ES': {
                 search: ['buscar', 'encuentra', 'mostrar', 'sobre', 'noticias'],
-                clear: ['limpiar', 'quitar', 'restablecer'],
+                clearSearch: ['limpiar búsqueda', 'vaciar barra de búsqueda', 'limpiar barra'],
+                clearFilters: ['borrar filtros', 'quitar filtros', 'limpiar filtros'],
+                hideRead: ['ocultar leídos', 'ocultar noticias leídas'],
+                showRead: ['mostrar leídos', 'ver leídos'],
                 regions: { 'TR': ['turco', 'turquía'], 'EN': ['inglés', 'global'], 'DE': ['alemán', 'alemania'], 'ES': ['español', 'españa'], 'FR': ['francés', 'francia'], 'RU': ['ruso', 'rusia'], 'AR': ['árabe'], 'HI': ['hindi'] }
             },
             'FR': {
                 search: ['cherche', 'trouve', 'montre', 'sur', 'actualités'],
-                clear: ['effacer', 'supprimer', 'réinitialiser'],
+                clearSearch: ['effacer la recherche', 'vider la barre', 'effacer la barre'],
+                clearFilters: ['effacer les filtres', 'supprimer les filtres', 'réinitialiser les filtres'],
+                hideRead: ['masquer les lus', 'cacher les actualités lues'],
+                showRead: ['afficher les lus', 'montrer les lus'],
                 regions: { 'TR': ['turc', 'turquie'], 'EN': ['anglais', 'global'], 'DE': ['allemand', 'allemagne'], 'ES': ['espagnol', 'espagne'], 'FR': ['français', 'france'], 'RU': ['russe', 'russie'], 'AR': ['arabe'], 'HI': ['hindi'] }
             },
             'RU': {
                 search: ['найди', 'ищи', 'покажи', 'про', 'новости'],
-                clear: ['очистить', 'удалить', 'сбросить'],
+                clearSearch: ['очистить поиск', 'очистить строку поиска', 'сбросить поиск'],
+                clearFilters: ['очистить фильтры', 'удалить фильтры', 'сбросить фильтры'],
+                hideRead: ['скрыть прочитанное', 'скрыть прочитанные новости'],
+                showRead: ['показать прочитанное', 'показать прочитанные новости'],
                 regions: { 'TR': ['турецкий', 'турция'], 'EN': ['английский', 'глобальный'], 'DE': ['немецкий', 'германия'], 'ES': ['испанский', 'испания'], 'FR': ['французский', 'франция'], 'RU': ['русский', 'россия'], 'AR': ['арабский'], 'HI': ['хинди'] }
             },
             'AR': {
                 search: ['ابحث', 'ابحث عن', 'اعرض', 'حول', 'أخبار'],
-                clear: ['مسح', 'إزالة', 'إعادة تعيين'],
+                clearSearch: ['مسح البحث', 'إفراغ شريط البحث', 'مسح شريط البحث'],
+                clearFilters: ['مسح الفلاتر', 'إزالة الفلاتر', 'إعادة تعيين الفلاتر'],
+                hideRead: ['إخفاء المقروء', 'إخفاء الأخبار المقروءة'],
+                showRead: ['إظهار المقروء', 'عرض المقروء'],
                 regions: { 'TR': ['تركي', 'تركيا'], 'EN': ['إنجليزي', 'عالمي'], 'DE': ['ألماني', 'ألمانيا'], 'ES': ['إسباني', 'إسبانيا'], 'FR': ['فرنسي', 'فرنسا'], 'RU': ['روسي', 'روسيا'], 'AR': ['عربي', 'عرب'], 'HI': ['هندي'] }
             },
             'HI': {
                 search: ['खोज', 'खोजें', 'दिखाओ', 'के बारे में', 'समाचार'],
-                clear: ['साफ़', 'हटाएं', 'रीसेट'],
+                clearSearch: ['खोज साफ़ करें', 'सर्च बार खाली करें', 'खोज मिटाएं'],
+                clearFilters: ['फ़िल्टर साफ़ करें', 'फ़िल्टर हटाएं', 'फ़िल्टर रीसेट करें'],
+                hideRead: ['पढ़े गए छिपाएं', 'पढ़ी गई खबरें छिपाएं'],
+                showRead: ['पढ़े गए दिखाएं', 'पढ़ी गई खबरें दिखाएं'],
                 regions: { 'TR': ['तुर्की'], 'EN': ['अंग्रेजी', 'वैश्विक'], 'DE': ['जर्मन'], 'ES': ['स्पेनिश'], 'FR': ['फ़्रेंच'], 'RU': ['रूसी'], 'AR': ['अरबी'], 'HI': ['हिंदी', 'भारत'] }
             }
         };
@@ -1636,46 +1665,28 @@
             recognition.maxAlternatives = 1;
 
             const fab = document.getElementById('micFab');
-            const modal = document.getElementById('voiceModal');
             const title = document.getElementById('voiceTitle');
-            const textEl = document.getElementById('voiceText');
+            const inputEl = document.getElementById('voiceTextInput');
             const actionsDiv = document.getElementById('voiceActions');
 
             recognition.onstart = function() {
                 fab.classList.add('listening');
                 title.innerText = "🎙️ Asistan Dinliyor...";
-                textEl.innerText = "Lütfen komutunuzu söyleyin...";
+                inputEl.value = "";
+                inputEl.placeholder = "Lütfen komutunuzu söyleyin...";
                 actionsDiv.innerHTML = '';
                 openModalSafe('voiceModal');
             };
 
             recognition.onresult = function(event) {
                 const transcript = event.results[0][0].transcript.toLowerCase();
-                textEl.innerText = `"${transcript}"`;
-                title.innerText = "🤖 Anlaşılıyor...";
-                
-                // Cümleyi analiz et
-                const actions = parseVoiceCommand(transcript, currentRegion);
-                
-                actionsDiv.innerHTML = '';
-                if(actions.length > 0) {
-                    title.innerText = "💡 Şunları yapabilirim:";
-                    actions.forEach(act => {
-                        const btn = document.createElement('button');
-                        btn.className = 'voice-btn-action';
-                        btn.innerText = act.label;
-                        btn.onclick = () => { act.action(); closeModalSafe('voiceModal'); };
-                        actionsDiv.appendChild(btn);
-                    });
-                } else {
-                    title.innerText = "🤷‍♂️ Tam Anlayamadım";
-                    textEl.innerText += "\n(Filtreleri kaldır, ... ara, Almanca'ya geç gibi komutlar deneyin)";
-                }
+                inputEl.value = transcript;
+                reparseVoiceCommand(); // Analiz fonksiyonuna gönder
             };
 
             recognition.onerror = function(event) {
                 title.innerText = "❌ Hata Oluştu";
-                textEl.innerText = "Sizi duyamadım veya mikrofon izni verilmedi.";
+                inputEl.placeholder = "Sizi duyamadım veya mikrofon izni verilmedi.";
             };
 
             recognition.onend = function() {
@@ -1685,57 +1696,151 @@
             recognition.start();
         }
 
-        function parseVoiceCommand(text, lang) {
-            const dict = INTENT_DICT[lang] || INTENT_DICT['EN'];
-            const actions = [];
+        // GÜNCELLEME: Kullanıcı metni kendisi de değiştirip tetikleyebilir!
+        function reparseVoiceCommand() {
+            const text = document.getElementById('voiceTextInput').value.trim().toLowerCase();
+            if(!text) return;
 
-            // 1. Bölge/Dil Değiştirme Kontrolü
-            for (const [regionCode, keywords] of Object.entries(dict.regions)) {
-                if (keywords.some(kw => text.includes(kw))) {
-                    actions.push({
-                        label: `🌍 ${regionCode} Bölgesine/Haberlerine Geç`,
-                        action: () => switchGlobalRegion(regionCode)
-                    });
-                }
+            const title = document.getElementById('voiceTitle');
+            const actionsDiv = document.getElementById('voiceActions');
+            
+            title.innerText = "🤖 Anlaşılıyor...";
+            const actions = parseVoiceCommand(text); // Çapraz dil destekli analiz
+            
+            actionsDiv.innerHTML = '';
+            if(actions.length > 0) {
+                title.innerText = "💡 Şunları yapabilirim:";
+                actions.forEach(act => {
+                    const btn = document.createElement('button');
+                    btn.className = 'voice-btn-action';
+                    btn.innerText = act.label;
+                    btn.onclick = () => { act.action(); closeModalSafe('voiceModal'); };
+                    actionsDiv.appendChild(btn);
+                });
             }
+        }
 
-            // 2. Arama/Filtreleme Kontrolü
-            const searchKeyword = dict.search.find(kw => text.includes(kw));
-            if (searchKeyword) {
-                // Arama kelimesini ve gereksiz bağlaçları cümleden çıkar, saf arama terimini bul
-                let query = text;
-                dict.search.forEach(kw => { query = query.replace(new RegExp(`\\b${kw}\\b`, 'gi'), ''); });
-                // Bazı dillerdeki 'içinde', 'geçen' gibi kelimeleri de temizlemek faydalı olur (Örn: Türkçe)
-                query = query.replace(/içinde|geçen/gi, '').replace(/\s+/g, ' ').trim();
-                
-                if (query.length > 2) {
+        // GÜNCELLEME: Sadece seçili dilde değil, her dilde eşleşme arar (Global Intent)
+        function parseVoiceCommand(text) {
+            const actions = [];
+            let queryMatched = false;
+
+            // Bütün dillerin kilit kelime listelerinde dolaş
+            for (const lang of Object.keys(INTENT_DICT)) {
+                const dict = INTENT_DICT[lang];
+
+                // 1. Bölge/Dil Değiştirme
+                if(dict.regions) {
+                    for (const [regionCode, keywords] of Object.entries(dict.regions)) {
+                        if (keywords.some(kw => text.includes(kw))) {
+                            actions.push({
+                                label: `🌍 ${regionCode} Bölgesine/Haberlerine Geç`,
+                                action: () => switchGlobalRegion(regionCode)
+                            });
+                        }
+                    }
+                }
+
+                // 2. Arama Temizleme
+                if (dict.clearSearch && dict.clearSearch.some(kw => text.includes(kw))) {
                     actions.push({
-                        label: `🔍 "${query}" Kelimesini Ara`,
+                        label: `🧹 Arama Çubuğunu Temizle`,
                         action: () => {
-                            document.getElementById('searchInput').value = query;
-                            switchControlTab('search');
+                            document.getElementById('searchInput').value = '';
                             handleSearch();
-                            window.scrollTo(0,0);
                         }
                     });
                 }
+
+                // 3. Filtre Temizleme
+                if (dict.clearFilters && dict.clearFilters.some(kw => text.includes(kw))) {
+                    actions.push({
+                        label: `🗑️ Filtreleri Kaldır`,
+                        action: () => {
+                            currentCategory = '';
+                            document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+                            if(document.querySelectorAll('.cat-btn').length > 0) document.querySelectorAll('.cat-btn')[0].classList.add('active');
+                            activeSources = RSS_FEEDS.map(f => f.name);
+                            saveActiveSources();
+                            renderChips();
+                            handleSearch();
+                        }
+                    });
+                }
+
+                // 4. Okunanları Gizleme
+                if (dict.hideRead && dict.hideRead.some(kw => text.includes(kw))) {
+                    actions.push({
+                        label: `👁️ Okunanları Gizle`,
+                        action: () => toggleReadVisibility(true)
+                    });
+                }
+
+                // 5. Okunanları Gösterme
+                if (dict.showRead && dict.showRead.some(kw => text.includes(kw))) {
+                    actions.push({
+                        label: `👁️ Okunanları Göster`,
+                        action: () => toggleReadVisibility(false)
+                    });
+                }
+
+                // 6. Arama Yapma
+                const searchKeyword = dict.search && dict.search.find(kw => text.includes(kw));
+                if (searchKeyword && !queryMatched) {
+                    let query = text;
+                    dict.search.forEach(kw => { query = query.replace(new RegExp(`\\b${kw}\\b`, 'gi'), ''); });
+                    query = query.replace(/içinde|geçen/gi, '').replace(/\s+/g, ' ').trim();
+                    
+                    if (query.length > 2) {
+                        queryMatched = true; // Diğer dillerde tekrar aynı aramayı eşleştirmemesi için
+                        actions.push({
+                            label: `🔍 "${query}" Kelimesini Ara`,
+                            action: () => {
+                                document.getElementById('searchInput').value = query;
+                                switchControlTab('search');
+                                handleSearch();
+                                window.scrollTo(0,0);
+                            }
+                        });
+                    }
+                }
             }
 
-            // 3. Filtre Temizleme Kontrolü
-            if (dict.clear.some(kw => text.includes(kw))) {
-                actions.push({
-                    label: `🧹 Aramayı ve Filtreleri Temizle`,
+            // GÜNCELLEME: Aynı butondan birden fazla oluşmaması için tekrar eden eylemleri filtrele
+            const uniqueActions = [];
+            const seenLabels = new Set();
+            for (const act of actions) {
+                if (!seenLabels.has(act.label)) {
+                    seenLabels.add(act.label);
+                    uniqueActions.push(act);
+                }
+            }
+
+            // GÜNCELLEME: Yarım yamalak anladıysa veya spesifik komut bulamadıysa Fallback (Kurtarıcı) öneriler sun
+            if (uniqueActions.length === 0 && text.length > 2) {
+                uniqueActions.push({
+                    label: `🔍 Sadece "${text}" Olarak Ara`,
+                    action: () => {
+                        document.getElementById('searchInput').value = text;
+                        switchControlTab('search');
+                        handleSearch();
+                        window.scrollTo(0,0);
+                    }
+                });
+                uniqueActions.push({
+                    label: `🧹 Arama Çubuğunu Temizle`,
                     action: () => {
                         document.getElementById('searchInput').value = '';
-                        currentCategory = '';
-                        document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
-                        if(document.querySelectorAll('.cat-btn').length > 0) document.querySelectorAll('.cat-btn')[0].classList.add('active');
                         handleSearch();
                     }
                 });
+                uniqueActions.push({
+                    label: `🔄 Haberleri Yenile`,
+                    action: () => { fetchAllRSS(); }
+                });
             }
 
-            return actions;
+            return uniqueActions;
         }
     </script>
 </body>
