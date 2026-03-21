@@ -49,7 +49,19 @@
         @keyframes floatUpLeft { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(-30vw, -80vh) scale(1.3); } }
         @keyframes floatUpRight { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(30vw, -80vh) scale(1.4); } }
         @keyframes floatUpCenter { 0% { transform: translate(0, 0) scale(0.8); } 100% { transform: translate(10vw, -90vh) scale(1.5); } }
-
+/* --- YENİ EKLENEN HOLOGRAMLI IŞILTI VE TİTREŞİM ANIMASYONU --- */
+        @keyframes headerPulse { 
+            0%, 100% { text-shadow: var(--shadow-glow); opacity: 1; transform: scale(1); } 
+            20% { text-shadow: 0 0 35px var(--primary), 0 0 10px var(--accent); opacity: 0.9; }
+            40% { transform: scale(1.02) rotate(-0.5deg); }
+            60% { transform: scale(1) rotate(0.5deg); text-shadow: 0 0 35px var(--accent), 0 0 10px var(--primary); }
+            80% { transform: scale(1.02); opacity: 0.9; }
+        }
+        @keyframes headerParticles { 
+            0% { background-position: 0% 50%; } 
+            50% { background-position: 100% 50%; } 
+            100% { background-position: 0% 50%; } 
+        }
         /* --- TEMA RENK DEĞİŞKENLERİ --- */
         body[data-theme="glass"] { --bg-dark: #020617; --blob-1: rgba(225,29,72,0.3); --blob-2: rgba(59,130,246,0.3); --blob-3: rgba(168,85,247,0.25); }
         body[data-theme="metallic"] { --bg-dark: #111; --blob-1: #4a4a4a; --blob-2: #222; --blob-3: #555; }
@@ -81,6 +93,15 @@
         header h1 { font-size: clamp(2.5rem, 6vw, 3.5rem); font-weight: 900; letter-spacing: -1px; margin-bottom: 5px; text-shadow: var(--shadow-glow); display: flex; justify-content: center; align-items: center; gap: 8px; }
         header h1 img { height: 2em; vertical-align: baseline; border-radius: 10%; margin-right: -2px; }
         header h1 span { color: var(--primary); }
+        .hologram-header { 
+            animation: headerPulse 5s infinite cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+            background: linear-gradient(125deg, #fff 10%, var(--text-main) 30%, var(--primary) 50%, var(--accent) 70%, #fff 90%); 
+            background-size: 400% 400%; 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+            animation: headerPulse 5s infinite cubic-bezier(0.175, 0.885, 0.32, 1.275), headerParticles 8s infinite linear;
+            display: inline-block; /* Animasyonun doğru çalışması için */
+        }
         header p { color: var(--text-muted); font-size: clamp(0.9rem, 3vw, 1.1rem); font-weight: 500; letter-spacing: 0.5px; margin-bottom: 20px; }
 
         .global-region-wrapper { max-width: 600px; margin: 0 auto 15px auto; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
@@ -299,8 +320,8 @@
     <div class="container">
         
        <header id="mainHeader">
-            <h1><img src="icon.png" alt="S" style="height: 2em; vertical-align: baseline; border-radius: 10%; margin-right: -2px;">crollary <span>.</span></h1>
-            <p id="headerDesc" data-i18n="subtitle">Sourced from You, Your News Source</p>
+<h1 class="hologram-header"><img src="icon.png" alt="S" style="height: 2em; vertical-align: baseline; border-radius: 10%; margin-right: -2px;">crollary <span>.</span></h1>            
+           <p id="headerDesc" data-i18n="subtitle">Sourced from You, Your News Source</p>
         </header>
 
        
