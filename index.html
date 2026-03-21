@@ -29,7 +29,6 @@
             --shadow-glow: 0 0 20px rgba(225, 29, 72, 0.15);
         }
 
-        /* --- EVRENSEL HAREKETLİ ARKA PLAN (AMBIENT BLOBS) --- */
         body { 
             --bg-dark: #0f172a; 
             --blob-1: #1e293b; --blob-2: #0f172a; --blob-3: #334155; 
@@ -63,7 +62,6 @@
             100% { background-position: 0% 50%; } 
         }
 
-        /* --- TEMA RENK DEĞİŞKENLERİ --- */
         body[data-theme="glass"] { --bg-dark: #020617; --blob-1: rgba(225,29,72,0.3); --blob-2: rgba(59,130,246,0.3); --blob-3: rgba(168,85,247,0.25); }
         body[data-theme="metallic"] { --bg-dark: #111; --blob-1: #4a4a4a; --blob-2: #222; --blob-3: #555; }
         body[data-theme="hologram"] { --bg-dark: #0f0c29; --blob-1: rgba(0,255,255,0.3); --blob-2: rgba(255,0,128,0.3); --blob-3: rgba(138,43,226,0.3); }
@@ -261,7 +259,8 @@
         .modal-iframe { width: 100%; flex-grow: 1; border: none; background: #fff; }
         .status-msg { text-align: center; padding: 50px 20px; color: var(--text-muted); grid-column: 1 / -1; font-size: 1.1rem; font-weight: 500; }
         
-        .toast-notification { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-150px); background: var(--primary); color: white; padding: 12px 25px; border-radius: 30px; font-weight: 700; font-size: 1rem; box-shadow: 0 10px 25px rgba(225, 29, 72, 0.5); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 1500; cursor: pointer; display: flex; align-items: center; gap: 10px; }        .toast-notification.show { transform: translateX(-50%) translateY(0); }
+        .toast-notification { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-150px); background: var(--primary); color: white; padding: 12px 25px; border-radius: 30px; font-weight: 700; font-size: 1rem; box-shadow: 0 10px 25px rgba(225, 29, 72, 0.5); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 1500; cursor: pointer; display: flex; align-items: center; gap: 10px; }
+        .toast-notification.show { transform: translateX(-50%) translateY(0); }
         
         .view-controls { display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; }
         .view-btn { padding: 6px 12px; background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); border-radius: 8px; font-size: 0.85rem; cursor: pointer; transition: 0.2s; font-weight: 600; }
@@ -325,6 +324,15 @@
         
         input, textarea, select { pointer-events: auto !important; user-select: auto !important; -webkit-user-select: auto !important; cursor: text !important; }
         #readerView, #readerView * { user-select: text !important; -webkit-user-select: text !important; }
+
+        /* --- YENİ EKLENEN: ASİSTAN FAB (MİKROFON) VE ANİMASYON --- */
+        .mic-fab { position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; background: var(--primary); border-radius: 50%; box-shadow: 0 4px 15px rgba(225,29,72,0.4); display: flex; align-items: center; justify-content: center; font-size: 1.8rem; cursor: pointer; z-index: 2000; border: none; transition: 0.3s; color: white; }
+        .mic-fab:hover { transform: scale(1.1); background: var(--primary-hover); }
+        .mic-fab.listening { animation: pulseMic 1.5s infinite; background: var(--danger); }
+        @keyframes pulseMic { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 20px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        
+        .voice-btn-action { background: var(--surface-light); color: white; border: 1px solid var(--accent); padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; width: 100%; text-align: left; }
+        .voice-btn-action:hover { background: var(--accent); }
     </style>
 </head>
 <body>
@@ -414,6 +422,18 @@
         <div id="endRefreshSpinner" class="status-msg" style="display: none; padding: 20px; font-size:0.95rem; color:var(--accent);" data-i18n="checkingUpdates">Checking network for updates...</div>
     </div>
 
+    <button class="mic-fab" id="micFab" onclick="startVoiceAssistant()">🎙️</button>
+    
+    <div id="voiceModal" class="modal" style="z-index: 2600;">
+        <div class="modal-content" style="max-width: 400px; height: auto; text-align: center; padding: 20px; border-radius: 20px;">
+            <h3 id="voiceTitle" style="color: white; margin-top: 0;">🎙️ Asistan Dinliyor...</h3>
+            <p id="voiceText" style="margin: 15px 0; font-size: 1.1rem; color: var(--accent); font-style: italic;">Lütfen konuşun...</p>
+            <div id="voiceActions" style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+                </div>
+            <button onclick="closeModalSafe('voiceModal')" style="background: rgba(239, 68, 68, 0.2); color: var(--danger); border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 15px;">İptal / Kapat</button>
+        </div>
+    </div>
+
     <div id="guideModal" class="modal" style="z-index: 2500;">
         <div class="modal-content" style="max-width: 500px; height: auto; max-height: 85vh;">
             <div class="modal-header">
@@ -499,7 +519,7 @@
                     <summary>Hakkında</summary>
                     <div class="setting-detail" style="color: var(--text-muted); font-size: 0.9rem;">
                         <p style="margin:0;"><strong>Scrollary News Radar</strong></p>
-                        <p style="margin:0;">Sürüm: 2.3.0</p>
+                        <p style="margin:0;">Sürüm: 2.5.0 Voice AI</p>
                         <p style="margin:0;">Tüm hakları saklıdır © 2026</p>
                     </div>
                 </details>
@@ -647,6 +667,7 @@
             document.getElementById('settingsModal').style.display = 'none';
             document.getElementById('sourceFilterModal').style.display = 'none';
             document.getElementById('guideModal').style.display = 'none';
+            document.getElementById('voiceModal').style.display = 'none';
             
             const wrapper = document.getElementById('controlsWrapper');
             if (wrapper && !wrapper.classList.contains('collapsed')) {
@@ -1163,7 +1184,6 @@
             let html = null;
             const encodedUrl = encodeURIComponent(art.link);
 
-            // Çift Aşamalı Proxy Sistemi
             const proxyGroup1 = [ `https://corsproxy.io/?${encodedUrl}`, `https://api.allorigins.win/raw?url=${encodedUrl}`, `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}` ];
             const proxyGroup2 = [ `https://thingproxy.freeboard.io/fetch/${art.link}`, `https://cors.eu.org/${art.link}`, `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}` ];
 
@@ -1180,7 +1200,6 @@
             }
 
             try {
-                // EĞER LİNK GOOGLE NEWS İSE BOŞUNA PROXY'LERİ YORMA, DOĞRUDAN İŞBİRLİĞİ EKRANINA GEÇ!
                 if(art.link.includes('news.google.com')) {
                     throw new Error("GoogleNewsLink");
                 }
@@ -1216,7 +1235,6 @@
                 const scriptFix = `<script> window.onload = function() { const links = document.querySelectorAll('a'); links.forEach(l => l.setAttribute('target', '_blank')); }; <\/script>`;
                 html = html.replace(/<\/body>/i, scriptFix + '</body>'); iframe.srcdoc = html; iframe.onload = () => { banner.innerHTML = `✅`; setTimeout(()=>{ banner.style.display='none'; }, 2000); };
             } catch (err) { 
-                // GÜVENLİK DUVARI VEYA GOOGLE NEWS HATASI ALINIRSA ÇALIŞACAK İŞBİRLİĞİ EKRANI
                 const isGoogle = err.message === "GoogleNewsLink";
                 const titleText = isGoogle ? (t.googleNewsBlockTitle || "Google Yönlendirme Duvarı") : (t.firewallBlockTitle || "Güvenlik Duvarı");
                 const descText = isGoogle ? (t.googleNewsBlockDesc || "Google bu bağlantıyı gizliyor. Okuma, çeviri ve dinleme özelliklerini kullanmak için orijinal siteyi açın, adres çubuğundaki gerçek linki kopyalayıp aşağıdaki alana yapıştırın.") : (t.firewallBlock || "Reklamsız görünüm için sitenin güvenlik duvarı geçilemedi. Orijinal siteyi açmak için sağ üst köşedeki mavi ok butonuna tıklayın.");
@@ -1245,7 +1263,6 @@
             }
         }
 
-        // KULLANICININ YAPIŞTIRDIĞI LİNK İLE ÇALIŞACAK KURTARICI FONKSİYON (ÇOKLU YARIŞ - RACE)
         async function fetchWithUserHelp() {
             const manualUrl = document.getElementById('manualLinkInput').value.trim();
             const textContainer = document.getElementById('fullTextContainer');
@@ -1258,7 +1275,6 @@
 
             textContainer.innerHTML = `<div class="loading-pulse">Farklı sunucularla kilit kırılıyor... Lütfen bekleyin ⏳</div>`;
 
-            // YARIŞMACI 1: Jina API (Özel Markdown temizleyici filtreli)
             const fetchJina = async (url) => {
                 const res = await fetch("https://r.jina.ai/" + url, { headers: { "Accept": "application/json" } });
                 if (!res.ok) throw new Error("Jina failed");
@@ -1266,16 +1282,15 @@
                 if (!data || !data.data || !data.data.content) throw new Error("Jina no content");
                 
                 let text = data.data.content;
-                // O iğrenç Markdown çöplerini (Resimler, linkler, reklamlar) yokediyoruz!
-                text = text.replace(/!\[.*?\]\(.*?\)/g, ''); // Resimleri sil
-                text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'); // Linkleri sil ama metni bırak
-                text = text.replace(/^#+\s*/gm, ''); // Başlık işaretlerini sil
-                text = text.replace(/[*_]{1,2}/g, ''); // Kalın/italik işaretlerini sil
-                text = text.replace(/<[^>]*>/g, ''); // Kalan HTML etiketlerini temizle
+                text = text.replace(/!\[.*?\]\(.*?\)/g, ''); 
+                text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'); 
+                text = text.replace(/^#+\s*/gm, ''); 
+                text = text.replace(/[*_]{1,2}/g, ''); 
+                text = text.replace(/<[^>]*>/g, ''); 
                 
                 const paragraphs = text.split('\n').map(t => t.trim()).filter(t => {
-                    if (t.length < 70) return false; // Kısa menü/navigasyon metinlerini atla
-                    if (t.includes('redirect=')) return false; // Gizli reklam takip linklerini atla
+                    if (t.length < 70) return false; 
+                    if (t.includes('redirect=')) return false; 
                     return true;
                 });
                 
@@ -1283,7 +1298,6 @@
                 return paragraphs;
             };
 
-            // YARIŞMACI 2, 3, 4: Standart Proxy'lerimiz (Eğer sitenin Cloudflare'i yoksa ışık hızında çalışır)
             const fetchProxy = async (proxyBase, url) => {
                 const res = await fetch(proxyBase + encodeURIComponent(url));
                 if (!res.ok) throw new Error("Proxy failed");
@@ -1301,16 +1315,13 @@
             };
 
             try {
-                // 4 FARKLI SUNUCUYU AYNI ANDA YARIŞTIRIYORUZ! 
-                // İlk kim temiz metni çıkarırsa ekrana o yansıyacak. Hata verenler sessizce elenecek.
                 const paragraphs = await Promise.any([
                     fetchProxy("https://corsproxy.io/?", manualUrl),
                     fetchProxy("https://api.allorigins.win/raw?url=", manualUrl),
                     fetchProxy("https://api.codetabs.com/v1/proxy?quest=", manualUrl),
-                    fetchJina(manualUrl) // Jina en yavaşıdır ama duvarı kesin deler, o yüzden garanti olarak sona koyduk
+                    fetchJina(manualUrl) 
                 ]);
                 
-                // Yarışmayı kazanan paragraphs dizisini senin o harika okuma arayüzüne basıyoruz
                 textContainer.innerHTML = paragraphs.map((txt, idx) => {
                     const clickableWords = txt.split(' ').map(w => `<span class="t-word" onclick="translateSingleWord(this, event)">${w}</span>`).join(' ');
                     return `<div class="p-container">
@@ -1324,7 +1335,6 @@
                 }).join('');
                 
             } catch (err) {
-                // Eğer 4 sunucu da başarısız olursa (çok ekstrem bir durum)
                 textContainer.innerHTML = `<div class="status-msg" style="color: #ef4444;">❌ Maalesef bu sitenin duvarı tüm sunucularımızı engelledi. Lütfen orijinal sekmede okuyun.</div>`;
             }
         }
@@ -1480,8 +1490,6 @@
             const translated = await getTranslation(text, targetLang);
             const safeText = encodeURIComponent(text);
 
-            
-            // Seslendirmeyi click yerine doğrudan dokunma (touchstart) ve tıklama (mousedown) anına bağladık
             tooltip.innerHTML = `
                 <div onmousedown="listenSingleWord('${safeText}', event)" 
                      ontouchstart="listenSingleWord('${safeText}', event)" 
@@ -1567,6 +1575,168 @@
             window.speechSynthesis.speak(utterance);
         }
         document.getElementById('modalBodyArea').addEventListener('scroll', () => { hideTooltip(); }, {passive: true});        
+
+        /* --- YENİ EKLENEN: SESLİ ASİSTAN MOTORU --- */
+        const VOICE_LANG_MAP = { 'TR': 'tr-TR', 'EN': 'en-US', 'DE': 'de-DE', 'ES': 'es-ES', 'FR': 'fr-FR', 'RU': 'ru-RU', 'AR': 'ar-SA', 'HI': 'hi-IN' };
+        
+        // Çok Dilli Niyet Sözlüğü (Intent Dictionary)
+        const INTENT_DICT = {
+            'TR': {
+                search: ['ara', 'bul', 'göster', 'hakkında', 'getir', 'nedir', 'haberleri'],
+                clear: ['temizle', 'kaldır', 'sıfırla', 'iptal'],
+                regions: { 'TR': ['türkçe', 'türkiye'], 'EN': ['ingilizce', 'amerikan', 'global'], 'DE': ['almanca', 'almanya'], 'ES': ['ispanyolca', 'ispanya'], 'FR': ['fransızca', 'fransa'], 'RU': ['rusça', 'rusya'], 'AR': ['arapça', 'arap'], 'HI': ['hintçe', 'hindistan'] }
+            },
+            'EN': {
+                search: ['search', 'find', 'show', 'about', 'news'],
+                clear: ['clear', 'remove', 'reset', 'clean'],
+                regions: { 'TR': ['turkish', 'turkey'], 'EN': ['english', 'global', 'us'], 'DE': ['german', 'germany'], 'ES': ['spanish', 'spain'], 'FR': ['french', 'france'], 'RU': ['russian', 'russia'], 'AR': ['arabic', 'arab'], 'HI': ['hindi', 'india'] }
+            },
+            'DE': {
+                search: ['suche', 'finde', 'zeige', 'über', 'nachrichten'],
+                clear: ['löschen', 'entfernen', 'zurücksetzen'],
+                regions: { 'TR': ['türkisch', 'türkei'], 'EN': ['englisch', 'global'], 'DE': ['deutsch', 'deutschland'], 'ES': ['spanisch', 'spanien'], 'FR': ['französisch', 'frankreich'], 'RU': ['russisch', 'russland'], 'AR': ['arabisch'], 'HI': ['hindi'] }
+            },
+            'ES': {
+                search: ['buscar', 'encuentra', 'mostrar', 'sobre', 'noticias'],
+                clear: ['limpiar', 'quitar', 'restablecer'],
+                regions: { 'TR': ['turco', 'turquía'], 'EN': ['inglés', 'global'], 'DE': ['alemán', 'alemania'], 'ES': ['español', 'españa'], 'FR': ['francés', 'francia'], 'RU': ['ruso', 'rusia'], 'AR': ['árabe'], 'HI': ['hindi'] }
+            },
+            'FR': {
+                search: ['cherche', 'trouve', 'montre', 'sur', 'actualités'],
+                clear: ['effacer', 'supprimer', 'réinitialiser'],
+                regions: { 'TR': ['turc', 'turquie'], 'EN': ['anglais', 'global'], 'DE': ['allemand', 'allemagne'], 'ES': ['espagnol', 'espagne'], 'FR': ['français', 'france'], 'RU': ['russe', 'russie'], 'AR': ['arabe'], 'HI': ['hindi'] }
+            },
+            'RU': {
+                search: ['найди', 'ищи', 'покажи', 'про', 'новости'],
+                clear: ['очистить', 'удалить', 'сбросить'],
+                regions: { 'TR': ['турецкий', 'турция'], 'EN': ['английский', 'глобальный'], 'DE': ['немецкий', 'германия'], 'ES': ['испанский', 'испания'], 'FR': ['французский', 'франция'], 'RU': ['русский', 'россия'], 'AR': ['арабский'], 'HI': ['хинди'] }
+            },
+            'AR': {
+                search: ['ابحث', 'ابحث عن', 'اعرض', 'حول', 'أخبار'],
+                clear: ['مسح', 'إزالة', 'إعادة تعيين'],
+                regions: { 'TR': ['تركي', 'تركيا'], 'EN': ['إنجليزي', 'عالمي'], 'DE': ['ألماني', 'ألمانيا'], 'ES': ['إسباني', 'إسبانيا'], 'FR': ['فرنسي', 'فرنسا'], 'RU': ['روسي', 'روسيا'], 'AR': ['عربي', 'عرب'], 'HI': ['هندي'] }
+            },
+            'HI': {
+                search: ['खोज', 'खोजें', 'दिखाओ', 'के बारे में', 'समाचार'],
+                clear: ['साफ़', 'हटाएं', 'रीसेट'],
+                regions: { 'TR': ['तुर्की'], 'EN': ['अंग्रेजी', 'वैश्विक'], 'DE': ['जर्मन'], 'ES': ['स्पेनिश'], 'FR': ['फ़्रेंच'], 'RU': ['रूसी'], 'AR': ['अरबी'], 'HI': ['हिंदी', 'भारत'] }
+            }
+        };
+
+        function startVoiceAssistant() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if(!SpeechRecognition) { 
+                alert("Üzgünüm, tarayıcınız sesli asistanı desteklemiyor. (Chrome/Safari tavsiye edilir)"); 
+                return; 
+            }
+            
+            const recognition = new SpeechRecognition();
+            recognition.lang = VOICE_LANG_MAP[currentRegion] || 'tr-TR';
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+
+            const fab = document.getElementById('micFab');
+            const modal = document.getElementById('voiceModal');
+            const title = document.getElementById('voiceTitle');
+            const textEl = document.getElementById('voiceText');
+            const actionsDiv = document.getElementById('voiceActions');
+
+            recognition.onstart = function() {
+                fab.classList.add('listening');
+                title.innerText = "🎙️ Asistan Dinliyor...";
+                textEl.innerText = "Lütfen komutunuzu söyleyin...";
+                actionsDiv.innerHTML = '';
+                openModalSafe('voiceModal');
+            };
+
+            recognition.onresult = function(event) {
+                const transcript = event.results[0][0].transcript.toLowerCase();
+                textEl.innerText = `"${transcript}"`;
+                title.innerText = "🤖 Anlaşılıyor...";
+                
+                // Cümleyi analiz et
+                const actions = parseVoiceCommand(transcript, currentRegion);
+                
+                actionsDiv.innerHTML = '';
+                if(actions.length > 0) {
+                    title.innerText = "💡 Şunları yapabilirim:";
+                    actions.forEach(act => {
+                        const btn = document.createElement('button');
+                        btn.className = 'voice-btn-action';
+                        btn.innerText = act.label;
+                        btn.onclick = () => { act.action(); closeModalSafe('voiceModal'); };
+                        actionsDiv.appendChild(btn);
+                    });
+                } else {
+                    title.innerText = "🤷‍♂️ Tam Anlayamadım";
+                    textEl.innerText += "\n(Filtreleri kaldır, ... ara, Almanca'ya geç gibi komutlar deneyin)";
+                }
+            };
+
+            recognition.onerror = function(event) {
+                title.innerText = "❌ Hata Oluştu";
+                textEl.innerText = "Sizi duyamadım veya mikrofon izni verilmedi.";
+            };
+
+            recognition.onend = function() {
+                fab.classList.remove('listening');
+            };
+
+            recognition.start();
+        }
+
+        function parseVoiceCommand(text, lang) {
+            const dict = INTENT_DICT[lang] || INTENT_DICT['EN'];
+            const actions = [];
+
+            // 1. Bölge/Dil Değiştirme Kontrolü
+            for (const [regionCode, keywords] of Object.entries(dict.regions)) {
+                if (keywords.some(kw => text.includes(kw))) {
+                    actions.push({
+                        label: `🌍 ${regionCode} Bölgesine/Haberlerine Geç`,
+                        action: () => switchGlobalRegion(regionCode)
+                    });
+                }
+            }
+
+            // 2. Arama/Filtreleme Kontrolü
+            const searchKeyword = dict.search.find(kw => text.includes(kw));
+            if (searchKeyword) {
+                // Arama kelimesini ve gereksiz bağlaçları cümleden çıkar, saf arama terimini bul
+                let query = text;
+                dict.search.forEach(kw => { query = query.replace(new RegExp(`\\b${kw}\\b`, 'gi'), ''); });
+                // Bazı dillerdeki 'içinde', 'geçen' gibi kelimeleri de temizlemek faydalı olur (Örn: Türkçe)
+                query = query.replace(/içinde|geçen/gi, '').replace(/\s+/g, ' ').trim();
+                
+                if (query.length > 2) {
+                    actions.push({
+                        label: `🔍 "${query}" Kelimesini Ara`,
+                        action: () => {
+                            document.getElementById('searchInput').value = query;
+                            switchControlTab('search');
+                            handleSearch();
+                            window.scrollTo(0,0);
+                        }
+                    });
+                }
+            }
+
+            // 3. Filtre Temizleme Kontrolü
+            if (dict.clear.some(kw => text.includes(kw))) {
+                actions.push({
+                    label: `🧹 Aramayı ve Filtreleri Temizle`,
+                    action: () => {
+                        document.getElementById('searchInput').value = '';
+                        currentCategory = '';
+                        document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+                        if(document.querySelectorAll('.cat-btn').length > 0) document.querySelectorAll('.cat-btn')[0].classList.add('active');
+                        handleSearch();
+                    }
+                });
+            }
+
+            return actions;
+        }
     </script>
 </body>
 </html>
