@@ -1342,7 +1342,7 @@
             }
         }
 
-        // Tıklanan kelimenin altında tooltip açma (Seçimi JS ile ZORLAMAYIZ)
+             // Tıklanan kelimenin altında tooltip açma (OTOMATİK OKUMA İPTAL EDİLDİ)
         function translateSingleWord(spanEl, event) {
             document.querySelectorAll('.t-word').forEach(el => el.classList.remove('highlighted'));
             spanEl.classList.add('highlighted');
@@ -1350,12 +1350,8 @@
             const cleanText = spanEl.innerText.replace(/[.,!?;:"()]/g, '');
             const rect = spanEl.getBoundingClientRect();
             showTooltip(cleanText, rect);
-
-            // DÜZELTME: Kelimeye tıklandığı anda anında seslendirmeyi de başlat!
-            window.speechSynthesis.cancel(); 
-            const utterance = new SpeechSynthesisUtterance(cleanText);
-            utterance.lang = typeof ttsLangMap !== 'undefined' && ttsLangMap[currentRegion] ? ttsLangMap[currentRegion] : 'en-US';
-            window.speechSynthesis.speak(utterance);
+            
+            // Otomatik okuma komutları buradan silindi. Artık kontrol sadece baloncuktaki 🔊 butonunda!
         }
 
         let tooltipTimeout;
@@ -1374,7 +1370,7 @@
                     if (parent && parent.closest && parent.closest('#readerView')) {
                         const range = selection.getRangeAt(0);
                         const rect = range.getBoundingClientRect();
-                        showTooltip(text, rect);
+                        (text, rect);
                     }
                 }
                 // BURADAKİ 'else' BLOĞU TAMAMEN SİLİNDİ Kİ BALONCUK KENDİ KENDİNE KAPANMASIN!
@@ -1396,11 +1392,12 @@
             const translated = await getTranslation(text, targetLang);
             const safeText = encodeURIComponent(text);
 
-            // DÜZELTME: Butona tıklarken seçimin bozulmasını engelleyen kodlar eklendi
+            // DÜZELTME: onclick kısmındaki ', event' parametresini kaldırdık. 
+            // Zaten onmousedown ve ontouchstart baloncuğun kapanmasını engelliyor.
             tooltip.innerHTML = `
                 <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
                     <span>${translated}</span>
-                    <button onmousedown="event.preventDefault();" ontouchstart="event.preventDefault();" onclick="listenSingleWord('${safeText}', event)" style="background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; font-size: 1rem; transition: 0.2s;">🔊</button>
+                    <button onmousedown="event.preventDefault(); event.stopPropagation();" ontouchstart="event.preventDefault(); event.stopPropagation();" onclick="listenSingleWord('${safeText}')" style="background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; font-size: 1rem; transition: 0.2s;">🔊</button>
                 </div>
             `;
 
@@ -1412,6 +1409,16 @@
                     tooltip.style.left = ((tRect.width / 2) + 15) + 'px';
                 }
             }, 50);
+        }
+
+        // Tıklanan kelimeyi/seçimi seslendiren yepyeni fonksiyonumuz
+        function listenSingleWord(encodedText) {
+            // DÜZELTME: event parametresine artık gerek kalmadı, kaldırdık.
+            window.speechSynthesis.cancel(); 
+            const text = decodeURIComponent(encodedText);
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = typeof ttsLangMap !== 'undefined' && ttsLangMap[currentRegion] ? ttsLangMap[currentRegion] : 'en-US';
+            window.speechSynthesis.speak(utterance);
         }
 
         // Tıklanan kelimeyi/seçimi seslendiren yepyeni fonksiyonumuz
