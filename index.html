@@ -321,6 +321,10 @@
         
         #wordTooltip { position: absolute; background: var(--primary); color: white; padding: 8px 14px; border-radius: 8px; font-size: 0.95rem; font-weight: bold; z-index: 3500; display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5); pointer-events: none; max-width: 250px; text-align: center; transform: translateX(-50%); }
         #wordTooltip::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border-width: 6px; border-style: solid; border-color: var(--primary) transparent transparent transparent; } 
+    /* Kelimeye dokunma efekti */
+        .t-word { cursor: pointer; border-radius: 4px; transition: 0.2s; display: inline-block; padding: 0 2px; margin: 0 -2px; }
+        .t-word:active { background: var(--primary); color: white; }
+        .t-word.highlighted { background: var(--primary); color: white; }
     </style>
 </head>
 <body>
@@ -1195,11 +1199,13 @@ try {
                 const parser = new DOMParser(); const doc = parser.parseFromString(html, 'text/html'); const paragraphs = Array.from(doc.querySelectorAll('p, .content p, .news-text p, article p'));
                 const validText = paragraphs.map(p => p.textContent.trim()).filter(txt => txt.length > 70); const uniqueText = [...new Set(validText)];
 if (uniqueText.length > 0) { 
-    textContainer.innerHTML = uniqueText.map((txt, idx) => `<div class="p-container"><p id="p_${idx}">${txt}</p><button class="btn-translate-p" onclick="translateParagraph(${idx}, this)" title="Bu paragrafı çevir">🌐</button><div class="translated-text" id="trans_${idx}"></div></div>`).join(''); 
-    document.getElementById('listenBtn').style.display = 'flex'; // Ses butonunu göster
-} else { 
-    throw new Error("No readable text"); 
-}
+                    textContainer.innerHTML = uniqueText.map((txt, idx) => {
+                        const clickableWords = txt.split(' ').map(w => `<span class="t-word" onclick="translateSingleWord(this, event)">${w}</span>`).join(' ');
+                        return `<div class="p-container"><p id="p_${idx}">${clickableWords}</p><button class="btn-translate-p" onclick="translateParagraph(${idx}, this)" title="Bu paragrafı çevir">🌐</button><div class="translated-text" id="trans_${idx}"></div></div>`;
+                    }).join(''); 
+                    document.getElementById('listenBtn').style.display = 'flex';
+                } else { throw new Error("No readable text"); }
+                
                 html = html.replace(/<meta[^>]+http-equiv=['"]?refresh['"]?[^>]*>/gi, ''); html = html.replace(/window\.location\.replace/gi, 'console.log'); html = html.replace(/window\.location\.href\s*=/gi, 'console.log=');
                 const urlObj = new URL(art.link); const baseUrl = urlObj.protocol + "//" + urlObj.host + "/";
                 if (html.toLowerCase().includes('<head>')) { html = html.replace(/<head>/i, `<head><base href="${baseUrl}">`); } else { html = `<base href="${baseUrl}">` + html; }
@@ -1313,34 +1319,58 @@ if (uniqueText.length > 0) {
             }
         }
 
-        // 3. Ekranda Kelime Seçildiğinde Çıkan Baloncuk (Tooltip)
-        document.addEventListener('selectionchange', async () => {
-            const selection = window.getSelection();
+        // 3. Ekranda Kelimeye DOKUNULDUĞUNDA Çıkan Baloncuk (Tıkla-Çevir)
+        async function translateSingleWord(spanEl, event) {
+            event.stopPropagation(); // Tıklamanın arkaya geçmesini engelle
+            
+            // Diğer vurguları temizle
+            document.querySelectorAll('.t-word').forEach(el => el.classList.remove('highlighted'));
+            spanEl.classList.add('highlighted'); // Tıklananı parlat
+
+            const text = spanEl.innerText.replace(/[.,!?;:"()]/g, ''); // Noktalama işaretlerini temizle
+            if(!text) return;
+
             const tooltip = document.getElementById('wordTooltip');
+            const targetLang = document.getElementById('targetLangSelect').value;
             
-            // Eğer seçim yoksa veya 4 kelimeden uzun bir şey seçildiyse baloncuğu gizle
-            if (!selection.rangeCount || selection.toString().trim().length === 0 || selection.toString().trim().split(' ').length > 4) {
-                tooltip.style.display = 'none';
-                return;
-            }
-            
-            const text = selection.toString().trim();
-            const range = selection.getRangeAt(0);
-            const rect = range.getBoundingClientRect();
-            
-            // Baloncuğu kelimenin tam üstüne yerleştir
             tooltip.innerText = '⏳...';
             tooltip.style.display = 'block';
+            
+            // Baloncuğu tam kelimenin üstüne ortala
+            const rect = spanEl.getBoundingClientRect();
             tooltip.style.top = (rect.top + window.scrollY - 45) + 'px';
             tooltip.style.left = (rect.left + (rect.width/2)) + 'px';
-            
-            const targetLang = document.getElementById('targetLangSelect').value;
+
             const translated = await getTranslation(text, targetLang);
             tooltip.innerText = translated;
+        }
+
+        // Boşluğa tıklayınca baloncuğu ve vurguyu gizle
+        document.addEventListener('click', (e) => {
+            if(!e.target.classList.contains('t-word')) {
+                document.getElementById('wordTooltip').style.display = 'none';
+                document.querySelectorAll('.t-word').forEach(el => el.classList.remove('highlighted'));
+            }
         });
 
-        // 4. Makaleyi Sesli Okuma (Text-to-Speech)
+        // 4. Makaleyi Sesli Okuma (Paragraf Paragraf Sıraya Dizilmiş Hali)
         let isSpeaking = false;
+        let speechChunks = [];
+        let currentChunk = 0;
+
+        function playNextChunk() {
+            if (currentChunk >= speechChunks.length || !isSpeaking) {
+                isSpeaking = false;
+                document.getElementById('listenBtn').innerHTML = '🔊 Dinle';
+                document.getElementById('listenBtn').classList.remove('playing');
+                return;
+            }
+            const utterance = new SpeechSynthesisUtterance(speechChunks[currentChunk]);
+            utterance.onend = () => { currentChunk++; playNextChunk(); };
+            utterance.onerror = () => { currentChunk++; playNextChunk(); };
+            window.speechSynthesis.speak(utterance);
+        }
+
         function toggleSpeech() {
             const btn = document.getElementById('listenBtn');
             if (isSpeaking) {
@@ -1351,23 +1381,18 @@ if (uniqueText.length > 0) {
                 return;
             }
             
-            // Makaledeki tüm orijinal paragrafları topla
-            const allParagraphs = Array.from(document.querySelectorAll('.p-container p')).map(p => p.innerText).join('. ');
-            if(!allParagraphs) return;
-
-            const utterance = new SpeechSynthesisUtterance(allParagraphs);
-            // Sitenin çektiği dil neyse (örneğin Spiegel ise de-DE, BBC ise en-US) cihaz otomatik en yakın aksanı bulmaya çalışır.
+            window.speechSynthesis.cancel(); // Önceki sesleri sustur
+            // Paragrafları diziye çevir (Motor boğulmasın diye)
+            speechChunks = Array.from(document.querySelectorAll('.p-container p')).map(p => p.innerText).filter(text => text.trim().length > 0);
             
-            utterance.onend = () => {
-                isSpeaking = false;
-                btn.innerHTML = '🔊 Dinle';
-                btn.classList.remove('playing');
-            };
-
-            window.speechSynthesis.speak(utterance);
+            if (speechChunks.length === 0) return;
+            
             isSpeaking = true;
+            currentChunk = 0;
             btn.innerHTML = '⏹️ Durdur';
             btn.classList.add('playing');
+            
+            playNextChunk();
         }
     </script>
 </body>
