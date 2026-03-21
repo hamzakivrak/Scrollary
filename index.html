@@ -1380,12 +1380,24 @@
             tooltip.innerText = '⏳...';
             tooltip.style.display = 'block';
             
-            // Tooltip kelimenin ALTINA gelsin diye bottom kullanıldı
-            tooltip.style.top = (rect.bottom + window.scrollY + 10) + 'px';
-            tooltip.style.left = (rect.left + (rect.width/2)) + 'px';
+            // ÇÖZÜM BURADA: Fixed position ile doğrudan ekrandaki kelimeye kilitliyoruz.
+            // window.scrollY hatasını kaldırıyoruz.
+            tooltip.style.position = 'fixed';
+            tooltip.style.top = (rect.bottom + 10) + 'px'; // Kelimenin tam 10px altına
+            tooltip.style.left = (rect.left + (rect.width / 2)) + 'px'; // Kelimeyi tam ortala
 
             const translated = await getTranslation(text, targetLang);
             tooltip.innerText = translated;
+            
+            // İsteğe bağlı ekstra güvenlik: Eğer baloncuk çok uzun olur da ekranın sağına taşarsa
+            setTimeout(() => {
+                const tRect = tooltip.getBoundingClientRect();
+                if (tRect.right > window.innerWidth) {
+                    tooltip.style.left = (window.innerWidth - (tRect.width / 2) - 15) + 'px';
+                } else if (tRect.left < 0) {
+                    tooltip.style.left = ((tRect.width / 2) + 15) + 'px';
+                }
+            }, 50);
         }
 
         function hideTooltip() {
