@@ -1415,8 +1415,8 @@
 
 
         // Tıklanan kelimeyi/seçimi seslendiren yepyeni fonksiyonumuz
-        function listenSingleWord(encodedText, event) {
-            // DÜZELTME: Tıklama olayının arka plana geçip baloncuğu kapatmasını engeller
+        function playTooltipAudio(encodedText, event) {
+            // Tıklamanın arkadaki 'boşluğa tıkla ve kapat' olayını tetiklemesini engeller
             if(event) {
                 event.preventDefault();
                 event.stopPropagation();
@@ -1424,7 +1424,11 @@
             window.speechSynthesis.cancel(); 
             const text = decodeURIComponent(encodedText);
             const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = typeof ttsLangMap !== 'undefined' && ttsLangMap[currentRegion] ? ttsLangMap[currentRegion] : 'en-US';
+            
+            // Mevcut ttsLangMap üzerinden dili otomatik seçer
+            const langMap = { 'EN': 'en-US', 'TR': 'tr-TR', 'DE': 'de-DE', 'ES': 'es-ES', 'FR': 'fr-FR', 'RU': 'ru-RU', 'AR': 'ar-SA', 'HI': 'hi-IN' };
+            utterance.lang = langMap[currentRegion] || 'en-US';
+            
             window.speechSynthesis.speak(utterance);
         }
         function hideTooltip() {
