@@ -1166,107 +1166,125 @@
             let html = null;
             let targetUrl = art.link;
 
-            console.log("--- HABER OKUMA SÜRECİ BAŞLADI ---");
+            console.log("--- HABER OKUMA SÜRECİ BAŞLADI (ÜÇLÜ YARIŞ MODU) ---");
             console.log("1. Orijinal Gelen Link:", targetUrl);
 
-            // 1. AŞAMA: ARAMA MOTORU AVCISI
-            if (targetUrl.includes('news.google.com')) {
-                try {
-                    const searchQuery = encodeURIComponent('"' + art.title + '"');
-                    const searchProxies = [
-                        `https://api.allorigins.win/get?url=${encodeURIComponent('https://html.duckduckgo.com/html/?q=' + searchQuery)}`,
-                        `https://api.allorigins.win/get?url=${encodeURIComponent('https://search.yahoo.com/search?p=' + searchQuery)}`
-                    ];
+            // GÜVENLİ HTML ÇEKME VE KONTROL FONKSİYONU (Ortak)
+            // Bu fonksiyon url'yi alır, proxylerle dener, güvenlik duvarını aşarsa HTML'i döndürür.
+            async function fetchHtmlSafely(urlToFetch) {
+                const encoded = encodeURIComponent(urlToFetch);
+                const proxies = [ 
+                    `https://api.allorigins.win/get?url=${encoded}`,
+                    `https://corsproxy.io/?${encoded}`, 
+                    `https://api.codetabs.com/v1/proxy?quest=${encoded}`,
+                    `https://thingproxy.freeboard.io/fetch/${urlToFetch}`
+                ];
+                
+                const fetchPromises = proxies.map(proxy => fetchWithTimeout(proxy, 5000).then(async res => {
+                    if (!res.ok) throw new Error("Proxy hatası");
+                    let text = await res.text();
+                    
+                    if (proxy.includes('allorigins.win/get')) {
+                        try { text = JSON.parse(text).contents || ""; } catch(e){}
+                    }
 
-                    const searchPromises = searchProxies.map(proxy => 
-                        fetchWithTimeout(proxy, 4000).then(async res => {
-                            if (!res.ok) throw new Error("Search proxy failed");
-                            const data = await res.json();
-                            const searchHtml = data.contents || "";
-                            
-                            const allLinks = [...searchHtml.matchAll(/href=["'](https?:\/\/[^"']+)["']/gi)];
-                            const realLinkMatch = allLinks.find(m => 
-                                !m[1].includes('google.com') && 
-                                !m[1].includes('yahoo.com') &&
-                                !m[1].includes('duckduckgo.com') &&
-                                !m[1].includes('w3.org')
-                            );
-                            
-                            if (realLinkMatch && realLinkMatch[1]) {
-                                let finalUrl = realLinkMatch[1];
-                                if (finalUrl.includes('uddg=')) finalUrl = decodeURIComponent(finalUrl.split('uddg=')[1].split('&')[0]);
-                                return finalUrl;
-                            }
-                            throw new Error("Link bulunamadı");
-                        })
-                    );
+                    if (!text || text.includes('security service to protect itself') || text.includes('Cloudflare') || text.includes('Just a moment') || text.length < 500) {
+                        throw new Error("Güvenlik duvarı engeli");
+                    }
+                    
+                    // Metin var mı diye ufak bir ön kontrol (Boş sayfa veya duvar dönmesin)
+                    const parser = new DOMParser(); 
+                    const doc = parser.parseFromString(text, 'text/html'); 
+                    const pCount = Array.from(doc.querySelectorAll('p, .content div, .news-text div')).filter(p => p.textContent.trim().length > 50).length;
+                    if (pCount === 0) throw new Error("İçerik okunamadı");
 
-                    targetUrl = await Promise.any(searchPromises);
-                    document.getElementById('modalLinkExt').href = targetUrl; 
-                    console.log("2. Başarıyla Bulunan Gerçek Link:", targetUrl);
-                } catch (err) {
-                    console.error("2. Arama Motoru Avcısı ÇÖKTÜ:", err.message);
-                }
-            } else {
-                console.log("2. Link Google News değil, doğrudan devam ediliyor.");
-            }
-
-            // 2. AŞAMA: Asıl İçeriği Çekme
-            const encodedUrl = encodeURIComponent(targetUrl);
-            console.log("3. Proxy'ler bu adrese ateşleniyor:", targetUrl);
-
-            const proxyGroup1 = [ 
-                `https://api.allorigins.win/get?url=${encodedUrl}`,
-                `https://corsproxy.io/?${encodedUrl}`, 
-                `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}` 
-            ];
-            
-            const proxyGroup2 = [ 
-                `https://thingproxy.freeboard.io/fetch/${targetUrl}`,
-                `https://api.allorigins.win/raw?url=${encodedUrl}`
-            ];
-
-            async function fireProxies(proxies, timeoutMs) {
-                const fetchPromises = proxies.map(proxy =>
-                    fetchWithTimeout(proxy, timeoutMs).then(async res => {
-                        if (!res.ok) throw new Error(`Sunucu hatası: ${res.status}`);
-                        let text = await res.text();
-                        
-                        if (proxy.includes('allorigins.win/get')) {
-                            try { text = JSON.parse(text).contents || ""; } catch(e){}
-                        }
-
-                        if (!text || text.includes('security service to protect itself') || text.includes('Cloudflare') || text.includes('Just a moment') || text.length < 500) {
-                            throw new Error("Proxy yakalandı veya metin yetersiz");
-                        }
-                        return text;
-                    })
-                );
+                    return { html: text, finalUrl: urlToFetch };
+                }));
+                
                 return Promise.any(fetchPromises);
             }
 
-            try {
-                try { 
-                    html = await fireProxies(proxyGroup1, 4000); 
-                    console.log("4. HTML Başarıyla Çekildi (Grup 1). Uzunluk:", html.length);
-                } catch (e1) {
-                    try { 
-                        html = await fireProxies(proxyGroup2, 4500); 
-                        console.log("4. HTML Başarıyla Çekildi (Grup 2). Uzunluk:", html.length);
-                    } catch (e2) { 
-                        html = null; 
-                        throw new Error("Tüm proxyler güvenlik duvarına takıldı veya zaman aşımı.");
-                    }
-                }
-
-                if (!html) throw new Error("Bütün proxy denemeleri başarısız oldu.");
-
-                const parser = new DOMParser(); 
-                const doc = parser.parseFromString(html, 'text/html'); 
+            // 1. AŞAMA: BÜYÜK YARIŞ (Hangi Takım İlk Metni Getirirse Kazanır!)
+            if (targetUrl.includes('news.google.com')) {
+                console.log("2. Google News Tespit Edildi. 3 Koldan Eşzamanlı Saldırı Başlatılıyor...");
                 
-                const paragraphs = Array.from(doc.querySelectorAll('p, article div, .content div, .entry-content div, .post-content div, .news-text div, .detail-text div'));
-                const validText = paragraphs.map(p => p.textContent.trim()).filter(txt => txt.length > 70); 
-                const uniqueText = [...new Set(validText)];
+                // KOL 1: Şifre Çözücü (İnternetsiz URL bulur, hemen proxy ile metni çekmeye başlar)
+                const flow1 = async () => {
+                    const match = art.link.match(/articles\/([a-zA-Z0-9-_]+)/);
+                    if (!match) throw new Error("Base64 match fail");
+                    let b64 = match[1].replace(/-/g, '+').replace(/_/g, '/');
+                    while (b64.length % 4) b64 += '=';
+                    const decoded = atob(b64);
+                    const urlMatch = decoded.match(/(https?:\/\/[^\s\x00-\x1F"'>]+)/);
+                    if (!urlMatch || urlMatch[1].includes('google.com')) throw new Error("Base64 URL fail");
+                    console.log("-> 🚀 KOL 1 (Şifre Kırıcı) URL buldu, metni çekiyor:", urlMatch[1]);
+                    return await fetchHtmlSafely(urlMatch[1]);
+                };
+
+                // KOL 2: Yönlendirme Sayfası Analizi (Sayfaya gidip kodları deşifre eder)
+                const flow2 = async () => {
+                    const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(art.link)}`;
+                    const res = await fetchWithTimeout(proxy, 3500);
+                    const data = await res.json();
+                    const text = data.contents || "";
+                    let foundUrl = null;
+                    const dataAuMatch = text.match(/data-n-au=["'](https?:\/\/[^"']+)["']/i);
+                    if (dataAuMatch && dataAuMatch[1]) foundUrl = dataAuMatch[1];
+                    else {
+                        const metaMatch = text.match(/URL=['"]?(https?:\/\/[^'"]+)['"]?/i);
+                        if (metaMatch && metaMatch[1] && !metaMatch[1].includes('google.com')) foundUrl = metaMatch[1];
+                    }
+                    if(!foundUrl) throw new Error("Yönlendirme URL fail");
+                    console.log("-> 🕵️ KOL 2 (Sayfa Analizi) URL buldu, metni çekiyor:", foundUrl);
+                    return await fetchHtmlSafely(foundUrl);
+                };
+
+                // KOL 3: Arama Motoru Avcısı (Haberin başlığını aratıp en üstteki siteye saldırır)
+                const flow3 = async () => {
+                    const searchQuery = encodeURIComponent('"' + art.title + '"');
+                    const searchProxy = `https://api.allorigins.win/get?url=${encodeURIComponent('https://html.duckduckgo.com/html/?q=' + searchQuery)}`;
+                    const res = await fetchWithTimeout(searchProxy, 4000);
+                    const data = await res.json();
+                    const searchHtml = data.contents || "";
+                    const allLinks = [...searchHtml.matchAll(/href=["'](https?:\/\/[^"']+)["']/gi)];
+                    const realLinkMatch = allLinks.find(m => !m[1].includes('google.com') && !m[1].includes('duckduckgo.com') && !m[1].includes('w3.org'));
+                    if (!realLinkMatch) throw new Error("Arama URL fail");
+                    let foundUrl = realLinkMatch[1];
+                    if (foundUrl.includes('uddg=')) foundUrl = decodeURIComponent(foundUrl.split('uddg=')[1].split('&')[0]);
+                    console.log("-> 🔎 KOL 3 (Arama Avcısı) URL buldu, metni çekiyor:", foundUrl);
+                    return await fetchHtmlSafely(foundUrl);
+                };
+
+                try {
+                    // YARIŞ BAŞLIYOR! Hangisi önce "içinde metin olan HTML" döndürürse yarışmayı o kazanır.
+                    const winner = await Promise.any([flow1(), flow2(), flow3()]);
+                    html = winner.html;
+                    targetUrl = winner.finalUrl;
+                    document.getElementById('modalLinkExt').href = targetUrl;
+                    console.log("🏆 YARIŞI KAZANAN LİNK:", targetUrl);
+                } catch (err) {
+                    throw new Error("Tüm kollar (Şifre, Yönlendirme, Arama) ve Proxyler güvenlik duvarına yenik düştü.");
+                }
+            } else {
+                console.log("2. Direkt Link Algılandı, Çekim Başlıyor...");
+                try {
+                    const result = await fetchHtmlSafely(targetUrl);
+                    html = result.html;
+                    document.getElementById('modalLinkExt').href = targetUrl;
+                } catch(err) {
+                    throw new Error("Doğrudan link proxyleri güvenlik duvarına takıldı.");
+                }
+            }
+
+            if (!html) throw new Error("Kritik Hata: HTML oluşturulamadı.");
+
+            // 2. AŞAMA: KAZANAN HTML İÇİNDEN METNİ AYIKLAMA (DOM PARSER)
+            const parser = new DOMParser(); 
+            const doc = parser.parseFromString(html, 'text/html'); 
+            
+            const paragraphs = Array.from(doc.querySelectorAll('p, article div, .content div, .entry-content div, .post-content div, .news-text div, .detail-text div'));
+            const validText = paragraphs.map(p => p.textContent.trim()).filter(txt => txt.length > 70); 
+            const uniqueText = [...new Set(validText)];
                 
                 console.log("5. Analiz Edilen Paragraf/Div Sayısı:", paragraphs.length);
                 console.log("6. Geçerli Sayılan (70 karakterden uzun) Metin Parçası:", validText.length);
