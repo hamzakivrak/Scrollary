@@ -1246,7 +1246,7 @@
             }
         }
 
-        // KULLANICININ YAPIŞTIRDIĞI LİNK İLE ÇALIŞACAK KURTARICI FONKSİYON
+        // KULLANICININ YAPIŞTIRDIĞI LİNK İLE ÇALIŞACAK KURTARICI FONKSİYON (ÇOKLU YARIŞ - RACE)
         async function fetchWithUserHelp() {
             const manualUrl = document.getElementById('manualLinkInput').value.trim();
             const textContainer = document.getElementById('fullTextContainer');
@@ -1257,44 +1257,76 @@
                 return;
             }
 
-            textContainer.innerHTML = `<div class="loading-pulse">Jina API ile kilit kırılıyor... ⏳</div>`;
+            textContainer.innerHTML = `<div class="loading-pulse">Farklı sunucularla kilit kırılıyor... Lütfen bekleyin ⏳</div>`;
+
+            // YARIŞMACI 1: Jina API (Özel Markdown temizleyici filtreli)
+            const fetchJina = async (url) => {
+                const res = await fetch("https://r.jina.ai/" + url, { headers: { "Accept": "application/json" } });
+                if (!res.ok) throw new Error("Jina failed");
+                const data = await res.json();
+                if (!data || !data.data || !data.data.content) throw new Error("Jina no content");
+                
+                let text = data.data.content;
+                // O iğrenç Markdown çöplerini (Resimler, linkler, reklamlar) yokediyoruz!
+                text = text.replace(/!\[.*?\]\(.*?\)/g, ''); // Resimleri sil
+                text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'); // Linkleri sil ama metni bırak
+                text = text.replace(/^#+\s*/gm, ''); // Başlık işaretlerini sil
+                text = text.replace(/[*_]{1,2}/g, ''); // Kalın/italik işaretlerini sil
+                text = text.replace(/<[^>]*>/g, ''); // Kalan HTML etiketlerini temizle
+                
+                const paragraphs = text.split('\n').map(t => t.trim()).filter(t => {
+                    if (t.length < 70) return false; // Kısa menü/navigasyon metinlerini atla
+                    if (t.includes('redirect=')) return false; // Gizli reklam takip linklerini atla
+                    return true;
+                });
+                
+                if (paragraphs.length < 1) throw new Error("Jina text too short");
+                return paragraphs;
+            };
+
+            // YARIŞMACI 2, 3, 4: Standart Proxy'lerimiz (Eğer sitenin Cloudflare'i yoksa ışık hızında çalışır)
+            const fetchProxy = async (proxyBase, url) => {
+                const res = await fetch(proxyBase + encodeURIComponent(url));
+                if (!res.ok) throw new Error("Proxy failed");
+                const html = await res.text();
+                if (html.includes('security service to protect itself') || html.length < 1000) throw new Error("Blocked by Firewall");
+                
+                const parser = new DOMParser(); 
+                const doc = parser.parseFromString(html, 'text/html'); 
+                const pTags = Array.from(doc.querySelectorAll('p, .content p, .news-text p, article p'));
+                const validText = pTags.map(p => p.textContent.trim()).filter(txt => txt.length > 70); 
+                const uniqueText = [...new Set(validText)];
+                
+                if (uniqueText.length < 1) throw new Error("Proxy text too short");
+                return uniqueText;
+            };
 
             try {
-                // Jina Reader API'ye kullanıcının verdiği temiz linki gönderiyoruz
-                const jinaUrl = "https://r.jina.ai/" + manualUrl;
-                const response = await fetch(jinaUrl, {
-                    headers: { "Accept": "application/json" }
-                });
-
-                if (!response.ok) throw new Error("API Yanıt Vermedi.");
+                // 4 FARKLI SUNUCUYU AYNI ANDA YARIŞTIRIYORUZ! 
+                // İlk kim temiz metni çıkarırsa ekrana o yansıyacak. Hata verenler sessizce elenecek.
+                const paragraphs = await Promise.any([
+                    fetchProxy("https://corsproxy.io/?", manualUrl),
+                    fetchProxy("https://api.allorigins.win/raw?url=", manualUrl),
+                    fetchProxy("https://api.codetabs.com/v1/proxy?quest=", manualUrl),
+                    fetchJina(manualUrl) // Jina en yavaşıdır ama duvarı kesin deler, o yüzden garanti olarak sona koyduk
+                ]);
                 
-                const data = await response.json();
+                // Yarışmayı kazanan paragraphs dizisini senin o harika okuma arayüzüne basıyoruz
+                textContainer.innerHTML = paragraphs.map((txt, idx) => {
+                    const clickableWords = txt.split(' ').map(w => `<span class="t-word" onclick="translateSingleWord(this, event)">${w}</span>`).join(' ');
+                    return `<div class="p-container">
+                                <p id="p_${idx}">${clickableWords}</p>
+                                <div class="p-actions-row">
+                                    <button class="btn-action-p" onclick="listenParagraph(${idx}, this)" title="Dinle">🔊</button>
+                                    <button class="btn-action-p" onclick="translateParagraph(${idx}, this)" title="Çevir">🌐</button>
+                                </div>
+                                <div class="translated-text" id="trans_${idx}"></div>
+                            </div>`;
+                }).join('');
                 
-                if (data && data.data && data.data.content) {
-                    // Jina'dan gelen temiz metni paragraflara böl
-                    const paragraphs = data.data.content.split('\n').filter(txt => txt.trim().length > 50);
-                    
-                    if(paragraphs.length > 0) {
-                        // Mevcut çeviri ve dinleme yapını koruyarak ekrana bas
-                        textContainer.innerHTML = paragraphs.map((txt, idx) => {
-                            const clickableWords = txt.split(' ').map(w => `<span class="t-word" onclick="translateSingleWord(this, event)">${w}</span>`).join(' ');
-                            return `<div class="p-container">
-                                        <p id="p_${idx}">${clickableWords}</p>
-                                        <div class="p-actions-row">
-                                            <button class="btn-action-p" onclick="listenParagraph(${idx}, this)" title="Dinle">🔊</button>
-                                            <button class="btn-action-p" onclick="translateParagraph(${idx}, this)" title="Çevir">🌐</button>
-                                        </div>
-                                        <div class="translated-text" id="trans_${idx}"></div>
-                                    </div>`;
-                        }).join('');
-                    } else {
-                        throw new Error("Metin çok kısa.");
-                    }
-                } else {
-                    throw new Error("İçerik çekilemedi.");
-                }
             } catch (err) {
-                textContainer.innerHTML = `<div class="status-msg" style="color: #ef4444;">❌ Maalesef bu sitenin duvarı çok sert. Orijinal sekmede okumaya devam edebilirsiniz.</div>`;
+                // Eğer 4 sunucu da başarısız olursa (çok ekstrem bir durum)
+                textContainer.innerHTML = `<div class="status-msg" style="color: #ef4444;">❌ Maalesef bu sitenin duvarı tüm sunucularımızı engelledi. Lütfen orijinal sekmede okuyun.</div>`;
             }
         }
 
