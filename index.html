@@ -1166,63 +1166,54 @@
             let html = null;
             let targetUrl = art.link;
 
-            // 1. AŞAMA: Google News Yönlendirmesini Çözme (En Gelişmiş Avcı)
+            // 1. AŞAMA: KULLANICININ MANTIĞI - Başlıktan Kaynağı Bulup Aratma
+            // (Sadece Google News altyapısıyla gelen konularda çalışır)
             if (targetUrl.includes('news.google.com')) {
                 try {
-                    const encodedGNews = encodeURIComponent(targetUrl);
-                    // Yönlendirmeyi aşmak için farklı teknikler kullanan proxyler
-                    const unwrapProxies = [
-                        `https://api.allorigins.win/get?url=${encodedGNews}`, // JSON döner, güvenlik duvarını kör eder
-                        `https://corsproxy.io/?${encodedGNews}`,
-                        `https://api.codetabs.com/v1/proxy?quest=${encodedGNews}`
-                    ];
+                    let realTitle = art.title;
+                    let publisher = "";
+                    
+                    // "Haber Başlığı - Kaynak" formatını ayırma (Örn: "...çağrısı - Evrensel.net")
+                    const splitMatch = art.title.match(/(.+) - ([^-]+)$/);
+                    if (splitMatch) {
+                        realTitle = splitMatch[1].trim();
+                        publisher = splitMatch[2].trim();
+                    }
 
-                    const unwrapPromises = unwrapProxies.map(proxy =>
-                        fetchWithTimeout(proxy, 3500).then(async res => {
-                            if (!res.ok) throw new Error("Unwrap proxy failed");
-                            let text = await res.text();
-                            
-                            // allorigins /get kullanıldıysa JSON'dan HTML'i dışarı çıkar
-                            if (proxy.includes('allorigins.win/get')) {
-                                try { text = JSON.parse(text).contents || text; } catch(e){}
-                            }
-                            
-                            // Taktik 1: <c-wiz> içindeki data-n-au (YENİ Google News Formatı!)
-                            const dataAuMatch = text.match(/data-n-au=["'](https?:\/\/[^"']+)["']/i);
-                            if (dataAuMatch && dataAuMatch[1]) return dataAuMatch[1];
-
-                            // Taktik 2: Meta Refresh URL'si
-                            const metaMatch = text.match(/content=["']0;W?URL=['"]?(https?:\/\/[^'"]+)['"]?["']/i) || text.match(/URL=['"]?(https?:\/\/[^'"]+)['"]?/i);
-                            if (metaMatch && metaMatch[1] && !metaMatch[1].includes('google.com')) return metaMatch[1];
-
-                            // Taktik 3: Sayfadaki ilk geçerli dış link
-                            const allLinks = [...text.matchAll(/href=["'](https?:\/\/[^"']+)["']/gi)];
-                            const realLinkMatch = allLinks.find(m => 
-                                !m[1].includes('google.com') && 
-                                !m[1].includes('gstatic.com') &&
-                                !m[1].includes('schema.org')
-                            );
-                            if (realLinkMatch && realLinkMatch[1]) return realLinkMatch[1];
-                            
-                            // Taktik 4: Javascript Yönlendirmesi
-                            const jsMatch = text.match(/window\.location\.replace\(['"]([^'"]+)['"]\)/i);
-                            if (jsMatch && jsMatch[1]) return jsMatch[1];
-
-                            throw new Error("Sayfada yönlendirme linki bulunamadı");
-                        })
-                    );
-
-                    targetUrl = await Promise.any(unwrapPromises);
+                    // Sadece asıl başlık ve yayıncıyı DuckDuckGo'da aratıyoruz
+                    // Çift tırnak ("") ile tam eşleşme aratarak nokta atışı haberi buluyoruz
+                    const searchQuery = `"${realTitle}" ${publisher}`;
+                    const ddgUrl = `https://api.allorigins.win/get?url=${encodeURIComponent('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(searchQuery))}`;
+                    
+                    const searchRes = await fetchWithTimeout(ddgUrl, 4500);
+                    const searchData = await searchRes.json();
+                    const searchHtml = searchData.contents || "";
+                    
+                    // DuckDuckGo sonuçlarından organik linki yakalama
+                    const ddgRedirectMatch = searchHtml.match(/href=["']\/\/duckduckgo\.com\/l\/\?uddg=([^"'&]+)/i);
+                    const directLinkMatch = searchHtml.match(/class="result__url"[^>]*href=["']([^"']+)["']/i);
+                    
+                    if (ddgRedirectMatch && ddgRedirectMatch[1]) {
+                        // Eğer DDG kendi yönlendirmesine sokmuşsa içinden linki çöz
+                        targetUrl = decodeURIComponent(ddgRedirectMatch[1]);
+                    } else if (directLinkMatch && directLinkMatch[1]) {
+                        // Eğer doğrudan link vermişse onu al
+                        let finalUrl = directLinkMatch[1];
+                        if (finalUrl.startsWith('//')) finalUrl = 'https:' + finalUrl;
+                        targetUrl = finalUrl;
+                    }
+                    
+                    // Sağ üstteki Orijinal Site ikonunun linkini bulduğumuz asıl kaynakla güncelliyoruz
                     document.getElementById('modalLinkExt').href = targetUrl; 
                 } catch (err) {
-                    console.log("Google News redirect çözülemedi:", err);
+                    console.log("Başlık arama yöntemi başarısız:", err);
                 }
             }
 
-            // 2. AŞAMA: Asıl İçeriği Çekme (Cloudflare/Güvenlik Duvarı Atlatma Modeli)
+            // 2. AŞAMA: Asıl İçeriği Çekme (Gerçek Link Üzerinden)
             const encodedUrl = encodeURIComponent(targetUrl);
 
-            // allorigins.win/get formatı JSON döndürdüğü için çoğu sitenin güvenlik duvarı bunu "bot html çekiyor" diye yakalayamaz
+            // allorigins.win/get formatı JSON döndürdüğü için hedef sitelerin güvenlik duvarlarını rahat geçeriz
             const proxyGroup1 = [ 
                 `https://api.allorigins.win/get?url=${encodedUrl}`,
                 `https://corsproxy.io/?${encodedUrl}`, 
@@ -1245,7 +1236,7 @@
                             try { text = JSON.parse(text).contents || ""; } catch(e){}
                         }
 
-                        // Çok güçlü güvenlik duvarı filtresi (Cloudflare, Just a moment, Sucuri, vb.)
+                        // Güvenlik duvarı filtresi
                         if (!text || text.includes('security service to protect itself') || text.includes('Cloudflare') || text.includes('Just a moment') || text.length < 500) {
                             throw new Error("Güvenlik duvarı engelledi veya metin yetersiz");
                         }
@@ -1256,15 +1247,15 @@
             }
 
             try {
-                // İlk saldırı (Max 4 saniye)
+                // İlk dalga saldırı (Max 4 saniye)
                 try { html = await fireProxies(proxyGroup1, 4000); } 
                 catch (e1) {
-                    // İkinci dalga (Max 4.5 saniye)
+                    // İkinci dalga saldırı (Max 4.5 saniye)
                     try { html = await fireProxies(proxyGroup2, 4500); } 
                     catch (e2) { html = null; }
                 }
 
-                if (!html) throw new Error("Bütün proxy denemeleri ve güvenlik duvarı atlatmaları başarısız oldu.");
+                if (!html) throw new Error("Bütün proxy denemeleri başarısız oldu.");
 
                 const parser = new DOMParser(); const doc = parser.parseFromString(html, 'text/html'); const paragraphs = Array.from(doc.querySelectorAll('p, .content p, .news-text p, article p'));
                 const validText = paragraphs.map(p => p.textContent.trim()).filter(txt => txt.length > 70); const uniqueText = [...new Set(validText)];
