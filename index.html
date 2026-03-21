@@ -1392,15 +1392,17 @@
             const translated = await getTranslation(text, targetLang);
             const safeText = encodeURIComponent(text);
 
-            // DÜZELTME: onclick kısmındaki ', event' parametresini kaldırdık. 
-            // Zaten onmousedown ve ontouchstart baloncuğun kapanmasını engelliyor.
+            // İçerik Yapısı: Tüm baloncuk tıklanabilir hale getirildi
             tooltip.innerHTML = `
-                <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
-                    <span>${translated}</span>
-                    <button onmousedown="event.preventDefault(); event.stopPropagation();" ontouchstart="event.preventDefault(); event.stopPropagation();" onclick="listenSingleWord('${safeText}', event)" style="background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; font-size: 1rem; transition: 0.2s;">🔊</button>
-                </div>
-            `;
+                <div onclick="playTooltipAudio('${safeText}', event)" 
+                     onmousedown="event.preventDefault(); event.stopPropagation();" 
+                     ontouchstart="event.preventDefault(); event.stopPropagation();" 
+                     style="display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; padding: 5px 12px; min-width: 80px;">
+                    <span style="pointer-events: none;">${translated}</span>
+                    <span style="font-size: 1.1rem; pointer-events: none;">🔊</span>
+                </div>`;
 
+            // Kenardan taşma kontrolü (Senin orijinal kodun, dokunmadık)
             setTimeout(() => {
                 const tRect = tooltip.getBoundingClientRect();
                 if (tRect.right > window.innerWidth) {
