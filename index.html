@@ -122,7 +122,7 @@
         .controls-toggle { display: flex; justify-content: space-between; align-items: center; padding: 15px 25px; font-size: 1rem; font-weight: 600; color: var(--text-main); cursor: pointer; user-select: none; transition: all 0.3s; }
         .controls-toggle:hover { color: var(--primary); }
         .toggle-icon { background: rgba(255,255,255,0.1); padding: 5px 10px; border-radius: 8px; font-size: 0.8rem; transition: 0.3s; }
-        .controls-content { padding: 0 25px 25px 25px; display: block; animation: fadeIn 0.3s ease; max-height: 80vh; overflow-y: auto; }
+        .controls-content { padding: 0 25px 25px 25px; display: block; animation: fadeIn 0.3s ease; max-height: 65vh; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
         .controls-wrapper.collapsed { background: transparent !important; border-color: transparent !important; backdrop-filter: none !important; box-shadow: none !important; top: 0; border-radius: 0 0 var(--radius-lg) var(--radius-lg); margin-bottom: 5px;}
         .controls-wrapper.collapsed .controls-toggle { background: rgba(225, 29, 72, 0.95); color: white; padding: 12px 25px; border-radius: var(--radius-lg); box-shadow: 0 4px 15px rgba(225, 29, 72, 0.3); }
         .controls-wrapper.collapsed .toggle-icon { background: rgba(0,0,0,0.2); }
@@ -1267,6 +1267,16 @@
             document.querySelectorAll('.c-pane').forEach(pane => pane.classList.remove('active'));
             document.getElementById('tabBtn_' + tabId).classList.add('active');
             document.getElementById('pane_' + tabId).classList.add('active');
+            
+            // DÜZELTME: Sekmeye tıklandığında menüyü ekranın görünür kısmına kaydır
+            setTimeout(() => {
+                const wrapper = document.getElementById('controlsWrapper');
+                const rect = wrapper.getBoundingClientRect();
+                // Eğer menü ekranın altında veya üstünde kaldıysa oraya yumuşakça kaydır
+                if (rect.top < 0 || rect.bottom > window.innerHeight) {
+                    wrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 100);
         }
         
         const layoutOrder = ['list', 'small', 'medium', 'large'];
@@ -1343,19 +1353,16 @@
         }
 
         let tooltipTimeout;
-        // Seçim değiştirildiğinde (kullanıcı yerel damlaları çekerek seçimi genişlettiğinde)
         document.addEventListener('selectionchange', () => {
             clearTimeout(tooltipTimeout);
             tooltipTimeout = setTimeout(() => {
                 const selection = window.getSelection();
                 const text = selection.toString().trim();
                 
-                // Eğer yerel (damlalı) bir seçim yapılmışsa, tek tıkla eklenen kırmızı sınıfı temizle (çakışmasın)
                 if(text.length > 0) {
                     document.querySelectorAll('.t-word').forEach(el => el.classList.remove('highlighted'));
                 }
 
-                // Seçilen metin boş değilse ve okuma ekranının içindeysek
                 if (text.length > 0 && selection.anchorNode) {
                     let parent = selection.anchorNode.nodeType === 3 ? selection.anchorNode.parentNode : selection.anchorNode;
                     if (parent && parent.closest && parent.closest('#readerView')) {
@@ -1363,11 +1370,9 @@
                         const rect = range.getBoundingClientRect();
                         showTooltip(text, rect);
                     }
-                } else {
-                    // Eğer kullanıcının bulunduğu yer bir input/textarea ise tooltipi gizleme
-                    if(document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
-                    hideTooltip();
                 }
+                // DÜZELTME: "else { hideTooltip(); }" kısmını sildik. 
+                // Kapatma işini sadece boşluğa tıklama olayına bıraktık ki mobilde damlalar çıkarken kendi kendine kapanmasın.
             }, 400); 
         });
 
