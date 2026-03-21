@@ -373,7 +373,8 @@
             </div>
             <div class="controls-content" id="controlsContent">
                 
-                <div style="display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; position: sticky; top: 0; z-index: 10; background: var(--surface); padding-top: 15px; margin-top: -15px;">                    <button id="tabBtn_search" class="c-tab active" onclick="switchControlTab('search')" data-i18n="tabSearch">🔍 Ara</button>
+                <div style="display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px;">
+                    <button id="tabBtn_search" class="c-tab active" onclick="switchControlTab('search')" data-i18n="tabSearch">🔍 Ara</button>
                     <button id="tabBtn_filter" class="c-tab" onclick="switchControlTab('filter')" data-i18n="tabFilter">📚 Filtrele</button>
                     <button id="tabBtn_add" class="c-tab" onclick="switchControlTab('add')" data-i18n="tabAddSource">➕ Kaynak Ekle</button>
                 </div>
@@ -1142,10 +1143,7 @@
 
         async function openModal(art) {
             const t = TRANSLATIONS[currentRegion];
-            document.getElementById('modalSource').innerText = art.source; 
-            document.getElementById('modalLinkExt').href = art.link; 
-            document.getElementById('modalTitle').innerText = art.title; 
-            document.getElementById('modalDesc').innerText = art.description;
+            document.getElementById('modalSource').innerText = art.source; document.getElementById('modalLinkExt').href = art.link; document.getElementById('modalTitle').innerText = art.title; document.getElementById('modalDesc').innerText = art.description;
             
             const imgEl = document.getElementById('modalImg'); 
             const modalBody = document.getElementById('modalBodyArea');
@@ -1163,154 +1161,42 @@
             switchTab('reader'); 
             openModalSafe('newsModal'); 
             
-            const textContainer = document.getElementById('fullTextContainer'); 
-            textContainer.innerHTML = `<div class="loading-pulse">${t.extracting}</div>`;
-            const oldIframe = document.getElementById('modalIframe'); 
-            const iframe = document.createElement('iframe'); 
-            iframe.id = 'modalIframe'; iframe.className = 'modal-iframe'; 
-            iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups'); 
-            oldIframe.parentNode.replaceChild(iframe, oldIframe); 
-            const banner = document.getElementById('iframeBanner'); 
-            banner.innerHTML = `<span style="animation: pulse 1.5s infinite;">⏳</span> ${t.loadingSite}`;
+            const textContainer = document.getElementById('fullTextContainer'); textContainer.innerHTML = `<div class="loading-pulse">${t.extracting}</div>`;
+            const oldIframe = document.getElementById('modalIframe'); const iframe = document.createElement('iframe'); iframe.id = 'modalIframe'; iframe.className = 'modal-iframe'; iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups'); oldIframe.parentNode.replaceChild(iframe, oldIframe); const banner = document.getElementById('iframeBanner'); banner.innerHTML = `<span style="animation: pulse 1.5s infinite;">⏳</span> ${t.loadingSite}`;
 
             let html = null;
-            let targetUrl = art.link;
+            const encodedUrl = encodeURIComponent(art.link);
+
+            // Çift Aşamalı Proxy Sistemi
+            const proxyGroup1 = [ `https://corsproxy.io/?${encodedUrl}`, `https://api.allorigins.win/raw?url=${encodedUrl}`, `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}` ];
+            const proxyGroup2 = [ `https://thingproxy.freeboard.io/fetch/${art.link}`, `https://cors.eu.org/${art.link}`, `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}` ];
+
+            async function fireProxies(proxies, timeoutMs) {
+                const fetchPromises = proxies.map(proxy =>
+                    fetchWithTimeout(proxy, timeoutMs).then(async res => {
+                        if (!res.ok) throw new Error("Sunucu hatasi");
+                        const text = await res.text();
+                        if (!text || text.includes('security service to protect itself') || text.length < 500) throw new Error("Engellendi");
+                        return text;
+                    })
+                );
+                return Promise.any(fetchPromises);
+            }
 
             try {
-                console.log("--- HABER OKUMA SÜRECİ BAŞLADI (ÜÇLÜ YARIŞ MODU v2) ---");
-                console.log("1. Orijinal Gelen Link:", targetUrl);
+                if(art.link.includes('news.google.com')) throw new Error("Redirect");
 
-                async function fetchHtmlSafely(urlToFetch) {
-                    const encoded = encodeURIComponent(urlToFetch);
-                    const proxies = [ 
-                        `https://api.allorigins.win/get?url=${encoded}`,
-                        `https://corsproxy.io/?${encoded}`, 
-                        `https://api.codetabs.com/v1/proxy?quest=${encoded}`,
-                        `https://thingproxy.freeboard.io/fetch/${urlToFetch}`
-                    ];
-                    
-                    const fetchPromises = proxies.map(proxy => fetchWithTimeout(proxy, 5000).then(async res => {
-                        if (!res.ok) throw new Error("Proxy Sunucu Hatası");
-                        let text = await res.text();
-                        
-                        if (proxy.includes('allorigins.win/get')) {
-                            try { text = JSON.parse(text).contents || ""; } catch(e){}
-                        }
-
-                        if (!text || text.includes('security service to protect itself') || text.includes('Cloudflare') || text.includes('Just a moment') || text.length < 200) {
-                            throw new Error("Güvenlik Duvarı Engeli");
-                        }
-                        
-                        const parser = new DOMParser(); 
-                        const doc = parser.parseFromString(text, 'text/html'); 
-                        const pNodes = Array.from(doc.querySelectorAll('p, article div, .content div, .entry-content div, .post-content div, .news-text div, .detail-text div'));
-                        const pCount = pNodes.filter(p => p.textContent.trim().length > 30).length;
-                        
-                        if (pCount === 0) throw new Error("İçerik (Metin) Yok");
-
-                        return { html: text, finalUrl: urlToFetch };
-                    }));
-                    
-                    return Promise.any(fetchPromises);
+                try { html = await fireProxies(proxyGroup1, 3000); } 
+                catch (e1) {
+                    try { html = await fireProxies(proxyGroup2, 4000); } 
+                    catch (e2) { html = null; }
                 }
 
-                if (targetUrl.includes('news.google.com')) {
-                    const flow1 = async () => {
-                        const match = art.link.match(/articles\/([a-zA-Z0-9-_]+)/);
-                        if (!match) throw new Error("Base64 kodu URL'de yok");
-                        let b64 = match[1].replace(/-/g, '+').replace(/_/g, '/');
-                        while (b64.length % 4) b64 += '=';
-                        try {
-                            const decoded = atob(b64);
-                            const urlMatch = decoded.match(/(https?:\/\/[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s\x00-\x1F"'>]*)/);
-                            if (!urlMatch || urlMatch[1].includes('google.com')) throw new Error("Gizli link ayıklanamadı");
-                            console.log("-> 🚀 KOL 1 (Şifre Kırıcı) Hedefi:", urlMatch[1]);
-                            return await fetchHtmlSafely(urlMatch[1]);
-                        } catch(e) { throw new Error("Base64 çözerken hata"); }
-                    };
+                if (!html) throw new Error("Bütün proxy denemeleri başarısız oldu.");
 
-                    const flow2 = async () => {
-                        const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(art.link)}`;
-                        const res = await fetchWithTimeout(proxy, 3500);
-                        const data = await res.json();
-                        const text = data.contents || "";
-                        let foundUrl = null;
-                        const dataAuMatch = text.match(/data-n-au=["'](https?:\/\/[^"']+)["']/i);
-                        if (dataAuMatch && dataAuMatch[1]) foundUrl = dataAuMatch[1];
-                        else {
-                            const metaMatch = text.match(/URL=['"]?(https?:\/\/[^'"]+)['"]?/i);
-                            if (metaMatch && metaMatch[1] && !metaMatch[1].includes('google.com')) foundUrl = metaMatch[1];
-                        }
-                        if(!foundUrl) throw new Error("Yönlendirme etiketi bulunamadı");
-                        console.log("-> 🕵️ KOL 2 (Sayfa Analizi) Hedefi:", foundUrl);
-                        return await fetchHtmlSafely(foundUrl);
-                    };
-
-                    const flow3 = async () => {
-                        const s1 = encodeURIComponent('"' + art.title + '"');
-                        const s2 = encodeURIComponent(art.title + " " + art.source);
-                        
-                        const searchProxies = [
-                            `https://api.allorigins.win/get?url=${encodeURIComponent('https://search.yahoo.com/search?p=' + s1)}`,
-                            `https://api.allorigins.win/get?url=${encodeURIComponent('https://html.duckduckgo.com/html/?q=' + s2)}`
-                        ];
-                        
-                        const urlPromises = searchProxies.map(p => fetchWithTimeout(p, 4000).then(async res => {
-                            const d = await res.json();
-                            const sHtml = d.contents || "";
-                            const links = [...sHtml.matchAll(/href=["'](https?:\/\/[^"']+)["']/gi)];
-                            const match = links.find(m => !m[1].includes('google') && !m[1].includes('yahoo') && !m[1].includes('duckduckgo') && !m[1].includes('w3.org'));
-                            if (!match) throw new Error("Gerçek haber linki bulunamadı");
-                            let fUrl = match[1];
-                            if (fUrl.includes('uddg=')) fUrl = decodeURIComponent(fUrl.split('uddg=')[1].split('&')[0]);
-                            return fUrl;
-                        }));
-                        
-                        const foundUrl = await Promise.any(urlPromises);
-                        console.log("-> 🔎 KOL 3 (Arama Avcısı) Hedefi:", foundUrl);
-                        return await fetchHtmlSafely(foundUrl);
-                    };
-
-                    try {
-                        const winner = await Promise.any([flow1(), flow2(), flow3()]);
-                        html = winner.html;
-                        targetUrl = winner.finalUrl;
-                        document.getElementById('modalLinkExt').href = targetUrl;
-                        console.log("🏆 YARIŞI KAZANAN LİNK:", targetUrl);
-                    } catch (err) {
-                        if (err instanceof AggregateError) {
-                            const errors = err.errors.map(e => e.message).join(' | ');
-                            throw new Error("3 Kol da başarısız oldu. Hatalar: " + errors);
-                        }
-                        throw new Error("Bilinmeyen bir nedenle 3 kol da çöktü.");
-                    }
-                } else {
-                    console.log("2. Direkt Link Algılandı, Çekim Başlıyor...");
-                    try {
-                        const result = await fetchHtmlSafely(targetUrl);
-                        html = result.html;
-                        document.getElementById('modalLinkExt').href = targetUrl;
-                    } catch(err) {
-                        if (err instanceof AggregateError) {
-                            const errors = err.errors.map(e => e.message).join(' | ');
-                            throw new Error("Doğrudan link proxylerden geçemedi: " + errors);
-                        }
-                        throw new Error("Doğrudan link başarısız oldu.");
-                    }
-                }
-
-                if (!html) throw new Error("Kritik Hata: HTML oluşturulamadı.");
-
-                const parser = new DOMParser(); 
-                const doc = parser.parseFromString(html, 'text/html'); 
+                const parser = new DOMParser(); const doc = parser.parseFromString(html, 'text/html'); const paragraphs = Array.from(doc.querySelectorAll('p, .content p, .news-text p, article p'));
+                const validText = paragraphs.map(p => p.textContent.trim()).filter(txt => txt.length > 70); const uniqueText = [...new Set(validText)];
                 
-                const paragraphs = Array.from(doc.querySelectorAll('p, article div, .content div, .entry-content div, .post-content div, .news-text div, .detail-text div'));
-                const validText = paragraphs.map(p => p.textContent.trim()).filter(txt => txt.length > 70); 
-                const uniqueText = [...new Set(validText)];
-                
-                console.log("5. Analiz Edilen Paragraf/Div Sayısı:", paragraphs.length);
-                console.log("6. Geçerli Sayılan (70 karakterden uzun) Metin Parçası:", validText.length);
-
                 if (uniqueText.length > 0) { 
                     textContainer.innerHTML = uniqueText.map((txt, idx) => {
                         const clickableWords = txt.split(' ').map(w => `<span class="t-word" onclick="translateSingleWord(this, event)">${w}</span>`).join(' ');
@@ -1323,26 +1209,21 @@
                                     <div class="translated-text" id="trans_${idx}"></div>
                                 </div>`;
                     }).join(''); 
-                } else { 
-                    throw new Error("HTML çekildi ama içinde okunabilir metin (<p> veya içerik <div>'i) bulunamadı!"); 
-                }
+                } else { throw new Error("Okunabilir metin bulunamadı"); }
                 
                 html = html.replace(/<meta[^>]+http-equiv=['"]?refresh['"]?[^>]*>/gi, ''); html = html.replace(/window\.location\.replace/gi, 'console.log'); html = html.replace(/window\.location\.href\s*=/gi, 'console.log=');
-                const urlObj = new URL(targetUrl); const baseUrl = urlObj.protocol + "//" + urlObj.host + "/";                
+                const urlObj = new URL(art.link); const baseUrl = urlObj.protocol + "//" + urlObj.host + "/";
                 if (html.toLowerCase().includes('<head>')) { html = html.replace(/<head>/i, `<head><base href="${baseUrl}">`); } else { html = `<base href="${baseUrl}">` + html; }
                 const scriptFix = `<script> window.onload = function() { const links = document.querySelectorAll('a'); links.forEach(l => l.setAttribute('target', '_blank')); }; <\/script>`;
                 html = html.replace(/<\/body>/i, scriptFix + '</body>'); iframe.srcdoc = html; iframe.onload = () => { banner.innerHTML = `✅`; setTimeout(()=>{ banner.style.display='none'; }, 2000); };
             } catch (err) { 
-                console.error("--- SÜREÇ HATA İLE SONLANDI ---", err);
-                
                 textContainer.innerHTML = `
-                    <div class="status-msg" style="padding: 30px 20px; text-align: center; cursor: default;">
-                        <div style="font-size: 3rem; margin-bottom: 10px;">🛠️</div>
-                        <h3 style="color: white; margin-bottom: 10px;">Hata Tespit Ekranı</h3>
-                        <div style="background: rgba(0,0,0,0.4); padding: 15px; border-radius: 8px; text-align: left; margin-bottom: 20px; font-size: 0.85rem; color: #fca5a5; word-break: break-all;">
-                            <strong>Hedef URL:</strong> <br>${targetUrl}<br><br>
-                            <strong>Hata Sebebi:</strong> <br>${err.message}
-                        </div>
+                    <div class="status-msg" style="padding: 40px 20px; text-align: center; cursor: default;">
+                        <div style="font-size: 3rem; margin-bottom: 15px;">🛡️</div>
+                        <h3 style="color: white; margin-bottom: 10px;">${t.firewallBlockTitle || 'Metin Alınamadı'}</h3>
+                        <p style="color: var(--text-muted); line-height: 1.6; font-size: 1rem; margin-bottom: 25px;">
+                            ${t.firewallBlock || 'Sitenin güvenlik duvarı geçilemedi. Sağ üstteki mavi ok ile açın.'}
+                        </p>
                         <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
                             <button onclick="switchTab('web')" style="background: var(--surface-light); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 0.95rem; pointer-events: auto;">
                                 🌐 Orijinal Web Sekmesi
@@ -1511,21 +1392,21 @@
             const translated = await getTranslation(text, targetLang);
             const safeText = encodeURIComponent(text);
 
-            // YENİ EKLENEN: Tüm div tıklanabilir yapıldı ve mobilde click olayını bozan ontouchstart kaldırıldı.
-            // pointer-events: none ile içteki metne/ikona tıklansa bile tıklamanın ana div'e gitmesi sağlandı.
+            // DÜZELTME: onclick kısmındaki ', event' parametresini kaldırdık. 
+            // Zaten onmousedown ve ontouchstart baloncuğun kapanmasını engelliyor.
             tooltip.innerHTML = `
-                <div onclick="listenSingleWord('${safeText}', event)" style="display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; width: 100%; padding: 4px;">
-                    <span style="pointer-events: none;">${translated}</span>
-                    <span style="background: rgba(255,255,255,0.2); color: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; transition: 0.2s; pointer-events: none;">🔊</span>
+                <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <span>${translated}</span>
+                    <button onmousedown="event.preventDefault(); event.stopPropagation();" ontouchstart="event.preventDefault(); event.stopPropagation();" onclick="listenSingleWord('${safeText}', event)" style="background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; font-size: 1rem; transition: 0.2s;">🔊</button>
                 </div>
             `;
-            
+
             setTimeout(() => {
                 const tRect = tooltip.getBoundingClientRect();
                 if (tRect.right > window.innerWidth) {
                     tooltip.style.left = (window.innerWidth - (tRect.width / 2) - 15) + 'px';
                 } else if (tRect.left < 0) {
-                     tooltip.style.left = ((tRect.width / 2) + 15) + 'px';
+                    tooltip.style.left = ((tRect.width / 2) + 15) + 'px';
                 }
             }, 50);
         }
@@ -1606,4 +1487,4 @@
         document.getElementById('modalBodyArea').addEventListener('scroll', () => { hideTooltip(); }, {passive: true});        
     </script>
 </body>
-</html> 
+</html>
