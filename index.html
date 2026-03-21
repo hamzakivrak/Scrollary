@@ -1358,6 +1358,9 @@ if (uniqueText.length > 0) {
         let speechChunks = [];
         let currentChunk = 0;
 
+        // Bölgelere göre uluslararası dil ve aksan kodları
+        const ttsLangMap = { 'EN': 'en-US', 'TR': 'tr-TR', 'DE': 'de-DE', 'ES': 'es-ES', 'FR': 'fr-FR', 'RU': 'ru-RU', 'AR': 'ar-SA', 'HI': 'hi-IN' };
+
         function playNextChunk() {
             if (currentChunk >= speechChunks.length || !isSpeaking) {
                 isSpeaking = false;
@@ -1366,6 +1369,10 @@ if (uniqueText.length > 0) {
                 return;
             }
             const utterance = new SpeechSynthesisUtterance(speechChunks[currentChunk]);
+            
+            // Haberin orijinal dilini ses motoruna zorla veriyoruz!
+            utterance.lang = ttsLangMap[currentRegion] || 'en-US';
+            
             utterance.onend = () => { currentChunk++; playNextChunk(); };
             utterance.onerror = () => { currentChunk++; playNextChunk(); };
             window.speechSynthesis.speak(utterance);
