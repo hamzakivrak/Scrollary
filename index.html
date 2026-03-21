@@ -1166,54 +1166,53 @@
             let html = null;
             let targetUrl = art.link;
 
-            // 1. AŞAMA: KULLANICININ MANTIĞI - Başlıktan Kaynağı Bulup Aratma
-            // (Sadece Google News altyapısıyla gelen konularda çalışır)
+            // 1. AŞAMA: ARAMA MOTORU AVCISI (Çoklu Motor Desteği)
             if (targetUrl.includes('news.google.com')) {
                 try {
-                    let realTitle = art.title;
-                    let publisher = "";
+                    // "-" işaretine bağlı kalmadan tam başlığı aratıyoruz (Görseldeki gibi durumlarda hata vermemesi için)
+                    const searchQuery = encodeURIComponent('"' + art.title + '"');
                     
-                    // "Haber Başlığı - Kaynak" formatını ayırma (Örn: "...çağrısı - Evrensel.net")
-                    const splitMatch = art.title.match(/(.+) - ([^-]+)$/);
-                    if (splitMatch) {
-                        realTitle = splitMatch[1].trim();
-                        publisher = splitMatch[2].trim();
-                    }
+                    // Sadece DDG değil, Yahoo'yu da ava katıyoruz
+                    const searchProxies = [
+                        `https://api.allorigins.win/get?url=${encodeURIComponent('https://html.duckduckgo.com/html/?q=' + searchQuery)}`,
+                        `https://api.allorigins.win/get?url=${encodeURIComponent('https://search.yahoo.com/search?p=' + searchQuery)}`
+                    ];
 
-                    // Sadece asıl başlık ve yayıncıyı DuckDuckGo'da aratıyoruz
-                    // Çift tırnak ("") ile tam eşleşme aratarak nokta atışı haberi buluyoruz
-                    const searchQuery = `"${realTitle}" ${publisher}`;
-                    const ddgUrl = `https://api.allorigins.win/get?url=${encodeURIComponent('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(searchQuery))}`;
-                    
-                    const searchRes = await fetchWithTimeout(ddgUrl, 4500);
-                    const searchData = await searchRes.json();
-                    const searchHtml = searchData.contents || "";
-                    
-                    // DuckDuckGo sonuçlarından organik linki yakalama
-                    const ddgRedirectMatch = searchHtml.match(/href=["']\/\/duckduckgo\.com\/l\/\?uddg=([^"'&]+)/i);
-                    const directLinkMatch = searchHtml.match(/class="result__url"[^>]*href=["']([^"']+)["']/i);
-                    
-                    if (ddgRedirectMatch && ddgRedirectMatch[1]) {
-                        // Eğer DDG kendi yönlendirmesine sokmuşsa içinden linki çöz
-                        targetUrl = decodeURIComponent(ddgRedirectMatch[1]);
-                    } else if (directLinkMatch && directLinkMatch[1]) {
-                        // Eğer doğrudan link vermişse onu al
-                        let finalUrl = directLinkMatch[1];
-                        if (finalUrl.startsWith('//')) finalUrl = 'https:' + finalUrl;
-                        targetUrl = finalUrl;
-                    }
-                    
-                    // Sağ üstteki Orijinal Site ikonunun linkini bulduğumuz asıl kaynakla güncelliyoruz
+                    const searchPromises = searchProxies.map(proxy => 
+                        fetchWithTimeout(proxy, 4000).then(async res => {
+                            if (!res.ok) throw new Error("Search proxy failed");
+                            const data = await res.json();
+                            const searchHtml = data.contents || "";
+                            
+                            // Genel bir "ilk gerçek dış bağlantı" yakalayıcı
+                            const allLinks = [...searchHtml.matchAll(/href=["'](https?:\/\/[^"']+)["']/gi)];
+                            const realLinkMatch = allLinks.find(m => 
+                                !m[1].includes('google.com') && 
+                                !m[1].includes('yahoo.com') &&
+                                !m[1].includes('duckduckgo.com') &&
+                                !m[1].includes('w3.org')
+                            );
+                            
+                            if (realLinkMatch && realLinkMatch[1]) {
+                                let finalUrl = realLinkMatch[1];
+                                // Eğer DDG yönlendirmesine takıldıysa içinden asıl linki al
+                                if (finalUrl.includes('uddg=')) finalUrl = decodeURIComponent(finalUrl.split('uddg=')[1].split('&')[0]);
+                                return finalUrl;
+                            }
+                            throw new Error("Link bulunamadı");
+                        })
+                    );
+
+                    targetUrl = await Promise.any(searchPromises);
                     document.getElementById('modalLinkExt').href = targetUrl; 
                 } catch (err) {
-                    console.log("Başlık arama yöntemi başarısız:", err);
+                    console.log("Arama yöntemi başarısız:", err);
                 }
             }
 
-            // 2. AŞAMA: Asıl İçeriği Çekme (Gerçek Link Üzerinden)
+            // 2. AŞAMA: Asıl İçeriği Çekme (Güçlü Proxyler)
             const encodedUrl = encodeURIComponent(targetUrl);
 
-            // allorigins.win/get formatı JSON döndürdüğü için hedef sitelerin güvenlik duvarlarını rahat geçeriz
             const proxyGroup1 = [ 
                 `https://api.allorigins.win/get?url=${encodedUrl}`,
                 `https://corsproxy.io/?${encodedUrl}`, 
@@ -1221,8 +1220,8 @@
             ];
             
             const proxyGroup2 = [ 
-                `https://api.allorigins.win/raw?url=${encodedUrl}`,
-                `https://thingproxy.freeboard.io/fetch/${targetUrl}`
+                `https://thingproxy.freeboard.io/fetch/${targetUrl}`,
+                `https://api.allorigins.win/raw?url=${encodedUrl}`
             ];
 
             async function fireProxies(proxies, timeoutMs) {
@@ -1231,14 +1230,12 @@
                         if (!res.ok) throw new Error("Sunucu hatasi");
                         let text = await res.text();
                         
-                        // JSON yanıtını HTML'e dönüştür (allorigins /get proxy'si için)
                         if (proxy.includes('allorigins.win/get')) {
                             try { text = JSON.parse(text).contents || ""; } catch(e){}
                         }
 
-                        // Güvenlik duvarı filtresi
                         if (!text || text.includes('security service to protect itself') || text.includes('Cloudflare') || text.includes('Just a moment') || text.length < 500) {
-                            throw new Error("Güvenlik duvarı engelledi veya metin yetersiz");
+                            throw new Error("Güvenlik duvarı engelledi");
                         }
                         return text;
                     })
@@ -1247,18 +1244,22 @@
             }
 
             try {
-                // İlk dalga saldırı (Max 4 saniye)
                 try { html = await fireProxies(proxyGroup1, 4000); } 
                 catch (e1) {
-                    // İkinci dalga saldırı (Max 4.5 saniye)
                     try { html = await fireProxies(proxyGroup2, 4500); } 
                     catch (e2) { html = null; }
                 }
 
                 if (!html) throw new Error("Bütün proxy denemeleri başarısız oldu.");
 
-                const parser = new DOMParser(); const doc = parser.parseFromString(html, 'text/html'); const paragraphs = Array.from(doc.querySelectorAll('p, .content p, .news-text p, article p'));
-                const validText = paragraphs.map(p => p.textContent.trim()).filter(txt => txt.length > 70); const uniqueText = [...new Set(validText)];
+                const parser = new DOMParser(); 
+                const doc = parser.parseFromString(html, 'text/html'); 
+                
+                // 3. AŞAMA: GÜÇLENDİRİLMİŞ METİN SEÇİCİ (Asıl vurucu nokta!)
+                // Sadece <p> etiketlerine değil, yerel gazetelerin kullandığı <div> etiketlerine de bakıyoruz.
+                const paragraphs = Array.from(doc.querySelectorAll('p, article div, .content div, .entry-content div, .post-content div, .news-text div, .detail-text div'));
+                const validText = paragraphs.map(p => p.textContent.trim()).filter(txt => txt.length > 70); 
+                const uniqueText = [...new Set(validText)];
                 
                 if (uniqueText.length > 0) { 
                     textContainer.innerHTML = uniqueText.map((txt, idx) => {
