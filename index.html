@@ -1480,14 +1480,6 @@
             };
             window.speechSynthesis.speak(utterance);
         }
-        // Seçilen tek kelimeyi/cümleyi seslendirme fonksiyonu
-        function listenSingleWord(encodedText) {
-            window.speechSynthesis.cancel();
-            const text = decodeURIComponent(encodedText); // Metni güvenli hale getirmiştik, burada çözüyoruz
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = ttsLangMap[currentRegion] || 'en-US';
-            window.speechSynthesis.speak(utterance);
-        }
         document.getElementById('modalBodyArea').addEventListener('scroll', () => { hideTooltip(); }, {passive: true});        
     </script>
 </body>
