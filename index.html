@@ -316,14 +316,15 @@
         
         .translated-text { font-size: 1.05rem; color: #a7f3d0; padding: 12px 15px; background: rgba(16, 185, 129, 0.1); border-left: 4px solid var(--success); border-radius: 0 8px 8px 0; display: none; font-style: italic; line-height: 1.6; margin-bottom: 15px; }
         
-        #wordTooltip { position: absolute; background: var(--primary); color: white; padding: 8px 14px; border-radius: 8px; font-size: 0.95rem; font-weight: bold; z-index: 3500; display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5); pointer-events: none; max-width: 280px; text-align: center; transform: translateX(-50%); }
+        #wordTooltip { position: fixed; background: var(--primary); color: white; padding: 8px 14px; border-radius: 8px; font-size: 0.95rem; font-weight: bold; z-index: 3500; display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5); pointer-events: none; max-width: 280px; text-align: center; transform: translateX(-50%); }
         /* Ok yönü yukarı bakacak şekilde (çünkü tooltip artık metnin altında) */
         #wordTooltip::after { content: ''; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); border-width: 6px; border-style: solid; border-color: transparent transparent var(--primary) transparent; } 
         
-        /* Kelimeye dokunma efekti */
+        /* Kelimeye dokunma efekti ve yerel seçime izin verme */
         .t-word { cursor: pointer; border-radius: 4px; transition: 0.2s; display: inline-block; padding: 0 2px; margin: 0 -2px; }
         .t-word:active { background: var(--primary); color: white; }
-        ::selection { background: var(--primary); color: white; } /* Mobil/Masaüstü yerel seçim rengi */
+        ::selection { background: var(--primary); color: white; } 
+        #readerView, .t-word { user-select: text !important; -webkit-user-select: text !important; }
     </style>
 </head>
 <body>
@@ -728,22 +729,6 @@
             } catch (e) {}
             loadCustomFeeds();
         }
-
-        document.addEventListener('click', (e) => {
-            const wrapper = document.getElementById('controlsWrapper');
-            const icon = document.getElementById('toggleIcon');
-            
-            if (wrapper && !wrapper.classList.contains('collapsed') && !wrapper.contains(e.target)) {
-                wrapper.classList.add('collapsed');
-                if(icon) icon.innerText = '▼';
-                if(history.state && history.state.menu === 'controls') history.back();
-            }
-
-            const guideModal = document.getElementById('guideModal');
-            if (e.target === guideModal) {
-                closeModalSafe('guideModal');
-            }
-        });
 
         function toggleControls(event) { 
             if(event) event.stopPropagation(); 
@@ -1343,7 +1328,7 @@
         function translateSingleWord(spanEl, event) {
             event.stopPropagation();
             
-            // Yerel Seçim Motorunu Tetikle: Kullanıcı dokunduğunda kelimeyi sistem otomatik seçsin (damlalar çıksın)
+            // Yerel Seçim Motorunu Tetikle: Kullanıcı dokunduğunda kelimeyi sistem otomatik seçsin
             const selection = window.getSelection();
             const range = document.createRange();
             range.selectNodeContents(spanEl);
@@ -1380,16 +1365,15 @@
             tooltip.innerText = '⏳...';
             tooltip.style.display = 'block';
             
-            // ÇÖZÜM BURADA: Fixed position ile doğrudan ekrandaki kelimeye kilitliyoruz.
-            // window.scrollY hatasını kaldırıyoruz.
+            // Tooltip ekrana (fixed) sabitleniyor. Kelimenin TAM ALTINA yerleşecek.
             tooltip.style.position = 'fixed';
-            tooltip.style.top = (rect.bottom + 10) + 'px'; // Kelimenin tam 10px altına
-            tooltip.style.left = (rect.left + (rect.width / 2)) + 'px'; // Kelimeyi tam ortala
+            tooltip.style.top = (rect.bottom + 10) + 'px'; 
+            tooltip.style.left = (rect.left + (rect.width/2)) + 'px';
 
             const translated = await getTranslation(text, targetLang);
             tooltip.innerText = translated;
-            
-            // İsteğe bağlı ekstra güvenlik: Eğer baloncuk çok uzun olur da ekranın sağına taşarsa
+
+            // Ekrandan taşmaları önlemek için sağ-sol düzeltmesi
             setTimeout(() => {
                 const tRect = tooltip.getBoundingClientRect();
                 if (tRect.right > window.innerWidth) {
@@ -1404,11 +1388,19 @@
             document.getElementById('wordTooltip').style.display = 'none';
         }
 
-        // Tıklanan yer kelime dışıysa tooltip'i gizle ve seçimi kaldır
+        // 1. GÜNCEL TIKLAMA KONTROLÜ (Seçim varken baloncuğu yok etmez)
         document.addEventListener('click', (e) => {
-            if(!e.target.classList.contains('t-word')) {
+            const selection = window.getSelection();
+            const selectedText = selection.toString().trim();
+            
+            // Eğer ekranda damlalarla uzatılmış bir metin seçimi varsa, gizleme işlemini durdur!
+            if (selectedText.length > 0) return;
+
+            // Eğer tıklanan şey bir kelime değilse ve baloncuğun kendisi değilse her şeyi temizle
+            if(!e.target.classList.contains('t-word') && !e.target.closest('#wordTooltip')) {
                 hideTooltip();
                 window.getSelection().removeAllRanges();
+                document.querySelectorAll('.t-word').forEach(el => el.classList.remove('highlighted'));
             }
         });
 
