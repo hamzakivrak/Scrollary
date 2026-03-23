@@ -232,51 +232,17 @@ body.shorts-mode .news-content { height: 40%; justify-content: center; }
 .ai-sticky-bar button:hover { opacity: 0.9; transform: scale(1.05); }
 .ai-sticky-bar button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-/* AI Sonuç Penceresini Tam Ekran Overlay Yap */
-.ai-inline-result {
-    display: none;
-    flex-direction: column;
-    background: var(--bg-dark); /* Arka planı koyulaştırdık */
-    position: absolute; /* modalBodyArea içinde mutlak konumlan */
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%; /* Tüm alanı kapla */
-    z-index: 500; /* Makale metninin ve çubuğun üstüne çık */
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-}
+.ai-inline-result { display: none; flex-direction: column; background: #0f172a; border-bottom: 1px solid var(--surface-light); box-shadow: inset 0 -10px 20px rgba(0,0,0,0.3); max-height: 50vh; overflow-y: auto; }
+.ai-inline-result.show { display: flex; animation: slideDownAI 0.3s ease; }
+@keyframes slideDownAI { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
 
-.ai-inline-result.show {
-    display: flex;
-    animation: fadeIn 0.3s ease;
-}
-
-.ai-result-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 20px;
-    background: rgba(0,0,0,0.5);
-    backdrop-filter: blur(10px);
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-}
-
-.ai-result-content {
-    padding: 30px 25px;
-    color: #f1f5f9;
-    line-height: 1.8;
-    font-size: 1.1rem; /* Okumayı kolaylaştırmak için büyüttük */
-}
-
-/* AI İçeriği için özel formatlama */
-.ai-result-content b { color: var(--accent); font-weight: 700; }
-.ai-result-content ul { margin-top: 15px; padding-left: 20px; }
-.ai-result-content li { margin-bottom: 12px; list-style-type: none; position: relative; }
-.ai-result-content li::before { content: "•"; color: var(--primary); position: absolute; left: -15px; font-weight: bold; }
+.ai-result-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.4); position: sticky; top: 0; z-index: 10; }
+.ai-title { font-weight: 800; color: white; font-size: 1rem; background: linear-gradient(45deg, #8b5cf6, #d946ef); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.ai-result-content { padding: 20px; color: #e2e8f0; line-height: 1.7; font-size: 1rem; user-select: text; -webkit-user-select: text; }
+.ai-result-content ul { margin-left: 20px; margin-bottom: 15px; }
+.ai-result-content li { margin-bottom: 8px; }
+.ai-result-content b, .ai-result-content strong { color: white; }
+.ai-result-content i, .ai-result-content em { color: #cbd5e1; }
 /* ----------------------------------------------------- */
 
 #readerView { padding: 30px 25px; max-width: 800px; margin: 0 auto; width: 100%; }
@@ -364,30 +330,3 @@ input, textarea, select { pointer-events: auto !important; user-select: auto !im
 
 .voice-btn-action { background: var(--surface-light); color: white; border: 1px solid var(--accent); padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; width: 100%; text-align: left; }
 .voice-btn-action:hover { background: var(--accent); }
-
-/* Acil Durum Yenileme Butonu (Yuvarlak İkon) */
-.refresh-fab {
-    position: fixed;
-    bottom: 100px; /* Butonu ne kadar yukarı almak istersen bu sayıyı büyüt (Örn: 120px) */
-    right: 30px;   /* Ekranın sağından olan uzaklık */
-    width: 50px;
-    height: 50px;
-    background: var(--surface-light);
-    color: white;
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 50%;
-    font-size: 1.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    z-index: 2000;
-    box-shadow: var(--shadow-card);
-    transition: all 0.3s ease;
-}
-
-/* Üzerine gelince dönsün ve kırmızı olsun */
-.refresh-fab:hover {
-    background: var(--primary);
-    transform: rotate(180deg) scale(1.1);
-}
