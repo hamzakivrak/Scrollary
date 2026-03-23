@@ -915,7 +915,7 @@ async function handleAIRequest() {
     resultContent.innerHTML = '<div style="text-align:center; padding: 40px;"><span style="font-size:4rem; display:inline-block; animation:pulse 1s infinite;">⏳</span><br><br><span style="color:var(--accent); font-weight:bold; font-size:1.2rem;">Yapay zeka yanıt hazırlıyor...</span></div>';
     btn.disabled = true;
 
-    const systemPrompt = "Sen akıllı bir haber asistanısın. Kullanıcının sorusunu verilen haber metnine göre cevapla. Yanıtını doğrudan HTML formatında ver (<b>, <i>, <ul>, <li>, <br> vb. kullan). Önemli kelimeleri <span style='color:#e11d48'> veya <span style='color:#3b82f6'> ile renklendir. Asla Markdown (**, * gibi) KULLANMA. Haberde olmayan bir bilgiyi uydurma. Sadece HTML çıktısı ver.";
+    const systemPrompt = "Sen profesyonel ve analitik bir haber asistanısın. Kullanıcının sorusunu yanıtlarken okuma kolaylığı sağlamak zorundasın. Özeti kısa bir giriş cümlesiyle başlat ve ardından haberin en önemli detaylarını DÜZENLİ BİR LİSTE (<ul><li>...</li></ul>) formatında madde madde anlat. Önemli kelimeleri, kişi veya kurum isimlerini <span style='color:#e11d48'> veya <span style='color:#3b82f6'> ile renklendir. Asla Markdown (**, * gibi) KULLANMA. Haberde olmayan bir bilgiyi uydurma. Sadece şık ve temiz HTML çıktısı ver.";
 
     async function tryFetchWithKey(keyIndex) {
         if (keyIndex >= apiKeys.length) {
