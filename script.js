@@ -1825,3 +1825,31 @@ function parseVoiceCommand(rawText) {
 
     return uniqueActions;
 }
+
+// --- ZORLU YENİLEME (HARD REFRESH & CACHE CLEAR) FONKSİYONU ---
+function hardRefreshApp() {
+    if(confirm("Tüm uygulama önbelleği temizlenip güncel versiyon çekilecek. Emin misiniz?")) {
+        // 1. Sadece haberlerin önbelleğini temizle (Kullanıcı ayarları, kaynaklar ve okunanlar KALIR)
+        localStorage.removeItem('savedNewsArticles');
+        
+        // 2. Service Worker (PWA) önbelleğini temizle
+        if ('caches' in window) {
+            caches.keys().then(function(names) {
+                for (let name of names) caches.delete(name);
+            });
+        }
+        
+        // 3. Service Worker'ı devre dışı bırak ve sayfayı serverdan (zorla) yenile
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for(let registration of registrations) {
+                    registration.unregister();
+                }
+                // true parametresi browser'a cache'i yok saymasını söyler
+                window.location.reload(true); 
+            });
+        } else {
+            window.location.reload(true);
+        }
+    }
+}
