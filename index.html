@@ -19,7 +19,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics-compat.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=2.8">
+    <link rel="stylesheet" href="style.css?v=3.0">
 </head>
 <body>
 
@@ -34,6 +34,7 @@
         
        <header id="mainHeader">
            <button onclick="hardRefreshApp()" class="hard-refresh-btn" title="Güncellemeleri Zorla Çek">🔄</button>
+           
            <h1 class="hologram-header"><img src="icon.png" alt="S" style="height: 2em; vertical-align: baseline; border-radius: 10%; margin-right: -2px;">crollary <span>.</span></h1>            
            <p id="headerDesc" data-i18n="subtitle">Sourced from You, Your News Source</p>
         </header>
@@ -210,7 +211,7 @@
                     <summary>Hakkında</summary>
                     <div class="setting-detail" style="color: var(--text-muted); font-size: 0.9rem;">
                         <p style="margin:0;"><strong>Scrollary News Radar</strong></p>
-                        <p style="margin:0;">Sürüm: 2.8.0 AI Summarizer</p>
+                        <p style="margin:0;">Sürüm: 2.9.0 AI Integration</p>
                         <p style="margin:0;">Tüm hakları saklıdır © 2026</p>
                     </div>
                 </details>
@@ -238,12 +239,22 @@
             </div>
             
             <div class="modal-body" id="modalBodyArea">
+                
                 <div id="aiStickyBar" class="ai-sticky-bar">
                     <input type="text" id="aiInput" placeholder="Habere dair soru sor..." value="Bu haberi özetle">
                     <button onclick="handleAIRequest()" id="aiSendBtn">✨ AI</button>
                 </div>
                 
+                <div id="aiInlineResult" class="ai-inline-result">
+                    <div class="ai-result-header">
+                        <span class="ai-title">🤖 AI Yanıtı</span>
+                        <button onclick="closeAIResult()" class="btn-icon btn-close" style="width:30px; height:30px; font-size:1rem; padding:0; display:flex; align-items:center; justify-content:center;">✕</button>
+                    </div>
+                    <div id="aiResultContent" class="ai-result-content"></div>
+                </div>
+                
                 <div class="triple-tap-hint" data-i18n="tripleTapHint">Triple tap to close</div>
+                
                 <div id="readerView">
                     <h2 class="reader-title" id="modalTitle">Title</h2>
                     <img id="modalImg" src="" class="reader-image" onerror="this.style.display='none'">
@@ -274,16 +285,8 @@
         </div>
     </div>
 
-    <div id="aiResultModal" class="ai-result-modal">
-        <div class="ai-result-header">
-            <span class="ai-title">🤖 AI Yanıtı</span>
-            <button onclick="document.getElementById('aiResultModal').classList.remove('show')" class="btn-icon btn-close" style="width:30px; height:30px; font-size:1rem;">✕</button>
-        </div>
-        <div id="aiResultContent" class="ai-result-content"></div>
-    </div>
-
     <div id="toastNotification" class="toast-notification" onclick="handleToastClick()"><span>⬆️</span> <span id="toastText">System Update!</span></div>
 
-    <script src="script.js?v=2.8"></script>
+    <script src="script.js?v=3.0"></script>
 </body>
 </html>
