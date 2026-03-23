@@ -875,48 +875,7 @@ function closeAIResult() {
     if(modal) modal.classList.remove('show');
 }
 
-// --- API ANAHTARI YÖNETİMİ ---
-function loadApiKeys() {
-    const keys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
-    const listDiv = document.getElementById('apiKeysList');
-    if(!listDiv) return;
-    listDiv.innerHTML = '';
-    keys.forEach((key, index) => {
-        // Güvenlik için keyin sadece başını ve sonunu gösterip ortasını yıldızlar
-        const maskedKey = key.substring(0, 4) + '****************' + key.substring(key.length - 4);
-        listDiv.innerHTML += `
-            <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:8px 12px; border-radius:5px; font-size:0.85rem; border:1px solid rgba(255,255,255,0.1);">
-                <span style="color:#a7f3d0;">${maskedKey}</span>
-                <span style="color:var(--danger); cursor:pointer; font-weight:bold;" onclick="removeApiKey(${index})">✕ Sil</span>
-            </div>`;
-    });
-}
-
-function addApiKey() {
-    const input = document.getElementById('newApiKeyInput');
-    const key = input.value.trim();
-    if(!key) return;
-    const keys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
-    if(!keys.includes(key)) {
-        keys.push(key);
-        localStorage.setItem('groqApiKeys', JSON.stringify(keys));
-    }
-    input.value = '';
-    loadApiKeys();
-}
-
-function removeApiKey(index) {
-    const keys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
-    keys.splice(index, 1);
-    localStorage.setItem('groqApiKeys', JSON.stringify(keys));
-    loadApiKeys();
-}
-
-// Sayfa yüklendiğinde API anahtarlarını Ayarlar menüsüne çek
-window.addEventListener('load', loadApiKeys);
-
-
-// --- Llama 3 (Groq API) ÇOKLU ANAHTAR DESTEKLİ ÖZETLEME ---
+// 🤖 POLLINATIONS AI SORU SORMA VE ÖZETLEME FONKSİYONU
 async function handleAIRequest() {
     const inputEl = document.getElementById('aiInput');
     const query = inputEl.value.trim() || "Bu haberi özetle";
@@ -924,105 +883,53 @@ async function handleAIRequest() {
     const resultContent = document.getElementById('aiResultContent');
     const btn = document.getElementById('aiSendBtn');
 
-    // LocalStorage'dan kullanıcının girdiği API anahtarlarını çekiyoruz
-    const groqApiKeys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
-
     const textContainer = document.getElementById('fullTextContainer');
     const paragraphs = Array.from(textContainer.querySelectorAll('p')).map(p => p.innerText);
-    let articleText = paragraphs.join(' ').substring(0, 3000); 
+    
+    // ÇÖKME ÖNLEYİCİ: Uzun metinleri 2500 karakterle sınırlıyoruz
+    let articleText = paragraphs.join(' ').substring(0, 2500); 
 
     if(articleText.length < 50) {
         alert("Haber metni henüz yüklenmedi veya çok kısa.");
         return;
     }
 
-    // Eğer hiç API Key girilmemişse kullanıcıyı uyar
-    if (groqApiKeys.length === 0) {
-        alert("⚠️ Lütfen önce Ayarlar menüsünden 'Yapay Zeka Ayarları'na girerek bir Groq API anahtarı ekleyin.");
-        openModalSafe('settingsModal');
-        return;
-    }
-
-    // Zaten açıksa kapat
+    // Toggle: Zaten açıksa kapat
     if (resultModal.classList.contains('show') && query === "Bu haberi özetle") {
         closeAIResult();
         return;
     }
 
+    // Yükleniyor animasyonu
     resultModal.classList.add('show');
-    resultContent.innerHTML = '<div style="text-align:center; padding: 40px 20px;"><span style="font-size:3rem; display:inline-block; animation:pulse 1s infinite;">⏳</span><br><br><span style="color:var(--accent); font-weight:bold;">Llama haberi analiz ediyor...</span></div>';
+    resultContent.innerHTML = '<div style="text-align:center; padding: 20px;"><span style="font-size:3rem; display:inline-block; animation:pulse 1s infinite;">⏳</span><br><br><span style="color:var(--accent); font-weight:bold;">Yapay zeka metni inceliyor...</span></div>';
     btn.disabled = true;
-    resultModal.scrollTo(0, 0);
 
-    const systemPrompt = `Sen profesyonel bir haber analiz asistanısın. 
-Görevin, verilen haberi şu kurallara göre özetlemektir:
-1. Haberin EN ÖNEMLİ özünü en başa, tek bir paragraf ve çarpıcı bir cümle olarak yaz.
-2. Ardından önemli noktaları 'Maddelerle Detaylar' başlığı altında liste (<ul><li>) halinde ver.
-3. Önemli isim, tarih veya kavramları <b></b> içine alarak vurgula.
-4. Okuma kolaylığı için gerekli yerlerde <i></i> kullan.
-5. Yanıtı doğrudan HTML formatında ver (Markdown kullanma).`;
+    const systemPrompt = "Sen akıllı bir haber asistanısın. Kullanıcının sorusunu verilen haber metnine göre cevapla. Yanıtını doğrudan div içine basılacak şekilde HTML formatında ver (<b>, <i>, <ul>, <li>, <br> vb. kullan). Önemli kelimeleri <span style='color:#e11d48'> veya <span style='color:#3b82f6'> ile renklendir. Markdown (**, * gibi) KULLANMA. Sadece HTML çıktısı ver.";
+    
+    // GET İsteği İçin Güvenli Parametre (Çökmeyi tamamen engeller)
+    const fullQuery = `${systemPrompt}\n\nHaber Metni:\n${articleText}\n\nKullanıcı İsteği: ${query}`;
 
-    let success = false;
-    let lastErrorMessage = "";
+    try {
+        const response = await fetch(`https://text.pollinations.ai/${encodeURIComponent(fullQuery)}?model=openai`);
 
-    // API Anahtarları üzerinde sırayla dönüyoruz
-    for (let i = 0; i < groqApiKeys.length; i++) {
-        const currentKey = groqApiKeys[i];
+        if (!response.ok) throw new Error("API hatası");
+        const data = await response.text();
+        
+        let cleanHtml = data.replace(/```html/g, '').replace(/```/g, '').trim();
+        resultContent.innerHTML = cleanHtml;
 
-        try {
-            const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${currentKey}`
-                },
-                body: JSON.stringify({
-                    model: "llama-3.3-70b-versatile", // Testinde en başarılı olan modeli kullanıyoruz
-                    messages: [
-                        { role: "system", content: systemPrompt },
-                        { role: "user", content: `Haber Metni:\n${articleText}\n\nKullanıcı İsteği: ${query}` }
-                    ],
-                    temperature: 0.3
-                })
-            });
+        // Okuma ekranını en yukarı kaydır ki yanıt penceresi görünsün
+        setTimeout(() => {
+            const readerView = document.getElementById('modalBodyArea');
+            readerView.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 100);
 
-            if (!response.ok) {
-                const errData = await response.json().catch(() => ({}));
-                let errorReason = errData.error?.message || "Bilinmeyen Sunucu Hatası";
-                
-                if (response.status === 401) errorReason = "Geçersiz API Anahtarı.";
-                if (response.status === 429) errorReason = "Bu anahtarın limiti doldu (Rate Limit).";
-                
-                lastErrorMessage = `Anahtar ${i + 1} Başarısız: ${errorReason}`;
-                console.warn(lastErrorMessage);
-                continue; // Diğer anahtara geç!
-            }
-            
-            const data = await response.json();
-            let cleanHtml = data.choices[0].message.content.replace(/```html/g, '').replace(/```/g, '').trim();
-            resultContent.innerHTML = cleanHtml;
-            success = true;
-            break; // Başarılı, döngüyü bitir!
-
-        } catch (err) {
-            lastErrorMessage = `Anahtar ${i + 1} Bağlantı Hatası: ${err.message}`;
-            console.warn(lastErrorMessage);
-        }
+    } catch (err) {
+        resultContent.innerHTML = `<div style="color:var(--danger); text-align:center; padding: 20px;">⚠️ Yapay zekaya ulaşılamadı. Haber çok uzun veya sunucu yoğun olabilir. Lütfen tekrar deneyin.</div>`;
+    } finally {
+        btn.disabled = false;
     }
-
-    if (!success) {
-        resultContent.innerHTML = `
-            <div style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid var(--danger); padding: 20px; border-radius: 8px; margin-top: 20px;">
-                <h3 style="color: var(--danger); margin-bottom: 10px; font-size: 1.2rem;">⚠️ Analiz Başarısız</h3>
-                <p style="color: #e2e8f0; font-size: 1rem; line-height: 1.5;">Eklediğiniz tüm API anahtarları denendi ancak yanıt alınamadı. Limitleriniz dolmuş olabilir.</p>
-                <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 5px; margin-top: 15px;">
-                    <span style="color: var(--text-muted); font-size: 0.85rem;"><b>Son Karşılaşılan Hata:</b><br>${lastErrorMessage}</span>
-                </div>
-            </div>
-        `;
-    }
-
-    btn.disabled = false;
 }
 
 async function openModal(art) {
