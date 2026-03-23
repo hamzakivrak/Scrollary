@@ -116,7 +116,7 @@ window.addEventListener('popstate', (e) => {
     document.getElementById('voiceModal').style.display = 'none';
     
     // AI Yanıt Modalını Geri Dönüşte Kapat
-    const aiModal = document.getElementById('aiResultModal');
+    const aiModal = document.getElementById('aiInlineResult');
     if(aiModal) aiModal.classList.remove('show');
     
     const wrapper = document.getElementById('controlsWrapper');
@@ -138,7 +138,7 @@ function closeModalSafe(modalId) {
             window.speechSynthesis.cancel();
             
             // AI Yanıt Modalını Çıkışta Kapat
-            const aiModal = document.getElementById('aiResultModal');
+            const aiModal = document.getElementById('aiInlineResult');
             if(aiModal) aiModal.classList.remove('show');
             
             const oldIframe = document.getElementById('modalIframe');
