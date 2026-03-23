@@ -869,45 +869,49 @@ function switchTab(tab) {
     } 
 }
 
+// AI Yanıt Kutucuğunu Kapatma Fonksiyonu
+function closeAIResult() {
+    const modal = document.getElementById('aiInlineResult');
+    if(modal) modal.classList.remove('show');
+}
+
 // 🤖 POLLINATIONS AI SORU SORMA VE ÖZETLEME FONKSİYONU
 async function handleAIRequest() {
     const inputEl = document.getElementById('aiInput');
     const query = inputEl.value.trim() || "Bu haberi özetle";
-    const resultModal = document.getElementById('aiResultModal');
+    const resultModal = document.getElementById('aiInlineResult');
     const resultContent = document.getElementById('aiResultContent');
     const btn = document.getElementById('aiSendBtn');
 
-    // Paragrafları topla
     const textContainer = document.getElementById('fullTextContainer');
     const paragraphs = Array.from(textContainer.querySelectorAll('p')).map(p => p.innerText);
-    let articleText = paragraphs.join(' ').substring(0, 4000); 
+    
+    // ÇÖKME ÖNLEYİCİ: Uzun metinleri 2500 karakterle sınırlıyoruz
+    let articleText = paragraphs.join(' ').substring(0, 2500); 
 
     if(articleText.length < 50) {
         alert("Haber metni henüz yüklenmedi veya çok kısa.");
         return;
     }
 
-    // Modal'ı aç ve yükleniyor animasyonunu göster
+    // Toggle: Zaten açıksa kapat
+    if (resultModal.classList.contains('show') && query === "Bu haberi özetle") {
+        closeAIResult();
+        return;
+    }
+
+    // Yükleniyor animasyonu
     resultModal.classList.add('show');
     resultContent.innerHTML = '<div style="text-align:center; padding: 20px;"><span style="font-size:3rem; display:inline-block; animation:pulse 1s infinite;">⏳</span><br><br><span style="color:var(--accent); font-weight:bold;">Yapay zeka metni inceliyor...</span></div>';
     btn.disabled = true;
 
-    // AI'a verilecek kimlik
     const systemPrompt = "Sen akıllı bir haber asistanısın. Kullanıcının sorusunu verilen haber metnine göre cevapla. Yanıtını doğrudan div içine basılacak şekilde HTML formatında ver (<b>, <i>, <ul>, <li>, <br> vb. kullan). Önemli kelimeleri <span style='color:#e11d48'> veya <span style='color:#3b82f6'> ile renklendir. Markdown (**, * gibi) KULLANMA. Sadece HTML çıktısı ver.";
-    const userPrompt = `Haber Metni:\n${articleText}\n\nKullanıcı İsteği: ${query}`;
+    
+    // GET İsteği İçin Güvenli Parametre (Çökmeyi tamamen engeller)
+    const fullQuery = `${systemPrompt}\n\nHaber Metni:\n${articleText}\n\nKullanıcı İsteği: ${query}`;
 
     try {
-        const response = await fetch('https://text.pollinations.ai/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: userPrompt }
-                ],
-                model: 'openai'
-            })
-        });
+        const response = await fetch(`https://text.pollinations.ai/${encodeURIComponent(fullQuery)}?model=openai`);
 
         if (!response.ok) throw new Error("API hatası");
         const data = await response.text();
@@ -915,8 +919,14 @@ async function handleAIRequest() {
         let cleanHtml = data.replace(/```html/g, '').replace(/```/g, '').trim();
         resultContent.innerHTML = cleanHtml;
 
+        // Okuma ekranını en yukarı kaydır ki yanıt penceresi görünsün
+        setTimeout(() => {
+            const readerView = document.getElementById('modalBodyArea');
+            readerView.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 100);
+
     } catch (err) {
-        resultContent.innerHTML = `<div style="color:var(--danger); text-align:center; padding: 20px;">⚠️ Yapay zekaya ulaşılamadı. Sunucu yoğun olabilir, lütfen tekrar deneyin.</div>`;
+        resultContent.innerHTML = `<div style="color:var(--danger); text-align:center; padding: 20px;">⚠️ Yapay zekaya ulaşılamadı. Haber çok uzun veya sunucu yoğun olabilir. Lütfen tekrar deneyin.</div>`;
     } finally {
         btn.disabled = false;
     }
@@ -929,10 +939,10 @@ async function openModal(art) {
     document.getElementById('modalTitle').innerText = art.title; 
     document.getElementById('modalDesc').innerText = art.description;
     
-    // Her yeni haber açılışında AI kutusunu sıfırla ve pencereyi kapat
+    // AI Input'u her girişte varsayılana döndür ve pencereyi gizle
     const aiInput = document.getElementById('aiInput');
     if (aiInput) aiInput.value = "Bu haberi özetle";
-    const aiModal = document.getElementById('aiResultModal');
+    const aiModal = document.getElementById('aiInlineResult');
     if (aiModal) aiModal.classList.remove('show');
 
     const imgEl = document.getElementById('modalImg'); 
