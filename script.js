@@ -100,7 +100,6 @@ window.onload = () => {
     } else {
         fetchAllRSS(false); 
     }
-  loadGroqKeys(); // Groq API anahtarlarını arayüze yükle
 };
 
 function openModalSafe(modalId) {
@@ -877,9 +876,6 @@ function closeAIResult() {
 }
 
 // 🤖 POLLINATIONS AI SORU SORMA VE ÖZETLEME FONKSİYONU
-// 🤖 GROQ AI SORU SORMA VE ÖZETLEME FONKSİYONU (ÇOKLU ANAHTAR DESTEKLİ)
-// 🛠️ GROQ AI - DETAYLI HATA AYIKLAMA (DEBUG) VERSİYONU
-// 🤖 GROQ AI - TAM EKRAN (FULL OVERLAY) VERSİYONU
 async function handleAIRequest() {
     const inputEl = document.getElementById('aiInput');
     const query = inputEl.value.trim() || "Bu haberi özetle";
@@ -888,73 +884,52 @@ async function handleAIRequest() {
     const btn = document.getElementById('aiSendBtn');
 
     const textContainer = document.getElementById('fullTextContainer');
-    const paragraphs = Array.from(textContainer.querySelectorAll('p')).map(p => p.textContent.trim());
-    let articleText = paragraphs.join(' ').substring(0, 6000); 
+    const paragraphs = Array.from(textContainer.querySelectorAll('p')).map(p => p.innerText);
+    
+    // ÇÖKME ÖNLEYİCİ: Uzun metinleri 2500 karakterle sınırlıyoruz
+    let articleText = paragraphs.join(' ').substring(0, 2500); 
 
     if(articleText.length < 50) {
-        alert("Haber metni henüz yüklenmedi veya okunabilir metin bulunamadı.");
+        alert("Haber metni henüz yüklenmedi veya çok kısa.");
         return;
     }
 
+    // Toggle: Zaten açıksa kapat
     if (resultModal.classList.contains('show') && query === "Bu haberi özetle") {
         closeAIResult();
         return;
     }
 
-    const apiKeys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
-    if (apiKeys.length === 0) {
-        alert("Yapay zeka asistanını kullanmak için geçerli bir Groq API anahtarı gerekiyor.");
-        closeModalSafe('newsModal'); 
-        setTimeout(() => { openModalSafe('settingsModal'); }, 400); 
-        return;
-    }
-
-    // KUTUYU AÇ (Artık tüm ekranı kaplayacağı için scroll yapmaya GEREK YOK!)
+    // Yükleniyor animasyonu
     resultModal.classList.add('show');
-    
-    resultContent.innerHTML = '<div style="text-align:center; padding: 40px;"><span style="font-size:4rem; display:inline-block; animation:pulse 1s infinite;">⏳</span><br><br><span style="color:var(--accent); font-weight:bold; font-size:1.2rem;">Yapay zeka yanıt hazırlıyor...</span></div>';
+    resultContent.innerHTML = '<div style="text-align:center; padding: 20px;"><span style="font-size:3rem; display:inline-block; animation:pulse 1s infinite;">⏳</span><br><br><span style="color:var(--accent); font-weight:bold;">Yapay zeka metni inceliyor...</span></div>';
     btn.disabled = true;
 
-    const systemPrompt = "Sen profesyonel ve analitik bir haber asistanısın. Kullanıcının sorusunu yanıtlarken okuma kolaylığı sağlamak zorundasın. Özeti kısa bir giriş cümlesiyle başlat ve ardından haberin en önemli detaylarını DÜZENLİ BİR LİSTE (<ul><li>...</li></ul>) formatında madde madde anlat. Önemli kelimeleri, kişi veya kurum isimlerini <span style='color:#e11d48'> veya <span style='color:#3b82f6'> ile renklendir. Asla Markdown (**, * gibi) KULLANMA. Haberde olmayan bir bilgiyi uydurma. Sadece şık ve temiz HTML çıktısı ver.";
+    const systemPrompt = "Sen akıllı bir haber asistanısın. Kullanıcının sorusunu verilen haber metnine göre cevapla. Yanıtını doğrudan div içine basılacak şekilde HTML formatında ver (<b>, <i>, <ul>, <li>, <br> vb. kullan). Önemli kelimeleri <span style='color:#e11d48'> veya <span style='color:#3b82f6'> ile renklendir. Markdown (**, * gibi) KULLANMA. Sadece HTML çıktısı ver.";
+    
+    // GET İsteği İçin Güvenli Parametre (Çökmeyi tamamen engeller)
+    const fullQuery = `${systemPrompt}\n\nHaber Metni:\n${articleText}\n\nKullanıcı İsteği: ${query}`;
 
-    async function tryFetchWithKey(keyIndex) {
-        if (keyIndex >= apiKeys.length) {
-            resultContent.innerHTML = `<div style="color:var(--danger); text-align:center; padding: 20px;">⚠️ Ekli olan tüm API anahtarlarınızın kotası dolmuş veya bir bağlantı sorunu var. Lütfen yeni bir anahtar ekleyin.</div>`;
-            btn.disabled = false;
-            return;
-        }
+    try {
+        const response = await fetch(`https://text.pollinations.ai/${encodeURIComponent(fullQuery)}?model=openai`);
 
-        try {
-            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${apiKeys[keyIndex]}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    model: "llama-3.3-70b-versatile", // En güçlü model devrede!
-                    messages: [
-                        { role: "system", content: systemPrompt },
-                        { role: "user", content: `Haber Metni:\n${articleText}\n\nKullanıcı İsteği: ${query}` }
-                    ],
-                    temperature: 0.5,
-                    max_tokens: 1024
-                })
-            });
+        if (!response.ok) throw new Error("API hatası");
+        const data = await response.text();
+        
+        let cleanHtml = data.replace(/```html/g, '').replace(/```/g, '').trim();
+        resultContent.innerHTML = cleanHtml;
 
-            if (!response.ok) throw new Error("KeyFailed");
+        // Okuma ekranını en yukarı kaydır ki yanıt penceresi görünsün
+        setTimeout(() => {
+            const readerView = document.getElementById('modalBodyArea');
+            readerView.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 100);
 
-            const data = await response.json();
-            let cleanHtml = data.choices[0].message.content.replace(/```html/g, '').replace(/```/g, '').trim();
-            resultContent.innerHTML = cleanHtml;
-            btn.disabled = false;
-
-        } catch (err) {
-            await tryFetchWithKey(keyIndex + 1); // Çökerse diğer anahtara geç
-        }
+    } catch (err) {
+        resultContent.innerHTML = `<div style="color:var(--danger); text-align:center; padding: 20px;">⚠️ Yapay zekaya ulaşılamadı. Haber çok uzun veya sunucu yoğun olabilir. Lütfen tekrar deneyin.</div>`;
+    } finally {
+        btn.disabled = false;
     }
-
-    await tryFetchWithKey(0);
 }
 
 async function openModal(art) {
@@ -1886,324 +1861,5 @@ function hardRefreshApp() {
         } else {
             window.location.reload(true);
         }
-    }
-}
-// -------------------- GROQ API ANAHTAR YÖNETİMİ --------------------
-
-// 1. Anahtarları ekrana yükleme
-function loadGroqKeys() {
-    const keys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
-    const listDiv = document.getElementById('groqKeysList');
-    if (!listDiv) return;
-    
-    listDiv.innerHTML = '';
-    
-    if (keys.length === 0) {
-        listDiv.innerHTML = '<div style="font-size: 0.85rem; color: #ef4444; padding: 10px; background: rgba(239, 68, 68, 0.1); border-radius: 8px; border: 1px dashed #ef4444;">⚠️ Henüz bir API anahtarı eklenmedi. Yapay zeka özellikleri çalışmayacaktır.</div>';
-        return;
-    }
-    
-    keys.forEach((key, index) => {
-        // Güvenlik için ekranda sadece başını ve sonunu gösteriyoruz
-        const maskedKey = key.substring(0, 6) + '••••••••••••••••' + key.substring(key.length - 4);
-        
-        listDiv.innerHTML += `
-            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 10px 15px; border-radius: 8px; border: 1px solid var(--surface-light);">
-                <span style="font-family: monospace; color: #a7f3d0; font-size: 0.9rem;">${maskedKey}</span>
-                <button onclick="removeGroqKey(${index})" style="background: rgba(239, 68, 68, 0.2); color: var(--danger); border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: bold; pointer-events: auto;">Sil</button>
-            </div>
-        `;
-    });
-}
-
-// 2. Yeni anahtar ekleme
-function addGroqKey() {
-    const input = document.getElementById('newGroqKeyInput');
-    const newKey = input.value.trim();
-    
-    if (!newKey) return;
-    
-    // Groq API anahtarları standart olarak gsk_ ile başlar, ufak bir kontrol yapalım
-    if (!newKey.startsWith('gsk_')) {
-        alert("Lütfen geçerli bir Groq API anahtarı girin (gsk_ ile başlamalıdır).");
-        return;
-    }
-
-    const keys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
-    
-    if (!keys.includes(newKey)) {
-        keys.push(newKey);
-        localStorage.setItem('groqApiKeys', JSON.stringify(keys));
-        input.value = '';
-        loadGroqKeys();
-        showToastGlobal("✅ Groq API Anahtarı eklendi!", 3000);
-    } else {
-        alert("Bu anahtar zaten ekli!");
-    }
-}
-
-// 3. Anahtar silme
-function removeGroqKey(index) {
-    let keys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
-    keys.splice(index, 1);
-    localStorage.setItem('groqApiKeys', JSON.stringify(keys));
-    loadGroqKeys();
-}
-
-// -------------------- 🤖 AI RSS KAYNAK BULUCU --------------------
-
-// -------------------- 🤖 AI RSS KAYNAK BULUCU --------------------
-
-async function findRssWithAI() {
-    const topicInput = document.getElementById('aiRssTopic');
-    const topic = topicInput.value.trim();
-    const resultsDiv = document.getElementById('aiRssResults');
-
-    if (!topic) {
-        alert("Lütfen bir konu veya alan adı girin (Örn: Teknoloji, Kripto, Spor)");
-        return;
-    }
-
-    const apiKeys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
-    if (apiKeys.length === 0) {
-        alert("Lütfen Ayarlar menüsünden geçerli bir Groq API anahtarı ekleyin.");
-        return;
-    }
-
-    resultsDiv.innerHTML = '<div style="text-align:center; padding: 10px; color: var(--accent); animation: pulse 1s infinite;">⏳ Yapay zeka interneti tarıyor...</div>';
-
-    const prompt = `Kullanıcı "${topic}" konularında haber okumak istiyor. Bana bu alanla ilgili popüler, güvenilir ve gerçekten çalışan 4 adet RSS akışı URL'si bul. Öncelikle Türkçe kaynaklar olsun, bulamazsan İngilizce ver.
-    YANITINI SADECE VE SADECE JSON FORMATINDA DİZİ (ARRAY) OLARAK VER. Başka tek bir kelime bile yazma.
-    Örnek Çıktı Formatı:
-    [
-        {"name": "DonanımHaber", "url": "https://www.donanimhaber.com/rss/tum"},
-        {"name": "Webtekno", "url": "https://www.webtekno.com/rss.xml"}
-    ]`;
-
-    async function tryFetchRss(keyIndex) {
-        if (keyIndex >= apiKeys.length) {
-            resultsDiv.innerHTML = `<div style="color:var(--danger); font-size:0.85rem;">⚠️ API anahtarı hatası veya kota doldu.</div>`;
-            return;
-        }
-
-        try {
-            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${apiKeys[keyIndex]}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    model: "llama-3.3-70b-versatile",
-                    messages: [{ role: "user", content: prompt }],
-                    temperature: 0.3,
-                    max_tokens: 500
-                })
-            });
-
-            if (!response.ok) throw new Error("KeyFailed");
-
-            const data = await response.json();
-            let content = data.choices[0].message.content.trim();
-            content = content.replace(/```json/g, '').replace(/```/g, '').trim();
-
-            const rssList = JSON.parse(content);
-            resultsDiv.innerHTML = '';
-
-            if(rssList.length === 0) {
-                resultsDiv.innerHTML = '<div style="color:#fca5a5; font-size:0.85rem;">Sonuç bulunamadı.</div>';
-                return;
-            }
-
-            // Gelen her kaynak için tıklanabilir butonlar oluştur
-            rssList.forEach(rss => {
-                const btn = document.createElement('div');
-                btn.style.cssText = "text-align: left; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; transition: 0.3s;";
-                btn.onmouseover = () => { if(btn.style.pointerEvents !== "none") btn.style.borderColor = "var(--primary)"; };
-                btn.onmouseout = () => { if(btn.style.pointerEvents !== "none") btn.style.borderColor = "rgba(255,255,255,0.1)"; };
-                
-                btn.innerHTML = `
-                    <div style="font-weight: bold; color: white; display:flex; justify-content:space-between; align-items:center;">
-                        <span>${rss.name}</span>
-                        <span class="ai-add-badge" style="font-size:0.75rem; background:var(--primary); padding:4px 10px; border-radius:6px; transition:0.3s; font-weight:bold;">Ekle</span>
-                    </div>
-                    <span style="font-size:0.75rem; color:var(--text-muted); margin-top:5px; word-break:break-all;">${rss.url}</span>
-                `;
-                
-                btn.onclick = function() {
-                    // Kaydetme fonksiyonunu tetikle
-                    autoFillAndAddRss(rss.name, rss.url);
-                    
-                    // GÖRSEL GERİ BİLDİRİM: Tıklanan buton yeşil olsun ve "Eklendi" yazsın
-                    const badge = this.querySelector('.ai-add-badge');
-                    if(badge) {
-                        badge.innerText = "Eklendi ✅";
-                        badge.style.background = "var(--success)"; // Yeşil renk
-                    }
-                    this.style.borderColor = "var(--success)";
-                    this.style.background = "rgba(16, 185, 129, 0.1)";
-                    this.style.pointerEvents = "none"; // Aynı butona ikinci kez tıklanmasını engelle
-                };
-                
-                resultsDiv.appendChild(btn);
-            });
-
-        } catch (err) {
-            console.error("RSS getirme hatası:", err);
-            await tryFetchRss(keyIndex + 1);
-        }
-    }
-
-    await tryFetchRss(0);
-}
-
-// Seçilen AI tavsiyesini sisteme ekleyen otomatik tetikleyici
-function autoFillAndAddRss(name, url) {
-    const manualSection = document.getElementById('manualAddSection');
-    const nameInput = document.getElementById('newRssName');
-    const urlInput = document.getElementById('newRssUrl');
-    
-    if (manualSection && nameInput && urlInput) {
-        manualSection.classList.add('show');
-        
-        nameInput.value = name;
-        urlInput.value = url;
-        
-        const saveBtn = manualSection.querySelector('button');
-        
-        if (saveBtn) {
-            // Ekleme hızını artırdık (300ms yerine 100ms)
-            setTimeout(() => {
-                saveBtn.click(); 
-                
-                // Form içini temizle AMA MENÜYÜ KAPATMA!
-                setTimeout(() => {
-                    nameInput.value = '';
-                    urlInput.value = '';
-                    // manualSection.classList.remove('show'); <--- İŞTE BU SATIRI SİLDİK! Artık menü kapanmayacak.
-                }, 400); 
-                
-            }, 100);
-        } else {
-            if (typeof addCustomRSSManual === "function") addCustomRSSManual();
-        }
-    } else {
-        alert(`Kutucuklar bulunamadı. Lütfen URL'yi kendiniz kopyalayın: ${url}`);
-    }
-}
-
-// -------------------- 🎙️ SESLİ ASİSTAN & GROQ BEYNİ --------------------
-
-async function reparseVoiceCommand() {
-    const voiceInput = document.getElementById('voiceTextInput');
-    const commandText = voiceInput.value.trim();
-    const actionLog = document.getElementById('voiceActions');
-
-    if (!commandText) {
-        alert("Lütfen bir komut girin veya mikrofona konuşun.");
-        return;
-    }
-
-    const apiKeys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
-    if (apiKeys.length === 0) {
-        actionLog.innerHTML = `<div style="color:var(--danger);">⚠️ Ayarlardan Groq API anahtarı eklemelisiniz.</div>`;
-        return;
-    }
-
-    // Yükleniyor animasyonu
-    actionLog.innerHTML = `<div style="color:var(--accent); animation: pulse 1s infinite;">🧠 Asistan ne istediğinizi analiz ediyor...</div>`;
-
-    // 🌟 İŞTE BÜYÜ BURADA: Groq'u Yönlendirici (Router) Olarak Kuruyoruz
-    const routerPrompt = `Sen "Scrollary" adlı gelişmiş bir haber uygulamasının yapay zeka beynisin. Görevin, kullanıcının sesli komutunu analiz edip HANGİ EYLEMİ yapmak istediğini bulmak.
-    
-    Aşağıdaki 5 Niyetten (Intent) birini seç:
-    1. "filter": Kullanıcı bir kategori, dil veya arama kelimesiyle haberleri filtrelemek/aratmak istiyorsa.
-    2. "qna": Kullanıcı o an ekranda okuduğu haber hakkında bir soru soruyorsa.
-    3. "briefing": Kullanıcı genel bir "Bana günün özetini geç, neler olmuş anlat" gibi bülten istiyorsa.
-    4. "simplify": Kullanıcı okuduğu haberi daha basit anlatmanı veya sesli okumanı istiyorsa.
-    5. "unknown": Hiçbirine uymuyorsa.
-
-    YANITINI SADECE JSON OLARAK VER. BAŞKA HİÇBİR ŞEY YAZMA.
-    Örnekler:
-    - "Bana teknoloji haberlerini aç" -> {"intent": "filter", "category": "Tech"}
-    - "Sadece Türkçe spor haberleri" -> {"intent": "filter", "category": "Sport", "lang": "TR"}
-    - "Bu yasa tasarısı ne demek istiyor?" -> {"intent": "qna", "question": "Bu yasa tasarısı ne demek istiyor?"}
-    - "Bugün dünyada ne oldu özetle" -> {"intent": "briefing"}
-    - "Bunu 10 yaşında bir çocuğa anlatır gibi oku" -> {"intent": "simplify"}
-    `;
-
-    async function analyzeIntent(keyIndex) {
-        if (keyIndex >= apiKeys.length) {
-            actionLog.innerHTML = `<div style="color:var(--danger);">⚠️ API Hatası.</div>`;
-            return;
-        }
-
-        try {
-            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${apiKeys[keyIndex]}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    model: "llama-3.3-70b-versatile",
-                    messages: [
-                        { role: "system", content: routerPrompt },
-                        { role: "user", content: `Kullanıcı Komutu: "${commandText}"` }
-                    ],
-                    temperature: 0.1, // Sadece net JSON dönmesi için çok düşük sıcaklık
-                    max_tokens: 150
-                })
-            });
-
-            if (!response.ok) throw new Error("KeyFailed");
-
-            const data = await response.json();
-            let jsonString = data.choices[0].message.content.trim().replace(/```json/g, '').replace(/```/g, '').trim();
-            const intentData = JSON.parse(jsonString);
-
-            // Niyeti ekrana yazdır (Log)
-            actionLog.innerHTML = `<div style="color:var(--success);">✅ Komut Anlaşıldı: <b>${intentData.intent.toUpperCase()}</b></div>`;
-
-            // 🌟 ROTAYI ÇİZ: Niyete göre ilgili fonksiyonu tetikle
-            executeVoiceIntent(intentData);
-
-        } catch (err) {
-            console.error("Intent parsing error:", err);
-            await analyzeIntent(keyIndex + 1);
-        }
-    }
-
-    await analyzeIntent(0);
-}
-
-// 🌟 ROTAYA GÖRE İŞLEM YAPAN SWITCH FONKSİYONU
-function executeVoiceIntent(intentData) {
-    const actionLog = document.getElementById('voiceActions');
-    
-    switch (intentData.intent) {
-        case "filter":
-            actionLog.innerHTML += `<div style="color:white; margin-top:5px;">Filtreler uygulanıyor... Kategori: ${intentData.category || 'Tümü'}, Dil: ${intentData.lang || 'Değişmedi'}</div>`;
-            // TODO: Scrollary filtreleme kodları buraya gelecek
-            break;
-            
-        case "qna":
-            actionLog.innerHTML += `<div style="color:white; margin-top:5px;">Habere soru soruluyor... Pencere açılıyor.</div>`;
-            // TODO: Tam ekran AI kutusunu açıp Groq'a soruyu sorma kodu
-            break;
-            
-        case "briefing":
-            actionLog.innerHTML += `<div style="color:white; margin-top:5px;">Günün özeti (Flash Briefing) hazırlanıyor...</div>`;
-            // TODO: Ekranda görünen haberleri toplayıp özetleme kodu
-            break;
-            
-        case "simplify":
-            actionLog.innerHTML += `<div style="color:white; margin-top:5px;">Haber basitleştiriliyor ve sesli okumaya hazırlanıyor...</div>`;
-            // TODO: Basitleştirme ve Tarayıcı Sesli Okuma (Speech API) kodu
-            break;
-            
-        default:
-            actionLog.innerHTML += `<div style="color:#fca5a5; margin-top:5px;">Ne demek istediğinizi tam anlayamadım, tekrar eder misiniz?</div>`;
-            break;
     }
 }
