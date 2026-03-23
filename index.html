@@ -177,6 +177,20 @@
                         <div class="view-controls" id="themeBtnsWrapper" style="margin-bottom:0;"></div>
                     </div>
                 </details>
+                <details class="setting-item" id="aiSettingsSection">
+                    <summary>🤖 Yapay Zeka (Groq) Ayarları</summary>
+                    <div class="setting-detail" style="user-select: auto;">
+                        <p style="color: var(--text-muted); font-size: 0.85rem; margin:0 0 10px 0;">Haber özetleri için kendi Groq API anahtarlarınızı ekleyin. Birden fazla eklerseniz, birinin kotası dolduğunda sistem otomatik olarak diğerine geçer.</p>
+                        
+                        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                            <input type="password" id="newGroqKeyInput" placeholder="gsk_ ile başlayan anahtarınız..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--surface-light); background: rgba(0,0,0,0.3); color: white; outline: none; font-family: monospace;">
+                            <button onclick="addGroqKey()" style="background: var(--accent); color: white; border: none; border-radius: 8px; padding: 0 15px; font-weight: bold; cursor: pointer; pointer-events: auto;">Ekle</button>
+                        </div>
+                        
+                        <div id="groqKeysList" style="display: flex; flex-direction: column; gap: 8px;">
+                            </div>
+                    </div>
+                </details>
                 <details class="setting-item">
                     <summary data-i18n="layoutTitle">📐 Görünüm Boyutu</summary>
                     <div class="setting-detail">
