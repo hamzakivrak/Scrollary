@@ -2046,30 +2046,38 @@ async function findRssWithAI() {
 }
 
 // Seçilen AI tavsiyesini sisteme ekleyen otomatik tetikleyici
+// Seçilen AI tavsiyesini sisteme ekleyen otomatik tetikleyici (DÜZELTİLDİ)
 function autoFillAndAddRss(name, url) {
-    // Scrollary'nin orijinal manuel ekleme kutusunun ID'si genelde newRssUrl'dir. 
-    // Kendi sistemindeki input id'sine göre burayı değiştirebilirsin.
-    const urlInput = document.querySelector('input[placeholder*="URL"]'); 
+    // 1. Doğrudan senin "Manuel Kayıt" kutucuklarının ID'lerini hedef alıyoruz
+    const nameInput = document.getElementById('newRssName');
+    const urlInput = document.getElementById('newRssUrl');
     
-    if(urlInput) {
+    if (nameInput && urlInput) {
+        // 2. Yapay zekanın bulduğu adı ve linki kutulara yaz
+        nameInput.value = name;
         urlInput.value = url;
         
-        // Eğer sende RSS adı girmek için ayrı bir input varsa:
-        // document.getElementById('newRssName').value = name; 
-        
-        showToastGlobal(`✅ ${name} eklendi! Yenileniyor...`, 3000);
-        
-        // Sende kaynak ekleyen Butonu bulup otomatik tıklatıyoruz (Magic!)
-        // Eğer butonun ID'si yoksa onClick eventi olan butonu bul:
-        const addBtn = urlInput.parentElement.querySelector('button');
-        if(addBtn) {
-            addBtn.click();
+        // 3. Doğrudan Scrollary'nin orijinal bulut/yerel kaydetme fonksiyonunu tetikle
+        if (typeof addCustomRSSManual === "function") {
+            addCustomRSSManual();
+            
+            // 4. Kullanıcıya şık bir bildirim ver
+            if(typeof showToastGlobal === "function") {
+                showToastGlobal(`✅ ${name} başarıyla kaynaklara eklendi!`, 3000);
+            } else {
+                alert(`✅ ${name} eklendi!`);
+            }
+            
+            // 5. Arka planda işi biten kutuların içini temizle (temiz görünüm)
+            setTimeout(() => {
+                nameInput.value = '';
+                urlInput.value = '';
+            }, 500);
+
         } else {
-            // Eğer buton bulunamazsa direkt yenileme fonksiyonunu çağırabilirsin
-            if(typeof fetchAllRSS === "function") fetchAllRSS();
+            alert("Kaydetme fonksiyonu bulunamadı. Lütfen 'Save to Cloud' butonuna manuel basın.");
         }
-        
     } else {
-        alert(`URL Kopyalandı: ${url}\nLütfen manuel kayıt kısmına yapıştırın.`);
+        alert(`Kutucuklar bulunamadı. URL: ${url}\nLütfen manuel kayıt kısmına yapıştırın.`);
     }
 }
