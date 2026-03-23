@@ -21,6 +21,7 @@
 
     <link rel="stylesheet" href="style.css?v=3.0">
 </head>
+
 <body>
 
     <div class="ambient-bg">
@@ -33,7 +34,7 @@
     <div class="container">
         
        <header id="mainHeader">
-           <button onclick="hardRefreshApp()" class="hard-refresh-btn" title="Güncellemeleri Zorla Çek">🔄</button>
+           <button onclick="emergencyRefresh()">🔄 Sistemi Güncelle</button>
            
            <h1 class="hologram-header"><img src="icon.png" alt="S" style="height: 2em; vertical-align: baseline; border-radius: 10%; margin-right: -2px;">crollary <span>.</span></h1>            
            <p id="headerDesc" data-i18n="subtitle">Sourced from You, Your News Source</p>
@@ -303,5 +304,32 @@
     <div id="toastNotification" class="toast-notification" onclick="handleToastClick()"><span>⬆️</span> <span id="toastText">System Update!</span></div>
 
     <script src="script.js?v=3.0"></script>
+<script>
+        function emergencyRefresh() {
+            if(confirm("Tüm uygulama önbelleği temizlenip güncel versiyon çekilecek. Emin misiniz?")) {
+                // 1. Service Worker'ı (PWA önbelleğini) devre dışı bırak
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                        for(let registration of registrations) {
+                            registration.unregister();
+                        }
+                    });
+                }
+                
+                // 2. Tarayıcı önbelleğini (Cache) temizle
+                if ('caches' in window) {
+                    caches.keys().then(function(names) {
+                        for (let name of names) caches.delete(name);
+                    });
+                }
+                
+                // 3. GitHub'dan en güncel halini zorla çekmek için URL sonuna rastgele sayı ekle
+                setTimeout(() => {
+                    window.location.href = window.location.pathname + '?v=' + new Date().getTime();
+                }, 500);
+            }
+        }
+    </script>
+    
 </body>
 </html>
