@@ -901,7 +901,7 @@ async function handleAIRequest() {
     }
 
     // Yükleniyor animasyonu
-    resultModal.classList.add('show');
+    resultModal.scrollTo(0, 0); // Pencere açıldığında en yukarıdan başla
     resultContent.innerHTML = '<div style="text-align:center; padding: 20px;"><span style="font-size:3rem; display:inline-block; animation:pulse 1s infinite;">⏳</span><br><br><span style="color:var(--accent); font-weight:bold;">Yapay zeka metni inceliyor...</span></div>';
     btn.disabled = true;
 
