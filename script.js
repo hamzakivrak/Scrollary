@@ -23,7 +23,10 @@ const TRANSLATIONS = {
 };
 
 const firebaseConfig = { apiKey: "AIzaSyCVIiXeaZKfS9QpXO6LU1LlKVfbyuiTZbE", authDomain: "scrollary.firebaseapp.com", projectId: "scrollary", storageBucket: "scrollary.firebasestorage.app", messagingSenderId: "636511730600", appId: "1:636511730600:web:d61b1335232cdcfe6e3b9d", measurementId: "G-MXHQDXS8LH" };
-firebase.initializeApp(firebaseConfig); const auth = firebase.auth(); const db = firebase.firestore(); const provider = new firebase.auth.GoogleAuthProvider();
+firebase.initializeApp(firebaseConfig); 
+const auth = firebase.auth(); 
+const db = firebase.firestore(); 
+const provider = new firebase.auth.GoogleAuthProvider();
 
 const GLOBAL_RSS_DB = {
     'TR': [ { id: 'sozcu', name: 'Sözcü', url: 'https://www.sozcu.com.tr/rss/tum-haberler.xml', cat: 'News' }, { id: 'cumhuriyet', name: 'Cumhuriyet', url: 'https://www.cumhuriyet.com.tr/rss', cat: 'News' }, { id: 'sabah', name: 'Sabah', url: 'https://www.sabah.com.tr/rss/sondakika.xml', cat: 'News' }, { id: 'cnnturk', name: 'CNN Türk', url: 'https://www.cnnturk.com/feed/rss/all/news', cat: 'News' }, { id: 'webtekno', name: 'Webtekno', url: 'https://www.webtekno.com/rss.xml', cat: 'Tech' }, { id: 'shiftdelete', name: 'ShiftDelete', url: 'https://shiftdelete.net/feed', cat: 'Tech' }, { id: 'evrim', name: 'Evrim Ağacı', url: 'https://evrimagaci.org/rss.xml', cat: 'Science' }, { id: 'fotomac', name: 'Fotomaç', url: 'https://www.fotomac.com.tr/rss/anasayfa.xml', cat: 'Sport' }, { id: 'aspor', name: 'A Spor', url: 'https://www.aspor.com.tr/rss/anasayfa.xml', cat: 'Sport' }, { id: 'bloomberg', name: 'Bloomberg HT', url: 'https://www.bloomberght.com/rss', cat: 'Finance' }, { id: 'bbctr', name: 'BBC Türkçe', url: 'https://feeds.bbci.co.uk/turkce/rss.xml', cat: 'World' }, { id: 'haberturk', name: 'Habertürk', url: 'https://www.haberturk.com/rss', cat: 'News' } ],
@@ -36,11 +39,22 @@ const GLOBAL_RSS_DB = {
     'HI': [ { id: 'ndtv', name: 'NDTV India', url: 'https://feeds.feedburner.com/ndtvkhabar-latest', cat: 'News' }, { id: 'aajtak', name: 'Aaj Tak', url: 'https://feeds.feedburner.com/aajtak/home', cat: 'News' }, { id: 'jagran', name: 'Dainik Jagran', url: 'https://rss.jagran.com/rss/news/national.xml', cat: 'News' }, { id: 'amar', name: 'Amar Ujala', url: 'https://www.amarujala.com/rss/india-news.xml', cat: 'News' }, { id: 'bbc', name: 'BBC Hindi', url: 'https://feeds.bbci.co.uk/hindi/rss.xml', cat: 'World' }, { id: 'wire', name: 'The Wire Hindi', url: 'https://thewirehindi.com/feed/', cat: 'World' }, { id: 'tech', name: 'Tech in Hindi', url: 'https://www.techinhindi.com/feed/', cat: 'Tech' }, { id: 'health', name: 'OnlyMyHealth', url: 'https://www.onlymyhealth.com/rss/hindi.xml', cat: 'Health' }, { id: 'sports', name: 'Sportskeeda', url: 'https://hindi.sportskeeda.com/feed', cat: 'Sport' }, { id: 'money', name: 'Moneycontrol', url: 'https://hindi.moneycontrol.com/rss/latest-news.xml', cat: 'Finance' }, { id: 'zee', name: 'Zee News', url: 'https://zeenews.india.com/hindi/india/rss', cat: 'World' }, { id: 'abp', name: 'ABP News', url: 'https://www.abplive.com/home/feed', cat: 'News' } ]
 };
 
-let currentUser = null; let currentRegion = 'EN'; let currentCategory = ''; let isArchiveView = false;
-let RSS_FEEDS = []; let allArticles = []; let filteredArticles = []; let activeSources = []; 
+let currentUser = null; 
+let currentRegion = 'EN'; 
+let currentCategory = ''; 
+let isArchiveView = false;
+
+let RSS_FEEDS = []; 
+let allArticles = []; 
+let filteredArticles = []; 
+let activeSources = []; 
+
 let archivedArticles = JSON.parse(localStorage.getItem('archivedArticlesList')) || [];
 let readArticles = JSON.parse(localStorage.getItem('readArticlesList')) || [];
-let showReadArticles = false; let displayedCount = 0; let isFetchingRefresh = false; const ITEMS_PER_PAGE = 20;
+let showReadArticles = false; 
+let displayedCount = 0; 
+let isFetchingRefresh = false; 
+const ITEMS_PER_PAGE = 20;
 
 const ptrEl = document.getElementById('pullToRefresh');
 const ptrIcon = document.getElementById('ptrIcon');
@@ -64,7 +78,8 @@ let currentLayout = localStorage.getItem('appLayout') || 'medium';
 let initialFetchDone = false; 
 
 function detectUserRegion() {
-    const savedRegion = localStorage.getItem('scrollaryRegion'); if (savedRegion) return savedRegion;
+    const savedRegion = localStorage.getItem('scrollaryRegion'); 
+    if (savedRegion) return savedRegion;
     const shortLang = (navigator.language || navigator.userLanguage).substring(0, 2).toUpperCase();
     return ['TR', 'EN', 'ES', 'DE', 'FR', 'RU', 'AR', 'HI'].includes(shortLang) ? shortLang : 'EN';
 }
@@ -100,6 +115,10 @@ window.addEventListener('popstate', (e) => {
     document.getElementById('guideModal').style.display = 'none';
     document.getElementById('voiceModal').style.display = 'none';
     
+    // AI Yanıt Modalını Geri Dönüşte Kapat
+    const aiModal = document.getElementById('aiResultModal');
+    if(aiModal) aiModal.classList.remove('show');
+    
     const wrapper = document.getElementById('controlsWrapper');
     if (wrapper && !wrapper.classList.contains('collapsed')) {
         wrapper.classList.add('collapsed');
@@ -117,49 +136,108 @@ function closeModalSafe(modalId) {
         document.body.style.overflow = 'auto';
         if(modalId === 'newsModal') {
             window.speechSynthesis.cancel();
+            
+            // AI Yanıt Modalını Çıkışta Kapat
+            const aiModal = document.getElementById('aiResultModal');
+            if(aiModal) aiModal.classList.remove('show');
+            
             const oldIframe = document.getElementById('modalIframe');
-            if(oldIframe) { const newIframe = document.createElement('iframe'); newIframe.id = 'modalIframe'; newIframe.className = 'modal-iframe'; oldIframe.parentNode.replaceChild(newIframe, oldIframe); }
+            if(oldIframe) { 
+                const newIframe = document.createElement('iframe'); 
+                newIframe.id = 'modalIframe'; 
+                newIframe.className = 'modal-iframe'; 
+                oldIframe.parentNode.replaceChild(newIframe, oldIframe); 
+            }
         }
     }
 }
 
 function applyTranslations(regionCode, skipRender = false) {
     const t = TRANSLATIONS[regionCode] || TRANSLATIONS['EN'];
-    document.querySelectorAll('[data-i18n]').forEach(el => { const key = el.getAttribute('data-i18n'); if(t[key]) el.innerText = t[key]; });
-    document.querySelectorAll('[data-i18n-ph]').forEach(el => { const key = el.getAttribute('data-i18n-ph'); if(t[key]) el.placeholder = t[key]; });
+    document.querySelectorAll('[data-i18n]').forEach(el => { 
+        const key = el.getAttribute('data-i18n'); 
+        if(t[key]) el.innerText = t[key]; 
+    });
+    document.querySelectorAll('[data-i18n-ph]').forEach(el => { 
+        const key = el.getAttribute('data-i18n-ph'); 
+        if(t[key]) el.placeholder = t[key]; 
+    });
     
-    const tWrap = document.getElementById('themeBtnsWrapper'); tWrap.innerHTML = '';
-    for (const [key, val] of Object.entries(t.themes)) { tWrap.innerHTML += `<button class="view-btn theme-btn ${currentTheme === key ? 'active' : ''}" onclick="changeTheme('${key}', this)">${val}</button>`; }
+    const tWrap = document.getElementById('themeBtnsWrapper'); 
+    tWrap.innerHTML = '';
+    for (const [key, val] of Object.entries(t.themes)) { 
+        tWrap.innerHTML += `<button class="view-btn theme-btn ${currentTheme === key ? 'active' : ''}" onclick="changeTheme('${key}', this)">${val}</button>`; 
+    }
     
-    const lWrap = document.getElementById('layoutBtnsWrapper'); lWrap.innerHTML = '';
-    for (const [key, val] of Object.entries(t.layouts)) { lWrap.innerHTML += `<button class="view-btn ${currentLayout === key ? 'active' : ''}" onclick="setGridSize('${key}', this, true)">${val}</button>`; }
+    const lWrap = document.getElementById('layoutBtnsWrapper'); 
+    lWrap.innerHTML = '';
+    for (const [key, val] of Object.entries(t.layouts)) { 
+        lWrap.innerHTML += `<button class="view-btn ${currentLayout === key ? 'active' : ''}" onclick="setGridSize('${key}', this, true)">${val}</button>`; 
+    }
     
-    const cWrap = document.getElementById('catWrapper'); cWrap.innerHTML = '';
-    for (const [key, val] of Object.entries(t.cats)) { const isArc = key === 'Arşiv'; cWrap.innerHTML += `<button class="cat-btn ${isArc ? 'cat-btn-archive' : ''} ${currentCategory === key ? 'active' : ''}" onclick="filterCategory('${key}', this)">${val}</button>`; }
+    const cWrap = document.getElementById('catWrapper'); 
+    cWrap.innerHTML = '';
+    for (const [key, val] of Object.entries(t.cats)) { 
+        const isArc = key === 'Arşiv'; 
+        cWrap.innerHTML += `<button class="cat-btn ${isArc ? 'cat-btn-archive' : ''} ${currentCategory === key ? 'active' : ''}" onclick="filterCategory('${key}', this)">${val}</button>`; 
+    }
     
     if(initialFetchDone && !skipRender) renderNextBatch(true); 
 }
 
 function switchGlobalRegion(regionCode) {
-    currentRegion = regionCode; document.getElementById('regionSelect').value = regionCode; localStorage.setItem('scrollaryRegion', regionCode);
-    applyTranslations(currentRegion, true); localStorage.removeItem('activeSourcesList'); loadCustomFeeds(); 
-    allArticles = []; document.getElementById('newsGrid').innerHTML = '';
+    currentRegion = regionCode; 
+    document.getElementById('regionSelect').value = regionCode; 
+    localStorage.setItem('scrollaryRegion', regionCode);
+    applyTranslations(currentRegion, true); 
+    localStorage.removeItem('activeSourcesList'); 
+    loadCustomFeeds(); 
+    allArticles = []; 
+    document.getElementById('newsGrid').innerHTML = '';
     fetchAllRSS(false); 
 }
 
 auth.onAuthStateChanged(async user => {
     if (user) { 
-        currentUser = user; document.getElementById('loginBtn').style.display = 'none'; document.getElementById('userInfo').style.display = 'flex'; document.getElementById('userPic').src = user.photoURL; document.getElementById('userName').innerText = user.displayName.split(' ')[0]; 
-        await loadFromCloud(); if(!initialFetchDone) { initialFetchDone = true; }
+        currentUser = user; 
+        document.getElementById('loginBtn').style.display = 'none'; 
+        document.getElementById('userInfo').style.display = 'flex'; 
+        document.getElementById('userPic').src = user.photoURL; 
+        document.getElementById('userName').innerText = user.displayName.split(' ')[0]; 
+        await loadFromCloud(); 
+        if(!initialFetchDone) { initialFetchDone = true; }
     } else { 
-        currentUser = null; document.getElementById('loginBtn').style.display = 'flex'; document.getElementById('userInfo').style.display = 'none'; readArticles = JSON.parse(localStorage.getItem('readArticlesList')) || []; archivedArticles = JSON.parse(localStorage.getItem('archivedArticlesList')) || []; 
-        loadCustomFeeds(); if(!initialFetchDone) { initialFetchDone = true; }
+        currentUser = null; 
+        document.getElementById('loginBtn').style.display = 'flex'; 
+        document.getElementById('userInfo').style.display = 'none'; 
+        readArticles = JSON.parse(localStorage.getItem('readArticlesList')) || []; 
+        archivedArticles = JSON.parse(localStorage.getItem('archivedArticlesList')) || []; 
+        loadCustomFeeds(); 
+        if(!initialFetchDone) { initialFetchDone = true; }
     }
 });
-function signInWithGoogle() { auth.signInWithPopup(provider).catch(err => { alert("Google Login Error: " + err.message); }); }
-function signOut() { auth.signOut(); }
 
-async function syncToCloud() { if (!currentUser) return; try { await db.collection('users').doc(currentUser.uid).set({ readArticles: readArticles, archivedArticles: archivedArticles, customRSSFeeds: JSON.parse(localStorage.getItem('customRSSFeeds')) || [], appTheme: currentTheme, activeSources: activeSources, scrollaryRegion: currentRegion }, { merge: true }); } catch (e) {} }
+function signInWithGoogle() { 
+    auth.signInWithPopup(provider).catch(err => { alert("Google Login Error: " + err.message); }); 
+}
+
+function signOut() { 
+    auth.signOut(); 
+}
+
+async function syncToCloud() { 
+    if (!currentUser) return; 
+    try { 
+        await db.collection('users').doc(currentUser.uid).set({ 
+            readArticles: readArticles, 
+            archivedArticles: archivedArticles, 
+            customRSSFeeds: JSON.parse(localStorage.getItem('customRSSFeeds')) || [], 
+            appTheme: currentTheme, 
+            activeSources: activeSources, 
+            scrollaryRegion: currentRegion 
+        }, { merge: true }); 
+    } catch (e) {} 
+}
 
 async function loadFromCloud() {
     if (!currentUser) return;
@@ -167,10 +245,20 @@ async function loadFromCloud() {
         const doc = await db.collection('users').doc(currentUser.uid).get();
         if (doc.exists) {
             const data = doc.data();
-            if (data.readArticles) { readArticles = data.readArticles; localStorage.setItem('readArticlesList', JSON.stringify(readArticles)); }
-            if (data.archivedArticles) { archivedArticles = data.archivedArticles; localStorage.setItem('archivedArticlesList', JSON.stringify(archivedArticles)); }
-            if (data.customRSSFeeds) { localStorage.setItem('customRSSFeeds', JSON.stringify(data.customRSSFeeds)); }
-            if (data.appTheme) { changeTheme(data.appTheme); }
+            if (data.readArticles) { 
+                readArticles = data.readArticles; 
+                localStorage.setItem('readArticlesList', JSON.stringify(readArticles)); 
+            }
+            if (data.archivedArticles) { 
+                archivedArticles = data.archivedArticles; 
+                localStorage.setItem('archivedArticlesList', JSON.stringify(archivedArticles)); 
+            }
+            if (data.customRSSFeeds) { 
+                localStorage.setItem('customRSSFeeds', JSON.stringify(data.customRSSFeeds)); 
+            }
+            if (data.appTheme) { 
+                changeTheme(data.appTheme); 
+            }
             if (data.scrollaryRegion && data.scrollaryRegion !== currentRegion) { 
                 currentRegion = data.scrollaryRegion; 
                 document.getElementById('regionSelect').value = currentRegion; 
@@ -179,7 +267,10 @@ async function loadFromCloud() {
                 loadCustomFeeds();
                 fetchAllRSS(true); 
             }
-            if (data.activeSources) { activeSources = data.activeSources; localStorage.setItem('activeSourcesList', JSON.stringify(activeSources)); }
+            if (data.activeSources) { 
+                activeSources = data.activeSources; 
+                localStorage.setItem('activeSourcesList', JSON.stringify(activeSources)); 
+            }
         }
     } catch (e) {}
     loadCustomFeeds();
@@ -200,13 +291,70 @@ function toggleControls(event) {
     } 
 }
 
-function changeTheme(themeName, btnElement) { document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active')); if(btnElement) btnElement.classList.add('active'); else { Array.from(document.querySelectorAll('.theme-btn')).find(b => b.getAttribute('onclick').includes(themeName))?.classList.add('active'); } document.body.setAttribute('data-theme', themeName); currentTheme = themeName; localStorage.setItem('appTheme', themeName); syncToCloud(); }
-function toggleReadVisibility(show) { showReadArticles = show; document.getElementById('showReadMain').checked = show; handleSearch(); }
-function markAsRead(link, fromSwipe = false) { if (!readArticles.includes(link)) { readArticles.push(link); localStorage.setItem('readArticlesList', JSON.stringify(readArticles)); syncToCloud(); if (!fromSwipe && !showReadArticles) handleSearch(true); else if (!fromSwipe) handleSearch(true); } }
-function archiveArticleByLink(link) { const art = allArticles.find(a => a.link === link) || archivedArticles.find(a => a.link === link); if(!art) return; if(!archivedArticles.find(a => a.link === link)) { archivedArticles.push(art); localStorage.setItem('archivedArticlesList', JSON.stringify(archivedArticles)); syncToCloud(); } showToastGlobal(TRANSLATIONS[currentRegion].swipeArchived); }
-function setGridSize(size, btnElement, skipSave = false) { document.querySelectorAll('.view-btn:not(.theme-btn)').forEach(b => b.classList.remove('active')); if(btnElement) btnElement.classList.add('active'); else { Array.from(document.querySelectorAll('.view-btn:not(.theme-btn)')).find(b => b.getAttribute('onclick').includes(size))?.classList.add('active'); } const grid = document.getElementById('newsGrid'); grid.className = 'news-grid grid-' + size; if (size === 'shorts') document.body.classList.add('shorts-mode'); else document.body.classList.remove('shorts-mode'); if(!skipSave) { currentLayout = size; localStorage.setItem('appLayout', size); } }
+function changeTheme(themeName, btnElement) { 
+    document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active')); 
+    if(btnElement) {
+        btnElement.classList.add('active'); 
+    } else { 
+        Array.from(document.querySelectorAll('.theme-btn')).find(b => b.getAttribute('onclick').includes(themeName))?.classList.add('active'); 
+    } 
+    document.body.setAttribute('data-theme', themeName); 
+    currentTheme = themeName; 
+    localStorage.setItem('appTheme', themeName); 
+    syncToCloud(); 
+}
 
-function filterCategory(catKey, btnElement) { isArchiveView = (catKey === 'Arşiv' || catKey === 'Archive'); document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active')); if(btnElement) btnElement.classList.add('active'); currentCategory = catKey; handleSearch(); }
+function toggleReadVisibility(show) { 
+    showReadArticles = show; 
+    document.getElementById('showReadMain').checked = show; 
+    handleSearch(); 
+}
+
+function markAsRead(link, fromSwipe = false) { 
+    if (!readArticles.includes(link)) { 
+        readArticles.push(link); 
+        localStorage.setItem('readArticlesList', JSON.stringify(readArticles)); 
+        syncToCloud(); 
+        if (!fromSwipe && !showReadArticles) handleSearch(true); 
+        else if (!fromSwipe) handleSearch(true); 
+    } 
+}
+
+function archiveArticleByLink(link) { 
+    const art = allArticles.find(a => a.link === link) || archivedArticles.find(a => a.link === link); 
+    if(!art) return; 
+    if(!archivedArticles.find(a => a.link === link)) { 
+        archivedArticles.push(art); 
+        localStorage.setItem('archivedArticlesList', JSON.stringify(archivedArticles)); 
+        syncToCloud(); 
+    } 
+    showToastGlobal(TRANSLATIONS[currentRegion].swipeArchived); 
+}
+
+function setGridSize(size, btnElement, skipSave = false) { 
+    document.querySelectorAll('.view-btn:not(.theme-btn)').forEach(b => b.classList.remove('active')); 
+    if(btnElement) {
+        btnElement.classList.add('active'); 
+    } else { 
+        Array.from(document.querySelectorAll('.view-btn:not(.theme-btn)')).find(b => b.getAttribute('onclick').includes(size))?.classList.add('active'); 
+    } 
+    const grid = document.getElementById('newsGrid'); 
+    grid.className = 'news-grid grid-' + size; 
+    if (size === 'shorts') document.body.classList.add('shorts-mode'); 
+    else document.body.classList.remove('shorts-mode'); 
+    if(!skipSave) { 
+        currentLayout = size; 
+        localStorage.setItem('appLayout', size); 
+    } 
+}
+
+function filterCategory(catKey, btnElement) { 
+    isArchiveView = (catKey === 'Arşiv' || catKey === 'Archive'); 
+    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active')); 
+    if(btnElement) btnElement.classList.add('active'); 
+    currentCategory = catKey; 
+    handleSearch(); 
+}
 
 function openSourceFilterModal(event) { 
     if(event) event.stopPropagation(); 
@@ -214,7 +362,11 @@ function openSourceFilterModal(event) {
     document.getElementById('popupSearchInput').value = document.getElementById('searchInput').value; 
     loadCustomFeeds(); 
 }
-function syncSearchInputs(val) { document.getElementById('searchInput').value = val; handleSearch(); }
+
+function syncSearchInputs(val) { 
+    document.getElementById('searchInput').value = val; 
+    handleSearch(); 
+}
 
 function popupRefresh() { 
     document.getElementById('popupFilterList').innerHTML = '🔄...'; 
@@ -237,7 +389,10 @@ function loadCustomFeeds() {
     renderChips();
 }
 
-function saveActiveSources() { localStorage.setItem('activeSourcesList', JSON.stringify(activeSources)); syncToCloud(); }
+function saveActiveSources() { 
+    localStorage.setItem('activeSourcesList', JSON.stringify(activeSources)); 
+    syncToCloud(); 
+}
 
 function interlaceArticles(articles) {
     const grouped = {};
@@ -269,8 +424,14 @@ function interlaceArticles(articles) {
 async function addDiscoveredRss(name, url) { 
     const newFeed = { id: 'custom_' + Date.now(), name: name.substring(0, 30), url: url, isCustom: true, lang: currentRegion, cat: 'News' };
     const savedFeeds = JSON.parse(localStorage.getItem('customRSSFeeds')) || []; 
-    if(!savedFeeds.find(f => f.url === url)) { savedFeeds.push(newFeed); localStorage.setItem('customRSSFeeds', JSON.stringify(savedFeeds)); }
-    if(!activeSources.includes(newFeed.name)) { activeSources.push(newFeed.name); saveActiveSources(); }
+    if(!savedFeeds.find(f => f.url === url)) { 
+        savedFeeds.push(newFeed); 
+        localStorage.setItem('customRSSFeeds', JSON.stringify(savedFeeds)); 
+    }
+    if(!activeSources.includes(newFeed.name)) { 
+        activeSources.push(newFeed.name); 
+        saveActiveSources(); 
+    }
     
     document.getElementById('rssSearchResults').innerHTML = `<span style="color:#10b981; font-weight:bold; margin-top:10px; display:block;">⏳ Haberler listene düşüyor...</span>`;
     
@@ -279,8 +440,10 @@ async function addDiscoveredRss(name, url) {
     const catBtns = document.querySelectorAll('.cat-btn');
     if(catBtns.length > 0) catBtns[0].classList.add('active');
 
-    loadCustomFeeds(); syncToCloud(); 
-    document.getElementById('controlsWrapper').classList.add('collapsed'); document.getElementById('toggleIcon').innerText = '▼'; 
+    loadCustomFeeds(); 
+    syncToCloud(); 
+    document.getElementById('controlsWrapper').classList.add('collapsed'); 
+    document.getElementById('toggleIcon').innerText = '▼'; 
     
     const arts = await fetchFeedData(newFeed);
     if(arts && arts.length > 0) {
@@ -293,8 +456,10 @@ async function addDiscoveredRss(name, url) {
 }
 
 async function findRssFromUrl() {
-    const urlInput = document.getElementById('searchRssUrl').value.trim(); if (!urlInput) return;
-    const resultsDiv = document.getElementById('rssSearchResults'); resultsDiv.innerHTML = '⏳ Aranıyor...';
+    const urlInput = document.getElementById('searchRssUrl').value.trim(); 
+    if (!urlInput) return;
+    const resultsDiv = document.getElementById('rssSearchResults'); 
+    resultsDiv.innerHTML = '⏳ Aranıyor...';
     const isUrl = urlInput.includes('.') && !urlInput.includes(' ');
     
     let hl = currentRegion.toLowerCase(); 
@@ -313,15 +478,18 @@ async function findRssFromUrl() {
     let targetUrl = urlInput.startsWith('http') ? urlInput : 'https://' + urlInput;
     try {
         const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
-        const resH = await fetchWithTimeout(proxyUrl, 8000); const dataH = await resH.json();
+        const resH = await fetchWithTimeout(proxyUrl, 8000); 
+        const dataH = await resH.json();
         if (dataH.contents) {
-            const parser = new DOMParser(); const doc = parser.parseFromString(dataH.contents, 'text/html');
+            const parser = new DOMParser(); 
+            const doc = parser.parseFromString(dataH.contents, 'text/html');
             const rssLinks = doc.querySelectorAll('link[type="application/rss+xml"], link[type="application/atom+xml"]');
             if (rssLinks.length > 0) {
                 resultsDiv.innerHTML = '<span style="color:#10b981; font-weight:bold;">✅ Site kaynakları bulundu:</span>';
                 rssLinks.forEach((link) => {
                     let href = link.getAttribute('href'); let title = link.getAttribute('title') || 'Ana RSS';
-                    if(href.startsWith('/')) { href = new URL(targetUrl).origin + href; } else if (!href.startsWith('http')) { href = targetUrl.replace(/\/$/, '') + '/' + href; }
+                    if(href.startsWith('/')) { href = new URL(targetUrl).origin + href; } 
+                    else if (!href.startsWith('http')) { href = targetUrl.replace(/\/$/, '') + '/' + href; }
                     let linkTitle = title.replace(/'/g, "\\'");
                     resultsDiv.innerHTML += `<button style="background:var(--surface-light); text-align:left; font-size:0.85rem; color:white; padding:10px; border-radius:5px; width:100%; margin-top:8px; cursor:pointer;" onclick="addDiscoveredRss('${linkTitle}', '${href}')">➕ ${title}</button>`;
                 });
@@ -335,16 +503,50 @@ async function findRssFromUrl() {
 }
 
 function addCustomRSSManual() {
-    const nameInput = document.getElementById('newRssName'); const urlInput = document.getElementById('newRssUrl'); 
-    const name = nameInput.value.trim(); const url = urlInput.value.trim();
+    const nameInput = document.getElementById('newRssName'); 
+    const urlInput = document.getElementById('newRssUrl'); 
+    const name = nameInput.value.trim(); 
+    const url = urlInput.value.trim();
     if(!name || !url) return;
     addDiscoveredRss(name, url);
-    nameInput.value = ''; urlInput.value = ''; document.getElementById('manualAddSection').classList.remove('show'); 
+    nameInput.value = ''; 
+    urlInput.value = ''; 
+    document.getElementById('manualAddSection').classList.remove('show'); 
 }
 
-function deleteCustomRSS(id, event) { event.stopPropagation(); if(!confirm("Delete?")) return; let savedFeeds = JSON.parse(localStorage.getItem('customRSSFeeds')) || []; savedFeeds = savedFeeds.filter(f => f.id !== id); localStorage.setItem('customRSSFeeds', JSON.stringify(savedFeeds)); syncToCloud(); loadCustomFeeds(); handleSearch(); }
-function toggleSourceState(sourceName) { if(activeSources.includes(sourceName)) { activeSources = activeSources.filter(s => s !== sourceName); } else { activeSources.push(sourceName); } saveActiveSources(); renderChips(); handleSearch(); }
-function toggleAllSourcesState(event) { event.stopPropagation(); if(activeSources.length === RSS_FEEDS.length) { activeSources = []; } else { activeSources = RSS_FEEDS.map(f => f.name); } saveActiveSources(); renderChips(); handleSearch(); }
+function deleteCustomRSS(id, event) { 
+    event.stopPropagation(); 
+    if(!confirm("Delete?")) return; 
+    let savedFeeds = JSON.parse(localStorage.getItem('customRSSFeeds')) || []; 
+    savedFeeds = savedFeeds.filter(f => f.id !== id); 
+    localStorage.setItem('customRSSFeeds', JSON.stringify(savedFeeds)); 
+    syncToCloud(); 
+    loadCustomFeeds(); 
+    handleSearch(); 
+}
+
+function toggleSourceState(sourceName) { 
+    if(activeSources.includes(sourceName)) { 
+        activeSources = activeSources.filter(s => s !== sourceName); 
+    } else { 
+        activeSources.push(sourceName); 
+    } 
+    saveActiveSources(); 
+    renderChips(); 
+    handleSearch(); 
+}
+
+function toggleAllSourcesState(event) { 
+    event.stopPropagation(); 
+    if(activeSources.length === RSS_FEEDS.length) { 
+        activeSources = []; 
+    } else { 
+        activeSources = RSS_FEEDS.map(f => f.name); 
+    } 
+    saveActiveSources(); 
+    renderChips(); 
+    handleSearch(); 
+}
 
 function renderChips() {
     const listMain = document.getElementById('filterList');
@@ -352,13 +554,18 @@ function renderChips() {
     if(listMain) listMain.innerHTML = '';
     if(listPopup) listPopup.innerHTML = '';
     RSS_FEEDS.forEach(feed => {
-        const isActive = activeSources.includes(feed.name); let deleteBtn = feed.isCustom ? `<span class="chip-delete" onclick="deleteCustomRSS('${feed.id}', event)">✕</span>` : '';
+        const isActive = activeSources.includes(feed.name); 
+        let deleteBtn = feed.isCustom ? `<span class="chip-delete" onclick="deleteCustomRSS('${feed.id}', event)">✕</span>` : '';
         const htmlStr = `<input type="checkbox" style="display:none;" value="${feed.name}" ${isActive ? 'checked' : ''} onchange="toggleSourceState('${feed.name}')"> ${feed.name} ${deleteBtn}`;
         
-        const labelMain = document.createElement('label'); labelMain.className = `chip ${isActive ? 'active' : ''}`; labelMain.innerHTML = htmlStr; 
+        const labelMain = document.createElement('label'); 
+        labelMain.className = `chip ${isActive ? 'active' : ''}`; 
+        labelMain.innerHTML = htmlStr; 
         if(listMain) listMain.appendChild(labelMain);
         
-        const labelPopup = document.createElement('label'); labelPopup.className = `chip ${isActive ? 'active' : ''}`; labelPopup.innerHTML = htmlStr; 
+        const labelPopup = document.createElement('label'); 
+        labelPopup.className = `chip ${isActive ? 'active' : ''}`; 
+        labelPopup.innerHTML = htmlStr; 
         if(listPopup) listPopup.appendChild(labelPopup);
     });
 }
@@ -395,17 +602,25 @@ function parseXMLToArticles(textData, feed) {
     const parser = new DOMParser(); 
     const xmlDoc = parser.parseFromString(textData, "text/xml"); 
     const items = [...Array.from(xmlDoc.getElementsByTagName("item")), ...Array.from(xmlDoc.getElementsByTagName("entry"))];
-    let result = []; let baseUrl = ""; try { baseUrl = new URL(feed.url).origin; } catch(e){}
+    let result = []; 
+    let baseUrl = ""; 
+    try { baseUrl = new URL(feed.url).origin; } catch(e){}
     
     items.forEach(item => {
         try {
-            let title = "Haber Başlığı"; const titleNode = item.getElementsByTagName("title")[0];
+            let title = "Haber Başlığı"; 
+            const titleNode = item.getElementsByTagName("title")[0];
             if (titleNode) title = titleNode.textContent.trim() || "Haber Başlığı";
 
-            let link = "#"; const linkNode = item.getElementsByTagName("link")[0];
-            if (linkNode) { link = linkNode.textContent ? linkNode.textContent.trim() : ""; if(!link) link = linkNode.getAttribute("href") || "#"; }
+            let link = "#"; 
+            const linkNode = item.getElementsByTagName("link")[0];
+            if (linkNode) { 
+                link = linkNode.textContent ? linkNode.textContent.trim() : ""; 
+                if(!link) link = linkNode.getAttribute("href") || "#"; 
+            }
 
-            let desc = ""; const descNode = item.getElementsByTagName("description")[0] || item.getElementsByTagName("summary")[0] || item.getElementsByTagName("content")[0];
+            let desc = ""; 
+            const descNode = item.getElementsByTagName("description")[0] || item.getElementsByTagName("summary")[0] || item.getElementsByTagName("content")[0];
             if (descNode) desc = descNode.textContent || "";
             
             const contentEnc = item.getElementsByTagName("content:encoded")[0] || item.getElementsByTagNameNS("*", "encoded")[0];
@@ -415,7 +630,10 @@ function parseXMLToArticles(textData, feed) {
 
             let pubDate = new Date();
             const pubNodes = item.getElementsByTagName("pubDate")[0] || item.getElementsByTagName("published")[0] || item.getElementsByTagName("updated")[0] || item.getElementsByTagName("date")[0];
-            if (pubNodes && pubNodes.textContent) { const parsed = new Date(pubNodes.textContent); if (!isNaN(parsed.getTime())) pubDate = parsed; }
+            if (pubNodes && pubNodes.textContent) { 
+                const parsed = new Date(pubNodes.textContent); 
+                if (!isNaN(parsed.getTime())) pubDate = parsed; 
+            }
             if (pubDate.getTime() > Date.now() + 3600000) { pubDate = new Date(); }
 
             let image = "";
@@ -426,14 +644,28 @@ function parseXMLToArticles(textData, feed) {
             if (enclosure && enclosure.getAttribute("url")) image = enclosure.getAttribute("url");
             else if (mediaContent && mediaContent.getAttribute("url")) image = mediaContent.getAttribute("url");
             else if (mediaThumb && mediaThumb.getAttribute("url")) image = mediaThumb.getAttribute("url");
-            else { const imgMatch = fullText.match(/<img[^>]+src=["']([^"']+)["']/i); if (imgMatch && imgMatch[1]) image = imgMatch[1]; }
+            else { 
+                const imgMatch = fullText.match(/<img[^>]+src=["']([^"']+)["']/i); 
+                if (imgMatch && imgMatch[1]) image = imgMatch[1]; 
+            }
 
-            if (image && image.startsWith('/')) image = baseUrl + image; if (image && image.startsWith('http:')) image = image.replace('http:', 'https:');
+            if (image && image.startsWith('/')) image = baseUrl + image; 
+            if (image && image.startsWith('http:')) image = image.replace('http:', 'https:');
 
-            let resultItem = { title, description: desc.replace(/<[^>]*>?/gm, '').trim().substring(0, 180) + '...', link, image: image || '', source: feed.name, date: pubDate, timestamp: pubDate.getTime(), categories: feed.cat ? [feed.cat] : [] };
+            let resultItem = { 
+                title, 
+                description: desc.replace(/<[^>]*>?/gm, '').trim().substring(0, 180) + '...', 
+                link, 
+                image: image || '', 
+                source: feed.name, 
+                date: pubDate, 
+                timestamp: pubDate.getTime(), 
+                categories: feed.cat ? [feed.cat] : [] 
+            };
             result.push(resultItem);
         } catch(err) {} 
-    }); return result;
+    }); 
+    return result;
 }
 
 function saveToLocalMemory() { 
@@ -514,18 +746,29 @@ function handleToastClick() {
 }
 
 function handleSearch(isSilentRefresh = false) {
-    const searchText = (document.getElementById('searchInput').value.trim()).toLowerCase(); const searchTerms = searchText.split(' ').filter(t => t.length > 0);
+    const searchText = (document.getElementById('searchInput').value.trim()).toLowerCase(); 
+    const searchTerms = searchText.split(' ').filter(t => t.length > 0);
     let sourceArray = isArchiveView ? archivedArticles : allArticles;
+    
     filteredArticles = sourceArray.filter(art => {
         if (!isArchiveView && !showReadArticles && readArticles.includes(art.link)) return false;
-        const sourceMatch = isArchiveView ? true : activeSources.includes(art.source); if(!sourceMatch) return false;
-        if (currentCategory && currentCategory !== 'Arşiv' && currentCategory !== 'Archive') { let hasCat = art.categories && art.categories.includes(currentCategory); if (!hasCat) return false; }
+        const sourceMatch = isArchiveView ? true : activeSources.includes(art.source); 
+        if(!sourceMatch) return false;
+        if (currentCategory && currentCategory !== 'Arşiv' && currentCategory !== 'Archive') { 
+            let hasCat = art.categories && art.categories.includes(currentCategory); 
+            if (!hasCat) return false; 
+        }
         const searchSpace = (art.title + " " + art.description + " " + (art.categories ? art.categories.join(' ') : "") + " " + art.source).toLowerCase();
         return searchTerms.length === 0 || searchTerms.every(term => searchSpace.includes(term)); 
     });
     
-    if (!isSilentRefresh) { document.getElementById('newsGrid').innerHTML = ''; displayedCount = 0; } 
-    else { document.getElementById('newsGrid').innerHTML = ''; displayedCount = 0; }
+    if (!isSilentRefresh) { 
+        document.getElementById('newsGrid').innerHTML = ''; 
+        displayedCount = 0; 
+    } else { 
+        document.getElementById('newsGrid').innerHTML = ''; 
+        displayedCount = 0; 
+    }
     
     if (filteredArticles.length === 0) { 
         const t = TRANSLATIONS[currentRegion];
@@ -539,12 +782,17 @@ function handleSearch(isSilentRefresh = false) {
 
 function renderNextBatch(forceClear = false) {
     const grid = document.getElementById('newsGrid'); 
-    if(forceClear) { grid.innerHTML = ''; displayedCount = 0; }
-    const nextBatch = filteredArticles.slice(displayedCount, displayedCount + ITEMS_PER_PAGE); const t = TRANSLATIONS[currentRegion];
+    if(forceClear) { 
+        grid.innerHTML = ''; 
+        displayedCount = 0; 
+    }
+    const nextBatch = filteredArticles.slice(displayedCount, displayedCount + ITEMS_PER_PAGE); 
+    const t = TRANSLATIONS[currentRegion];
     
     nextBatch.forEach((art, i) => {
         if ((displayedCount + i) % 10 === 0 && (displayedCount + i) !== 0) {
-            const adWrapper = document.createElement('div'); adWrapper.className = 'swipe-wrapper ad-slot-wrapper';
+            const adWrapper = document.createElement('div'); 
+            adWrapper.className = 'swipe-wrapper ad-slot-wrapper';
             adWrapper.innerHTML = `
                 <div class="news-card ad-slot-card">
                     <div class="ad-slot-label">${t.adSlotText}</div>
@@ -555,10 +803,19 @@ function renderNextBatch(forceClear = false) {
             grid.appendChild(adWrapper);
         }
 
-        const wrapper = document.createElement('div'); wrapper.className = 'swipe-wrapper'; wrapper.dataset.link = art.link;
-        const isRead = readArticles.includes(art.link); const isArchived = !!archivedArticles.find(a=> a.link === art.link);
-        const dateObj = new Date(art.date); const today = new Date(); let dateStr = (dateObj.getDate() === today.getDate() && dateObj.getMonth() === today.getMonth()) ? dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : dateObj.toLocaleDateString([], { day: '2-digit', month: 'short' }) + " " + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        let catText = ""; if(art.categories && art.categories.length > 0) { let rawCat = art.categories[0]; catText = t.cats[rawCat] || rawCat; }
+        const wrapper = document.createElement('div'); 
+        wrapper.className = 'swipe-wrapper'; 
+        wrapper.dataset.link = art.link;
+        const isRead = readArticles.includes(art.link); 
+        const isArchived = !!archivedArticles.find(a=> a.link === art.link);
+        const dateObj = new Date(art.date); 
+        const today = new Date(); 
+        let dateStr = (dateObj.getDate() === today.getDate() && dateObj.getMonth() === today.getMonth()) ? dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : dateObj.toLocaleDateString([], { day: '2-digit', month: 'short' }) + " " + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        let catText = ""; 
+        if(art.categories && art.categories.length > 0) { 
+            let rawCat = art.categories[0]; 
+            catText = t.cats[rawCat] || rawCat; 
+        }
 
         let isDefault = !art.image;
         let safeImgUrl = art.image ? art.image.replace(/"/g, '&quot;') : '';
@@ -575,7 +832,8 @@ function renderNextBatch(forceClear = false) {
             </div>
         `;
 
-        const card = wrapper.querySelector('.news-card'); let clickTimer = null;
+        const card = wrapper.querySelector('.news-card'); 
+        let clickTimer = null;
         card.onclick = (e) => { 
             if(e.target.tagName === 'A' || e.target.closest('.source-badge')) return; 
             if(e.detail === 1) { 
@@ -585,15 +843,98 @@ function renderNextBatch(forceClear = false) {
             } 
         };
         grid.appendChild(wrapper);
-    }); displayedCount += nextBatch.length;
+    }); 
+    displayedCount += nextBatch.length;
 }
 
-function switchTab(tab) { document.getElementById('tabReader').classList.remove('active'); document.getElementById('tabWeb').classList.remove('active'); if(tab === 'reader') { document.getElementById('tabReader').classList.add('active'); document.getElementById('readerView').style.display = 'block'; document.getElementById('iframeView').style.display = 'none'; } else { document.getElementById('tabWeb').classList.add('active'); document.getElementById('readerView').style.display = 'none'; document.getElementById('iframeView').style.display = 'flex'; } }
+// -------------------- YAPAY ZEKA GÜNCELLEMELERİ VE SEKME MANTIĞI --------------------
+
+function switchTab(tab) { 
+    document.getElementById('tabReader').classList.remove('active'); 
+    document.getElementById('tabWeb').classList.remove('active'); 
+    
+    // AI Yapışkan Çubuğunu Seçiyoruz
+    const aiStickyBar = document.getElementById('aiStickyBar');
+
+    if(tab === 'reader') { 
+        document.getElementById('tabReader').classList.add('active'); 
+        document.getElementById('readerView').style.display = 'block'; 
+        document.getElementById('iframeView').style.display = 'none'; 
+        if (aiStickyBar) aiStickyBar.style.display = 'flex'; // Okuma modundaysa göster
+    } else { 
+        document.getElementById('tabWeb').classList.add('active'); 
+        document.getElementById('readerView').style.display = 'none'; 
+        document.getElementById('iframeView').style.display = 'flex'; 
+        if (aiStickyBar) aiStickyBar.style.display = 'none'; // Web modundaysa gizle
+    } 
+}
+
+// 🤖 POLLINATIONS AI SORU SORMA VE ÖZETLEME FONKSİYONU
+async function handleAIRequest() {
+    const inputEl = document.getElementById('aiInput');
+    const query = inputEl.value.trim() || "Bu haberi özetle";
+    const resultModal = document.getElementById('aiResultModal');
+    const resultContent = document.getElementById('aiResultContent');
+    const btn = document.getElementById('aiSendBtn');
+
+    // Paragrafları topla
+    const textContainer = document.getElementById('fullTextContainer');
+    const paragraphs = Array.from(textContainer.querySelectorAll('p')).map(p => p.innerText);
+    let articleText = paragraphs.join(' ').substring(0, 4000); 
+
+    if(articleText.length < 50) {
+        alert("Haber metni henüz yüklenmedi veya çok kısa.");
+        return;
+    }
+
+    // Modal'ı aç ve yükleniyor animasyonunu göster
+    resultModal.classList.add('show');
+    resultContent.innerHTML = '<div style="text-align:center; padding: 20px;"><span style="font-size:3rem; display:inline-block; animation:pulse 1s infinite;">⏳</span><br><br><span style="color:var(--accent); font-weight:bold;">Yapay zeka metni inceliyor...</span></div>';
+    btn.disabled = true;
+
+    // AI'a verilecek kimlik
+    const systemPrompt = "Sen akıllı bir haber asistanısın. Kullanıcının sorusunu verilen haber metnine göre cevapla. Yanıtını doğrudan div içine basılacak şekilde HTML formatında ver (<b>, <i>, <ul>, <li>, <br> vb. kullan). Önemli kelimeleri <span style='color:#e11d48'> veya <span style='color:#3b82f6'> ile renklendir. Markdown (**, * gibi) KULLANMA. Sadece HTML çıktısı ver.";
+    const userPrompt = `Haber Metni:\n${articleText}\n\nKullanıcı İsteği: ${query}`;
+
+    try {
+        const response = await fetch('https://text.pollinations.ai/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                model: 'openai'
+            })
+        });
+
+        if (!response.ok) throw new Error("API hatası");
+        const data = await response.text();
+        
+        let cleanHtml = data.replace(/```html/g, '').replace(/```/g, '').trim();
+        resultContent.innerHTML = cleanHtml;
+
+    } catch (err) {
+        resultContent.innerHTML = `<div style="color:var(--danger); text-align:center; padding: 20px;">⚠️ Yapay zekaya ulaşılamadı. Sunucu yoğun olabilir, lütfen tekrar deneyin.</div>`;
+    } finally {
+        btn.disabled = false;
+    }
+}
 
 async function openModal(art) {
     const t = TRANSLATIONS[currentRegion];
-    document.getElementById('modalSource').innerText = art.source; document.getElementById('modalLinkExt').href = art.link; document.getElementById('modalTitle').innerText = art.title; document.getElementById('modalDesc').innerText = art.description;
+    document.getElementById('modalSource').innerText = art.source; 
+    document.getElementById('modalLinkExt').href = art.link; 
+    document.getElementById('modalTitle').innerText = art.title; 
+    document.getElementById('modalDesc').innerText = art.description;
     
+    // Her yeni haber açılışında AI kutusunu sıfırla ve pencereyi kapat
+    const aiInput = document.getElementById('aiInput');
+    if (aiInput) aiInput.value = "Bu haberi özetle";
+    const aiModal = document.getElementById('aiResultModal');
+    if (aiModal) aiModal.classList.remove('show');
+
     const imgEl = document.getElementById('modalImg'); 
     const modalBody = document.getElementById('modalBodyArea');
     
@@ -612,7 +953,16 @@ async function openModal(art) {
     
     const textContainer = document.getElementById('fullTextContainer'); 
     textContainer.innerHTML = `<div class="loading-pulse">${t.extracting}</div>`;
-    const oldIframe = document.getElementById('modalIframe'); const iframe = document.createElement('iframe'); iframe.id = 'modalIframe'; iframe.className = 'modal-iframe'; iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups'); oldIframe.parentNode.replaceChild(iframe, oldIframe); const banner = document.getElementById('iframeBanner'); banner.innerHTML = `<span style="animation: pulse 1.5s infinite;">⏳</span> ${t.loadingSite}`;
+    
+    const oldIframe = document.getElementById('modalIframe'); 
+    const iframe = document.createElement('iframe'); 
+    iframe.id = 'modalIframe'; 
+    iframe.className = 'modal-iframe'; 
+    iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups'); 
+    oldIframe.parentNode.replaceChild(iframe, oldIframe); 
+    
+    const banner = document.getElementById('iframeBanner'); 
+    banner.innerHTML = `<span style="animation: pulse 1.5s infinite;">⏳</span> ${t.loadingSite}`;
 
     let html = null;
     const encodedUrl = encodeURIComponent(art.link);
@@ -637,16 +987,23 @@ async function openModal(art) {
             throw new Error("GoogleNewsLink");
         }
 
-        try { html = await fireProxies(proxyGroup1, 3000); } 
-        catch (e1) {
-            try { html = await fireProxies(proxyGroup2, 4000); } 
-            catch (e2) { html = null; }
+        try { 
+            html = await fireProxies(proxyGroup1, 3000); 
+        } catch (e1) {
+            try { 
+                html = await fireProxies(proxyGroup2, 4000); 
+            } catch (e2) { 
+                html = null; 
+            }
         }
 
         if (!html) throw new Error("Bütün proxy denemeleri başarısız oldu.");
 
-        const parser = new DOMParser(); const doc = parser.parseFromString(html, 'text/html'); const paragraphs = Array.from(doc.querySelectorAll('p, .content p, .news-text p, article p'));
-        const validText = paragraphs.map(p => p.textContent.trim()).filter(txt => txt.length > 70); const uniqueText = [...new Set(validText)];
+        const parser = new DOMParser(); 
+        const doc = parser.parseFromString(html, 'text/html'); 
+        const paragraphs = Array.from(doc.querySelectorAll('p, .content p, .news-text p, article p'));
+        const validText = paragraphs.map(p => p.textContent.trim()).filter(txt => txt.length > 70); 
+        const uniqueText = [...new Set(validText)];
         
         if (uniqueText.length > 0) { 
             textContainer.innerHTML = uniqueText.map((txt, idx) => {
@@ -662,11 +1019,26 @@ async function openModal(art) {
             }).join(''); 
         } else { throw new Error("Okunabilir metin bulunamadı"); }
         
-        html = html.replace(/<meta[^>]+http-equiv=['"]?refresh['"]?[^>]*>/gi, ''); html = html.replace(/window\.location\.replace/gi, 'console.log'); html = html.replace(/window\.location\.href\s*=/gi, 'console.log=');
-        const urlObj = new URL(art.link); const baseUrl = urlObj.protocol + "//" + urlObj.host + "/";
-        if (html.toLowerCase().includes('<head>')) { html = html.replace(/<head>/i, `<head><base href="${baseUrl}">`); } else { html = `<base href="${baseUrl}">` + html; }
+        html = html.replace(/<meta[^>]+http-equiv=['"]?refresh['"]?[^>]*>/gi, ''); 
+        html = html.replace(/window\.location\.replace/gi, 'console.log'); 
+        html = html.replace(/window\.location\.href\s*=/gi, 'console.log=');
+        
+        const urlObj = new URL(art.link); 
+        const baseUrl = urlObj.protocol + "//" + urlObj.host + "/";
+        if (html.toLowerCase().includes('<head>')) { 
+            html = html.replace(/<head>/i, `<head><base href="${baseUrl}">`); 
+        } else { 
+            html = `<base href="${baseUrl}">` + html; 
+        }
+        
         const scriptFix = `<script> window.onload = function() { const links = document.querySelectorAll('a'); links.forEach(l => l.setAttribute('target', '_blank')); }; <\/script>`;
-        html = html.replace(/<\/body>/i, scriptFix + '</body>'); iframe.srcdoc = html; iframe.onload = () => { banner.innerHTML = `✅`; setTimeout(()=>{ banner.style.display='none'; }, 2000); };
+        html = html.replace(/<\/body>/i, scriptFix + '</body>'); 
+        
+        iframe.srcdoc = html; 
+        iframe.onload = () => { 
+            banner.innerHTML = `✅`; 
+            setTimeout(()=>{ banner.style.display='none'; }, 2000); 
+        };
     } catch (err) { 
         const isGoogle = err.message === "GoogleNewsLink";
         const titleText = isGoogle ? (t.googleNewsBlockTitle || "Google Yönlendirme Duvarı") : (t.firewallBlockTitle || "Güvenlik Duvarı");
@@ -772,25 +1144,149 @@ async function fetchWithUserHelp() {
     }
 }
 
-let tapCount = 0; let tapTimeout; document.getElementById('modalBodyArea').addEventListener('click', (e) => { if(e.target.tagName === 'A' || e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return; tapCount++; clearTimeout(tapTimeout); if(tapCount >= 3) { closeModalSafe('newsModal'); tapCount = 0; } else { tapTimeout = setTimeout(() => { tapCount = 0; }, 600); } });
+let tapCount = 0; 
+let tapTimeout; 
+document.getElementById('modalBodyArea').addEventListener('click', (e) => { 
+    if(e.target.tagName === 'A' || e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return; 
+    tapCount++; 
+    clearTimeout(tapTimeout); 
+    if(tapCount >= 3) { 
+        closeModalSafe('newsModal'); 
+        tapCount = 0; 
+    } else { 
+        tapTimeout = setTimeout(() => { tapCount = 0; }, 600); 
+    } 
+});
 
-let touchStartX = 0; let touchStartY = 0; let pullDistance = 0; let swipingCard = null; let swipeCurrentX = 0; let isVerticalScroll = false;
-function handleDragStart(clientX, clientY, target) { if (window.scrollY <= 5) touchStartY = clientY; const card = target.closest('.news-card'); if(card) { swipingCard = card; touchStartX = clientX; touchStartY = clientY; swipeCurrentX = 0; isVerticalScroll = false; card.classList.add('swiping'); } }
+let touchStartX = 0; 
+let touchStartY = 0; 
+let pullDistance = 0; 
+let swipingCard = null; 
+let swipeCurrentX = 0; 
+let isVerticalScroll = false;
+
+function handleDragStart(clientX, clientY, target) { 
+    if (window.scrollY <= 5) touchStartY = clientY; 
+    const card = target.closest('.news-card'); 
+    if(card) { 
+        swipingCard = card; 
+        touchStartX = clientX; 
+        touchStartY = clientY; 
+        swipeCurrentX = 0; 
+        isVerticalScroll = false; 
+        card.classList.add('swiping'); 
+    } 
+}
+
 function handleDragMove(clientX, clientY) {
-    if (window.scrollY <= 5 && touchStartY > 0 && !swipingCard) { pullDistance = clientY - touchStartY; if (pullDistance > 0 && pullDistance < 150) { ptrEl.style.opacity = Math.min(pullDistance / 80, 1); ptrEl.style.transform = `translateX(-50%) translateY(${pullDistance * 0.5}px)`; if (pullDistance > 80) { ptrIcon.innerText = "🔄"; ptrText.innerText = "..."; } else { ptrIcon.innerText = "⬇️"; ptrText.innerText = TRANSLATIONS[currentRegion].pullToRefresh; } } }
-    if (swipingCard) { const diffX = clientX - touchStartX; const diffY = clientY - touchStartY; if(!isVerticalScroll && Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > 10) { isVerticalScroll = true; swipingCard.style.transform = `translateX(0px)`; swipingCard.classList.remove('swiping'); swipingCard = null; return; } if(isVerticalScroll) return; swipeCurrentX = diffX; swipingCard.style.transform = `translateX(${swipeCurrentX}px)`; }
+    if (window.scrollY <= 5 && touchStartY > 0 && !swipingCard) { 
+        pullDistance = clientY - touchStartY; 
+        if (pullDistance > 0 && pullDistance < 150) { 
+            ptrEl.style.opacity = Math.min(pullDistance / 80, 1); 
+            ptrEl.style.transform = `translateX(-50%) translateY(${pullDistance * 0.5}px)`; 
+            if (pullDistance > 80) { 
+                ptrIcon.innerText = "🔄"; 
+                ptrText.innerText = "..."; 
+            } else { 
+                ptrIcon.innerText = "⬇️"; 
+                ptrText.innerText = TRANSLATIONS[currentRegion].pullToRefresh; 
+            } 
+        } 
+    }
+    if (swipingCard) { 
+        const diffX = clientX - touchStartX; 
+        const diffY = clientY - touchStartY; 
+        if(!isVerticalScroll && Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > 10) { 
+            isVerticalScroll = true; 
+            swipingCard.style.transform = `translateX(0px)`; 
+            swipingCard.classList.remove('swiping'); 
+            swipingCard = null; 
+            return; 
+        } 
+        if(isVerticalScroll) return; 
+        swipeCurrentX = diffX; 
+        swipingCard.style.transform = `translateX(${swipeCurrentX}px)`; 
+    }
 }
+
 function handleDragEnd() {
-    if (pullDistance > 80 && !isFetchingRefresh && !swipingCard) { ptrIcon.innerText = "⏳"; ptrText.innerText = "..."; fetchAllRSS(true); } else { resetPullToRefresh(); }
-    if (swipingCard) { const wrapper = swipingCard.closest('.swipe-wrapper'); const link = wrapper.dataset.link; swipingCard.classList.remove('swiping'); if(swipeCurrentX > 100) { swipingCard.style.transform = `translateX(100%)`; setTimeout(() => { archiveArticleByLink(link); wrapper.style.display = 'none'; }, 300); } else if(swipeCurrentX < -100) { swipingCard.style.transform = `translateX(-100%)`; setTimeout(() => { markAsRead(link, true); wrapper.style.display = 'none'; }, 300); } else { swipingCard.style.transform = `translateX(0px)`; } swipingCard = null; }
+    if (pullDistance > 80 && !isFetchingRefresh && !swipingCard) { 
+        ptrIcon.innerText = "⏳"; 
+        ptrText.innerText = "..."; 
+        fetchAllRSS(true); 
+    } else { 
+        resetPullToRefresh(); 
+    }
+    if (swipingCard) { 
+        const wrapper = swipingCard.closest('.swipe-wrapper'); 
+        const link = wrapper.dataset.link; 
+        swipingCard.classList.remove('swiping'); 
+        if(swipeCurrentX > 100) { 
+            swipingCard.style.transform = `translateX(100%)`; 
+            setTimeout(() => { archiveArticleByLink(link); wrapper.style.display = 'none'; }, 300); 
+        } else if(swipeCurrentX < -100) { 
+            swipingCard.style.transform = `translateX(-100%)`; 
+            setTimeout(() => { markAsRead(link, true); wrapper.style.display = 'none'; }, 300); 
+        } else { 
+            swipingCard.style.transform = `translateX(0px)`; 
+        } 
+        swipingCard = null; 
+    }
 }
-document.addEventListener('touchstart', e => handleDragStart(e.touches[0].clientX, e.touches[0].clientY, e.target), {passive: true}); document.addEventListener('touchmove', e => handleDragMove(e.touches[0].clientX, e.touches[0].clientY), {passive: true}); document.addEventListener('touchend', e => handleDragEnd()); document.addEventListener('mousedown', e => { const card = e.target.closest('.news-card'); if(card) { this.isDragging = true; handleDragStart(e.clientX, e.clientY, e.target); } }); document.addEventListener('mousemove', e => { if (!this.isDragging) return; handleDragMove(e.clientX, e.clientY); }); document.addEventListener('mouseup', e => { if (!this.isDragging) return; this.isDragging = false; handleDragEnd(); }); function resetPullToRefresh() { ptrEl.style.transform = `translateX(-50%) translateY(0)`; ptrEl.style.opacity = 0; touchStartY = 0; pullDistance = 0; setTimeout(() => { ptrIcon.innerText = "⬇️"; ptrText.innerText = TRANSLATIONS[currentRegion].pullToRefresh; }, 300); }
+
+document.addEventListener('touchstart', e => handleDragStart(e.touches[0].clientX, e.touches[0].clientY, e.target), {passive: true}); 
+document.addEventListener('touchmove', e => handleDragMove(e.touches[0].clientX, e.touches[0].clientY), {passive: true}); 
+document.addEventListener('touchend', e => handleDragEnd()); 
+
+document.addEventListener('mousedown', e => { 
+    const card = e.target.closest('.news-card'); 
+    if(card) { 
+        this.isDragging = true; 
+        handleDragStart(e.clientX, e.clientY, e.target); 
+    } 
+}); 
+
+document.addEventListener('mousemove', e => { 
+    if (!this.isDragging) return; 
+    handleDragMove(e.clientX, e.clientY); 
+}); 
+
+document.addEventListener('mouseup', e => { 
+    if (!this.isDragging) return; 
+    this.isDragging = false; 
+    handleDragEnd(); 
+}); 
+
+function resetPullToRefresh() { 
+    ptrEl.style.transform = `translateX(-50%) translateY(0)`; 
+    ptrEl.style.opacity = 0; 
+    touchStartY = 0; 
+    pullDistance = 0; 
+    setTimeout(() => { 
+        ptrIcon.innerText = "⬇️"; 
+        ptrText.innerText = TRANSLATIONS[currentRegion].pullToRefresh; 
+    }, 300); 
+}
+
 window.addEventListener('scroll', () => { 
     const cWrap = document.getElementById('controlsWrapper');
-    if (window.scrollY > 60) { cWrap.classList.add('is-scrolled'); } else { cWrap.classList.remove('is-scrolled'); }
+    if (window.scrollY > 60) { 
+        cWrap.classList.add('is-scrolled'); 
+    } else { 
+        cWrap.classList.remove('is-scrolled'); 
+    }
     
-    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 400) { if (displayedCount < filteredArticles.length) { const spinner = document.getElementById('scrollSpinner'); spinner.style.display = 'block'; setTimeout(() => { renderNextBatch(); spinner.style.display = 'none'; }, 100); } else if (filteredArticles.length > 0 && !isFetchingRefresh) { fetchAllRSS(true); } } 
+    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 400) { 
+        if (displayedCount < filteredArticles.length) { 
+            const spinner = document.getElementById('scrollSpinner'); 
+            spinner.style.display = 'block'; 
+            setTimeout(() => { renderNextBatch(); spinner.style.display = 'none'; }, 100); 
+        } else if (filteredArticles.length > 0 && !isFetchingRefresh) { 
+            fetchAllRSS(true); 
+        } 
+    } 
 });        
+
 function copyPapara() {
     const paparaInput = document.getElementById("paparaInput");
     const numberOnly = paparaInput.value.replace("Papara No: ", "");
@@ -798,6 +1294,7 @@ function copyPapara() {
         showToastGlobal("Papara Numarası Kopyalandı! ✔️", 3000);
     });
 }
+
 function switchControlTab(tabId) {
     document.querySelectorAll('.c-tab').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.c-pane').forEach(pane => pane.classList.remove('active'));
@@ -814,6 +1311,7 @@ function switchControlTab(tabId) {
 }
 
 const layoutOrder = ['list', 'small', 'medium', 'large'];
+
 document.addEventListener('keydown', function(e) {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
@@ -849,7 +1347,9 @@ async function getTranslation(text, targetLang) {
         const res = await fetch(url);
         const data = await res.json();
         return data[0].map(x => x[0]).join('');
-    } catch(e) { return "⚠️ Çeviri bağlantı hatası."; }
+    } catch(e) { 
+        return "⚠️ Çeviri bağlantı hatası."; 
+    }
 }
 
 async function translateParagraph(idx, btnEl) {
@@ -947,6 +1447,7 @@ function listenSingleWord(encodedText, event) {
     utterance.lang = typeof ttsLangMap !== 'undefined' && ttsLangMap[currentRegion] ? ttsLangMap[currentRegion] : 'en-US';
     window.speechSynthesis.speak(utterance);
 }
+
 function hideTooltip() {
     document.getElementById('wordTooltip').style.display = 'none';
 }
@@ -1001,6 +1502,7 @@ function listenParagraph(idx, btn) {
     };
     window.speechSynthesis.speak(utterance);
 }
+
 document.getElementById('modalBodyArea').addEventListener('scroll', () => { hideTooltip(); }, {passive: true});        
 
 const VOICE_LANG_MAP = { 'TR': 'tr-TR', 'EN': 'en-US', 'DE': 'de-DE', 'ES': 'es-ES', 'FR': 'fr-FR', 'RU': 'ru-RU', 'AR': 'ar-SA', 'HI': 'hi-IN' };
