@@ -900,10 +900,13 @@ async function handleAIRequest() {
         return;
     }
 
-    // Yükleniyor animasyonu
-    resultModal.scrollTo(0, 0); // Pencere açıldığında en yukarıdan başla
-    resultContent.innerHTML = '<div style="text-align:center; padding: 20px;"><span style="font-size:3rem; display:inline-block; animation:pulse 1s infinite;">⏳</span><br><br><span style="color:var(--accent); font-weight:bold;">Yapay zeka metni inceliyor...</span></div>';
+    // Yükleniyor animasyonu ve pencereyi GÖSTERME komutu (İşte sihir burada!)
+    resultModal.classList.add('show');
+    resultContent.innerHTML = '<div style="text-align:center; padding: 40px 20px;"><span style="font-size:3rem; display:inline-block; animation:pulse 1s infinite;">⏳</span><br><br><span style="color:var(--accent); font-weight:bold;">Yapay zeka metni analiz ediyor...</span></div>';
     btn.disabled = true;
+    
+    // Pencere açıldığında en yukarı kaydır
+    resultModal.scrollTo(0, 0);
 
     const systemPrompt = `Sen profesyonel bir haber analiz asistanısın. 
 Görevin, verilen haberi şu kurallara göre özetlemektir:
@@ -913,7 +916,7 @@ Görevin, verilen haberi şu kurallara göre özetlemektir:
 4. Okuma kolaylığı için gerekli yerlerde <i></i> kullan.
 5. Yanıtı doğrudan HTML formatında ver (Markdown kullanma).`;
     
-    // GET İsteği İçin Güvenli Parametre (Çökmeyi tamamen engeller)
+    // GET İsteği İçin Güvenli Parametre
     const fullQuery = `${systemPrompt}\n\nHaber Metni:\n${articleText}\n\nKullanıcı İsteği: ${query}`;
 
     try {
@@ -924,12 +927,6 @@ Görevin, verilen haberi şu kurallara göre özetlemektir:
         
         let cleanHtml = data.replace(/```html/g, '').replace(/```/g, '').trim();
         resultContent.innerHTML = cleanHtml;
-
-        // Okuma ekranını en yukarı kaydır ki yanıt penceresi görünsün
-        setTimeout(() => {
-            const readerView = document.getElementById('modalBodyArea');
-            readerView.scrollTo({ top: 0, behavior: 'smooth' });
-        }, 100);
 
     } catch (err) {
         resultContent.innerHTML = `<div style="color:var(--danger); text-align:center; padding: 20px;">⚠️ Yapay zekaya ulaşılamadı. Haber çok uzun veya sunucu yoğun olabilir. Lütfen tekrar deneyin.</div>`;
