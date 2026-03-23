@@ -2091,3 +2091,119 @@ function autoFillAndAddRss(name, url) {
         alert(`Kutucuklar bulunamadı. Lütfen URL'yi kendiniz kopyalayın: ${url}`);
     }
 }
+
+// -------------------- 🎙️ SESLİ ASİSTAN & GROQ BEYNİ --------------------
+
+async function reparseVoiceCommand() {
+    const voiceInput = document.getElementById('voiceTextInput');
+    const commandText = voiceInput.value.trim();
+    const actionLog = document.getElementById('voiceActions');
+
+    if (!commandText) {
+        alert("Lütfen bir komut girin veya mikrofona konuşun.");
+        return;
+    }
+
+    const apiKeys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
+    if (apiKeys.length === 0) {
+        actionLog.innerHTML = `<div style="color:var(--danger);">⚠️ Ayarlardan Groq API anahtarı eklemelisiniz.</div>`;
+        return;
+    }
+
+    // Yükleniyor animasyonu
+    actionLog.innerHTML = `<div style="color:var(--accent); animation: pulse 1s infinite;">🧠 Asistan ne istediğinizi analiz ediyor...</div>`;
+
+    // 🌟 İŞTE BÜYÜ BURADA: Groq'u Yönlendirici (Router) Olarak Kuruyoruz
+    const routerPrompt = `Sen "Scrollary" adlı gelişmiş bir haber uygulamasının yapay zeka beynisin. Görevin, kullanıcının sesli komutunu analiz edip HANGİ EYLEMİ yapmak istediğini bulmak.
+    
+    Aşağıdaki 5 Niyetten (Intent) birini seç:
+    1. "filter": Kullanıcı bir kategori, dil veya arama kelimesiyle haberleri filtrelemek/aratmak istiyorsa.
+    2. "qna": Kullanıcı o an ekranda okuduğu haber hakkında bir soru soruyorsa.
+    3. "briefing": Kullanıcı genel bir "Bana günün özetini geç, neler olmuş anlat" gibi bülten istiyorsa.
+    4. "simplify": Kullanıcı okuduğu haberi daha basit anlatmanı veya sesli okumanı istiyorsa.
+    5. "unknown": Hiçbirine uymuyorsa.
+
+    YANITINI SADECE JSON OLARAK VER. BAŞKA HİÇBİR ŞEY YAZMA.
+    Örnekler:
+    - "Bana teknoloji haberlerini aç" -> {"intent": "filter", "category": "Tech"}
+    - "Sadece Türkçe spor haberleri" -> {"intent": "filter", "category": "Sport", "lang": "TR"}
+    - "Bu yasa tasarısı ne demek istiyor?" -> {"intent": "qna", "question": "Bu yasa tasarısı ne demek istiyor?"}
+    - "Bugün dünyada ne oldu özetle" -> {"intent": "briefing"}
+    - "Bunu 10 yaşında bir çocuğa anlatır gibi oku" -> {"intent": "simplify"}
+    `;
+
+    async function analyzeIntent(keyIndex) {
+        if (keyIndex >= apiKeys.length) {
+            actionLog.innerHTML = `<div style="color:var(--danger);">⚠️ API Hatası.</div>`;
+            return;
+        }
+
+        try {
+            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiKeys[keyIndex]}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: "llama-3.3-70b-versatile",
+                    messages: [
+                        { role: "system", content: routerPrompt },
+                        { role: "user", content: `Kullanıcı Komutu: "${commandText}"` }
+                    ],
+                    temperature: 0.1, // Sadece net JSON dönmesi için çok düşük sıcaklık
+                    max_tokens: 150
+                })
+            });
+
+            if (!response.ok) throw new Error("KeyFailed");
+
+            const data = await response.json();
+            let jsonString = data.choices[0].message.content.trim().replace(/```json/g, '').replace(/```/g, '').trim();
+            const intentData = JSON.parse(jsonString);
+
+            // Niyeti ekrana yazdır (Log)
+            actionLog.innerHTML = `<div style="color:var(--success);">✅ Komut Anlaşıldı: <b>${intentData.intent.toUpperCase()}</b></div>`;
+
+            // 🌟 ROTAYI ÇİZ: Niyete göre ilgili fonksiyonu tetikle
+            executeVoiceIntent(intentData);
+
+        } catch (err) {
+            console.error("Intent parsing error:", err);
+            await analyzeIntent(keyIndex + 1);
+        }
+    }
+
+    await analyzeIntent(0);
+}
+
+// 🌟 ROTAYA GÖRE İŞLEM YAPAN SWITCH FONKSİYONU
+function executeVoiceIntent(intentData) {
+    const actionLog = document.getElementById('voiceActions');
+    
+    switch (intentData.intent) {
+        case "filter":
+            actionLog.innerHTML += `<div style="color:white; margin-top:5px;">Filtreler uygulanıyor... Kategori: ${intentData.category || 'Tümü'}, Dil: ${intentData.lang || 'Değişmedi'}</div>`;
+            // TODO: Scrollary filtreleme kodları buraya gelecek
+            break;
+            
+        case "qna":
+            actionLog.innerHTML += `<div style="color:white; margin-top:5px;">Habere soru soruluyor... Pencere açılıyor.</div>`;
+            // TODO: Tam ekran AI kutusunu açıp Groq'a soruyu sorma kodu
+            break;
+            
+        case "briefing":
+            actionLog.innerHTML += `<div style="color:white; margin-top:5px;">Günün özeti (Flash Briefing) hazırlanıyor...</div>`;
+            // TODO: Ekranda görünen haberleri toplayıp özetleme kodu
+            break;
+            
+        case "simplify":
+            actionLog.innerHTML += `<div style="color:white; margin-top:5px;">Haber basitleştiriliyor ve sesli okumaya hazırlanıyor...</div>`;
+            // TODO: Basitleştirme ve Tarayıcı Sesli Okuma (Speech API) kodu
+            break;
+            
+        default:
+            actionLog.innerHTML += `<div style="color:#fca5a5; margin-top:5px;">Ne demek istediğinizi tam anlayamadım, tekrar eder misiniz?</div>`;
+            break;
+    }
+}
