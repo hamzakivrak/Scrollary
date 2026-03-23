@@ -35,7 +35,7 @@
        <header id="mainHeader">
            <button onclick="hardRefreshApp()" class="hard-refresh-btn" title="Güncellemeleri Zorla Çek">🔄</button>
            
-           <h1 class="hologram-header"><img src="icon.png" alt="S" style="height: 2em; vertical-align: baseline; border-radius: 10%; margin-right: -2px;">crollary <span>:)</span></h1>            
+           <h1 class="hologram-header"><img src="icon.png" alt="S" style="height: 2em; vertical-align: baseline; border-radius: 10%; margin-right: -2px;">crollary <span>.</span></h1>            
            <p id="headerDesc" data-i18n="subtitle">Sourced from You, Your News Source</p>
         </header>
 
@@ -80,6 +80,7 @@
                 </div>
 
                 <div id="pane_add" class="c-pane">
+                    
                     <div class="add-rss-container" style="border-top:none; padding-top:0; margin-bottom:15px;">
                         <div class="add-rss-form show" id="addRssForm" style="margin-top:0;"> 
                             <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 10px; border: 1px solid var(--surface-light);">
@@ -98,8 +99,24 @@
                             </div>
                         </div>
                     </div>
+
+                    <div style="margin-top: 10px; margin-bottom: 20px; padding: 15px; background: rgba(59, 130, 246, 0.1); border: 1px dashed var(--accent); border-radius: 8px;">
+                        <div style="font-size: 0.9rem; color: var(--text-main); font-weight: bold; margin-bottom: 10px;">
+                            🤖 AI Kaynak Asistanı
+                        </div>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">
+                            İstediğiniz konuyu yazın, yapay zeka size çalışan en iyi RSS adreslerini bulsun.
+                        </p>
+                        
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="aiRssTopic" placeholder="Örn: Yapay Zeka, Ekonomi, Spor..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--surface-light); background: rgba(0,0,0,0.3); color: white; outline: none;">
+                            <button onclick="findRssWithAI()" style="background: var(--accent); color: white; border: none; padding: 0 15px; border-radius: 8px; font-weight: bold; cursor: pointer;">Bul</button>
+                        </div>
+                        
+                        <div id="aiRssResults" style="margin-top: 15px; display: flex; flex-direction: column; gap: 8px;"></div>
+                    </div>
+
                 </div>
-                
                 <button onclick="fetchAllRSS()" class="fetch-btn" id="fetchBtn" data-i18n="fetchBtnText">FETCH LATEST NEWS</button>
             </div>
         </div>
@@ -171,24 +188,24 @@
                         </div>
                     </div>
                 </details>
-                <details class="setting-item">
-                    <summary data-i18n="themeTitle">🎨 Tema Seçimi</summary>
-                    <div class="setting-detail">
-                        <div class="view-controls" id="themeBtnsWrapper" style="margin-bottom:0;"></div>
-                    </div>
-                </details>
+
                 <details class="setting-item" id="aiSettingsSection">
                     <summary>🤖 Yapay Zeka (Groq) Ayarları</summary>
                     <div class="setting-detail" style="user-select: auto;">
                         <p style="color: var(--text-muted); font-size: 0.85rem; margin:0 0 10px 0;">Haber özetleri için kendi Groq API anahtarlarınızı ekleyin. Birden fazla eklerseniz, birinin kotası dolduğunda sistem otomatik olarak diğerine geçer.</p>
-                        
                         <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                             <input type="password" id="newGroqKeyInput" placeholder="gsk_ ile başlayan anahtarınız..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--surface-light); background: rgba(0,0,0,0.3); color: white; outline: none; font-family: monospace;">
                             <button onclick="addGroqKey()" style="background: var(--accent); color: white; border: none; border-radius: 8px; padding: 0 15px; font-weight: bold; cursor: pointer; pointer-events: auto;">Ekle</button>
                         </div>
-                        
                         <div id="groqKeysList" style="display: flex; flex-direction: column; gap: 8px;">
                             </div>
+                    </div>
+                </details>
+
+                <details class="setting-item">
+                    <summary data-i18n="themeTitle">🎨 Tema Seçimi</summary>
+                    <div class="setting-detail">
+                        <div class="view-controls" id="themeBtnsWrapper" style="margin-bottom:0;"></div>
                     </div>
                 </details>
                 <details class="setting-item">
