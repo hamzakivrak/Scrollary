@@ -878,101 +878,143 @@ function closeAIResult() {
 
 // 🤖 POLLINATIONS AI SORU SORMA VE ÖZETLEME FONKSİYONU
 // 🤖 GROQ AI SORU SORMA VE ÖZETLEME FONKSİYONU (ÇOKLU ANAHTAR DESTEKLİ)
-// 🤖 GROQ AI SORU SORMA VE ÖZETLEME FONKSİYONU
-// 🤖 GROQ AI SORU SORMA VE ÖZETLEME FONKSİYONU
+// 🛠️ GROQ AI - DETAYLI HATA AYIKLAMA (DEBUG) VERSİYONU
 async function handleAIRequest() {
-    const inputEl = document.getElementById('aiInput');
-    const query = inputEl.value.trim() || "Bu haberi özetle";
-    const resultModal = document.getElementById('aiInlineResult');
-    const resultContent = document.getElementById('aiResultContent');
-    const btn = document.getElementById('aiSendBtn');
+    console.log("==========================================");
+    console.log("🛠️ DEBUG [1]: AI Butonuna tıklandı, fonksiyon başladı!");
 
-    const textContainer = document.getElementById('fullTextContainer');
-    
-    // innerText yerine textContent kullanıyoruz (Okuma hatalarını önler)
-    const paragraphs = Array.from(textContainer.querySelectorAll('p')).map(p => p.textContent.trim());
-    
-    // Llama 3.3 çok büyük bağlamları anlayabilir, sınırı 6000'e çekiyoruz
-    let articleText = paragraphs.join(' ').substring(0, 6000); 
+    try {
+        const inputEl = document.getElementById('aiInput');
+        const resultModal = document.getElementById('aiInlineResult');
+        const resultContent = document.getElementById('aiResultContent');
+        const btn = document.getElementById('aiSendBtn');
+        const textContainer = document.getElementById('fullTextContainer');
 
-    if(articleText.length < 50) {
-        alert("Haber metni henüz yüklenmedi veya okunabilir metin bulunamadı.");
-        return;
-    }
+        console.log("🛠️ DEBUG [2]: HTML Elementleri Kontrolü:", {
+            inputEl: !!inputEl,
+            resultModal: !!resultModal,
+            resultContent: !!resultContent,
+            btn: !!btn,
+            textContainer: !!textContainer
+        });
 
-    // AI kutusu zaten açıksa ve soru aynıysa kapat (Toggle mantığı)
-    if (resultModal.classList.contains('show') && query === "Bu haberi özetle") {
-        closeAIResult();
-        return;
-    }
-
-    // 1. ADIM: API Anahtarlarını Kontrol Et
-    const apiKeys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
-    if (apiKeys.length === 0) {
-        alert("Yapay zeka asistanını kullanmak için geçerli bir Groq API anahtarı gerekiyor. Şimdi ayarlar ekranına yönlendiriliyorsunuz.");
-        closeModalSafe('newsModal'); // Okuma ekranını kapat ki ayarlar arkada kalmasın
-        setTimeout(() => { openModalSafe('settingsModal'); }, 400); 
-        return;
-    }
-
-    // 2. ADIM: KUTUYU AÇ VE EKRANI ANINDA YUKARI KAYDIR (LOKASYON ÇÖZÜMÜ!)
-    resultModal.classList.add('show');
-    
-    const readerView = document.getElementById('modalBodyArea');
-    if(readerView) readerView.scrollTo({ top: 0, behavior: 'smooth' }); // Sen nerede olursan ol, anında en tepeye (kutunun açıldığı yere) çıkartır.
-
-    // Yükleniyor animasyonunu bas
-    resultContent.innerHTML = '<div style="text-align:center; padding: 20px;"><span style="font-size:3rem; display:inline-block; animation:pulse 1s infinite;">⏳</span><br><br><span style="color:var(--accent); font-weight:bold;">Yapay zeka haberi inceliyor...</span></div>';
-    btn.disabled = true;
-
-    const systemPrompt = "Sen akıllı bir haber asistanısın. Kullanıcının sorusunu verilen haber metnine göre cevapla. Yanıtını doğrudan HTML formatında ver (<b>, <i>, <ul>, <li>, <br> vb. kullan). Önemli kelimeleri <span style='color:#e11d48'> veya <span style='color:#3b82f6'> ile renklendir. Asla Markdown (**, * gibi) KULLANMA. Haberde olmayan bir bilgiyi uydurma. Sadece HTML çıktısı ver.";
-
-    // 3. ADIM: Groq API İsteği ve Fallback Mantığı
-    async function tryFetchWithKey(keyIndex) {
-        if (keyIndex >= apiKeys.length) {
-            resultContent.innerHTML = `<div style="color:var(--danger); text-align:center; padding: 20px;">⚠️ Ekli olan tüm API anahtarlarınızın kotası dolmuş veya bir bağlantı sorunu var. Lütfen yeni bir anahtar ekleyin.</div>`;
-            btn.disabled = false;
+        if (!textContainer) {
+            console.error("❌ HATA: fullTextContainer bulunamadı, işlem durduruluyor.");
             return;
         }
 
-        const currentKey = apiKeys[keyIndex];
+        const paragraphs = Array.from(textContainer.querySelectorAll('p')).map(p => p.textContent.trim());
+        let articleText = paragraphs.join(' ').substring(0, 6000); 
+        console.log("🛠️ DEBUG [3]: Haber metni uzunluğu:", articleText.length, "karakter.");
 
-        try {
-            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${currentKey}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    model: "llama-3.3-70b-versatile", // Test ettiğimiz efsane model
-                    messages: [
-                        { role: "system", content: systemPrompt },
-                        { role: "user", content: `Haber Metni:\n${articleText}\n\nKullanıcı İsteği: ${query}` }
-                    ],
-                    temperature: 0.5,
-                    max_tokens: 1024
-                })
-            });
-
-            if (!response.ok) throw new Error("KeyFailed");
-
-            const data = await response.json();
-            
-            // Yanıtı temizle ve ekrana bas
-            let aiResponse = data.choices[0].message.content;
-            let cleanHtml = aiResponse.replace(/```html/g, '').replace(/```/g, '').trim();
-            resultContent.innerHTML = cleanHtml;
-            btn.disabled = false;
-
-        } catch (err) {
-            console.warn(`Anahtar ${keyIndex + 1} çöktü, sonrakine geçiliyor...`);
-            await tryFetchWithKey(keyIndex + 1); // Diğer anahtarı dene
+        if(articleText.length < 50) {
+            console.warn("⚠️ UYARI: Metin çok kısa (<50), okuma yapılmıyor.");
+            alert("Haber metni henüz yüklenmedi veya okunabilir metin bulunamadı.");
+            return;
         }
-    }
 
-    // İlk eklenen anahtardan denemeye başla
-    await tryFetchWithKey(0);
+        const query = inputEl.value.trim() || "Bu haberi özetle";
+        console.log("🛠️ DEBUG [4]: Kullanıcı Sorusu:", query);
+
+        if (resultModal.classList.contains('show') && query === "Bu haberi özetle") {
+            console.log("🛠️ DEBUG [5]: Kutu zaten açık, toggle mantığıyla kapatılıyor.");
+            closeAIResult();
+            return;
+        }
+
+        const apiKeys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
+        console.log("🛠️ DEBUG [6]: LocalStorage'dan çekilen API Key sayısı:", apiKeys.length);
+
+        if (apiKeys.length === 0) {
+            console.warn("⚠️ UYARI: API Key bulunamadı, ayarlar sekmesine yönlendiriliyor.");
+            closeModalSafe('newsModal'); 
+            setTimeout(() => { openModalSafe('settingsModal'); }, 400); 
+            return;
+        }
+
+        console.log("🛠️ DEBUG [7]: Kutuya 'show' sınıfı ekleniyor (Açılış animasyonu başlıyor)...");
+        resultModal.classList.add('show');
+        
+        // --- KUTUNUN FİZİKSEL KONUMUNU VE STİLİNİ ÖLÇÜYORUZ ---
+        const rect = resultModal.getBoundingClientRect();
+        const compStyle = window.getComputedStyle(resultModal);
+        console.log("🛠️ DEBUG [8]: Kutu Fiziksel Analizi:", {
+            display_durumu: compStyle.display,
+            z_index: compStyle.zIndex,
+            yukseklik: rect.height + "px",
+            ekran_ust_bosluk: rect.top + "px"
+        });
+
+        const readerView = document.getElementById('modalBodyArea');
+        if(readerView) {
+            console.log("🛠️ DEBUG [9]: Ekran en tepeye (scroll top: 0) kaydırılıyor.");
+            readerView.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        resultContent.innerHTML = '<div style="text-align:center; padding: 20px;"><span style="font-size:3rem; display:inline-block; animation:pulse 1s infinite;">⏳</span><br><br><span style="color:var(--accent); font-weight:bold;">Yapay zeka haberi inceliyor...</span></div>';
+        btn.disabled = true;
+
+        const systemPrompt = "Sen akıllı bir haber asistanısın. Sadece HTML çıktısı ver.";
+
+        async function tryFetchWithKey(keyIndex) {
+            console.log(`🛠️ DEBUG [10]: API İsteği Hazırlanıyor... (Kullanılan Anahtar İndeksi: ${keyIndex})`);
+            
+            if (keyIndex >= apiKeys.length) {
+                console.error("❌ HATA: Tüm API anahtarları denendi ve hepsi başarısız oldu.");
+                resultContent.innerHTML = `<div style="color:var(--danger); text-align:center; padding: 20px;">⚠️ Ekli olan tüm API anahtarlarınızın kotası dolmuş veya bir bağlantı sorunu var. Lütfen yeni bir anahtar ekleyin.</div>`;
+                btn.disabled = false;
+                return;
+            }
+
+            try {
+                console.log("🛠️ DEBUG [11]: Groq sunucularına POST isteği fırlatılıyor 🚀");
+                const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKeys[keyIndex]}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: "llama-3.3-70b-versatile",
+                        messages: [
+                            { role: "system", content: systemPrompt },
+                            { role: "user", content: `Haber Metni:\n${articleText.substring(0,200)}...\n\nSoru: ${query}` }
+                        ],
+                        temperature: 0.5,
+                        max_tokens: 1024
+                    })
+                });
+
+                console.log("🛠️ DEBUG [12]: Groq sunucusundan cevap geldi! HTTP Status:", response.status);
+
+                if (!response.ok) {
+                    const errText = await response.text();
+                    console.error("❌ HATA [13]: API İstek reddedildi. Detay:", errText);
+                    throw new Error("KeyFailed");
+                }
+
+                const data = await response.json();
+                console.log("🛠️ DEBUG [14]: JSON başarıyla çözümlendi, yanıt ekrana basılıyor.");
+                
+                let aiResponse = data.choices[0].message.content;
+                let cleanHtml = aiResponse.replace(/```html/g, '').replace(/```/g, '').trim();
+                resultContent.innerHTML = cleanHtml;
+                btn.disabled = false;
+                
+                console.log("✅ DEBUG [15]: İŞLEM KUSURSUZ TAMAMLANDI!");
+
+            } catch (err) {
+                console.error(`❌ HATA [16]: tryFetchWithKey içinde catch bloğuna düşüldü. Sebebi:`, err.message);
+                await tryFetchWithKey(keyIndex + 1); 
+            }
+        }
+
+        await tryFetchWithKey(0);
+
+    } catch (fatalError) {
+        console.error("🔥 KRİTİK HATA: handleAIRequest fonksiyonu tamamen çöktü! Sebep:", fatalError);
+        alert("Kodda kritik bir hata oluştu. Lütfen konsolu kontrol edin.");
+    }
 }
 
 async function openModal(art) {
