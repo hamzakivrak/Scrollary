@@ -879,6 +879,7 @@ function closeAIResult() {
 // 🤖 POLLINATIONS AI SORU SORMA VE ÖZETLEME FONKSİYONU
 // 🤖 GROQ AI SORU SORMA VE ÖZETLEME FONKSİYONU (ÇOKLU ANAHTAR DESTEKLİ)
 // 🤖 GROQ AI SORU SORMA VE ÖZETLEME FONKSİYONU
+// 🤖 GROQ AI SORU SORMA VE ÖZETLEME FONKSİYONU
 async function handleAIRequest() {
     const inputEl = document.getElementById('aiInput');
     const query = inputEl.value.trim() || "Bu haberi özetle";
@@ -888,7 +889,7 @@ async function handleAIRequest() {
 
     const textContainer = document.getElementById('fullTextContainer');
     
-    // innerText yerine textContent kullanıyoruz (Görünmez elemanlara takılmaması için)
+    // innerText yerine textContent kullanıyoruz (Okuma hatalarını önler)
     const paragraphs = Array.from(textContainer.querySelectorAll('p')).map(p => p.textContent.trim());
     
     // Llama 3.3 çok büyük bağlamları anlayabilir, sınırı 6000'e çekiyoruz
@@ -905,26 +906,31 @@ async function handleAIRequest() {
         return;
     }
 
-    // 1. ADIM: Ayarlardan eklenen API anahtarlarını kontrol et
+    // 1. ADIM: API Anahtarlarını Kontrol Et
     const apiKeys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
     if (apiKeys.length === 0) {
         alert("Yapay zeka asistanını kullanmak için geçerli bir Groq API anahtarı gerekiyor. Şimdi ayarlar ekranına yönlendiriliyorsunuz.");
-        closeModalSafe('newsModal'); // Z-Index sorunu: Okuma ekranını kapat ki ayarlar arkada kalmasın
+        closeModalSafe('newsModal'); // Okuma ekranını kapat ki ayarlar arkada kalmasın
         setTimeout(() => { openModalSafe('settingsModal'); }, 400); 
         return;
     }
 
-    // 2. ADIM: Yükleniyor animasyonunu göster (Akordiyon kutuyu aç)
+    // 2. ADIM: KUTUYU AÇ VE EKRANI ANINDA YUKARI KAYDIR (LOKASYON ÇÖZÜMÜ!)
     resultModal.classList.add('show');
+    
+    const readerView = document.getElementById('modalBodyArea');
+    if(readerView) readerView.scrollTo({ top: 0, behavior: 'smooth' }); // Sen nerede olursan ol, anında en tepeye (kutunun açıldığı yere) çıkartır.
+
+    // Yükleniyor animasyonunu bas
     resultContent.innerHTML = '<div style="text-align:center; padding: 20px;"><span style="font-size:3rem; display:inline-block; animation:pulse 1s infinite;">⏳</span><br><br><span style="color:var(--accent); font-weight:bold;">Yapay zeka haberi inceliyor...</span></div>';
     btn.disabled = true;
 
     const systemPrompt = "Sen akıllı bir haber asistanısın. Kullanıcının sorusunu verilen haber metnine göre cevapla. Yanıtını doğrudan HTML formatında ver (<b>, <i>, <ul>, <li>, <br> vb. kullan). Önemli kelimeleri <span style='color:#e11d48'> veya <span style='color:#3b82f6'> ile renklendir. Asla Markdown (**, * gibi) KULLANMA. Haberde olmayan bir bilgiyi uydurma. Sadece HTML çıktısı ver.";
 
-    // 3. ADIM: Fallback Mantığı (Hata alırsak diğer anahtara geç)
+    // 3. ADIM: Groq API İsteği ve Fallback Mantığı
     async function tryFetchWithKey(keyIndex) {
         if (keyIndex >= apiKeys.length) {
-            resultContent.innerHTML = `<div style="color:var(--danger); text-align:center; padding: 20px;">⚠️ Ekli olan tüm API anahtarlarınızın kotası dolmuş veya bir bağlantı sorunu var. Lütfen yeni bir anahtar ekleyin veya daha sonra tekrar deneyin.</div>`;
+            resultContent.innerHTML = `<div style="color:var(--danger); text-align:center; padding: 20px;">⚠️ Ekli olan tüm API anahtarlarınızın kotası dolmuş veya bir bağlantı sorunu var. Lütfen yeni bir anahtar ekleyin.</div>`;
             btn.disabled = false;
             return;
         }
@@ -939,7 +945,7 @@ async function handleAIRequest() {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    model: "llama-3.3-70b-versatile", // Test edip çalıştığını onayladığımız model
+                    model: "llama-3.3-70b-versatile", // Test ettiğimiz efsane model
                     messages: [
                         { role: "system", content: systemPrompt },
                         { role: "user", content: `Haber Metni:\n${articleText}\n\nKullanıcı İsteği: ${query}` }
@@ -949,35 +955,23 @@ async function handleAIRequest() {
                 })
             });
 
-            if (!response.ok) {
-                console.warn(`Anahtar ${keyIndex + 1} başarısız oldu. Sonraki anahtara geçiliyor...`);
-                throw new Error("KeyFailed");
-            }
+            if (!response.ok) throw new Error("KeyFailed");
 
             const data = await response.json();
             
             // Yanıtı temizle ve ekrana bas
             let aiResponse = data.choices[0].message.content;
             let cleanHtml = aiResponse.replace(/```html/g, '').replace(/```/g, '').trim();
-            
             resultContent.innerHTML = cleanHtml;
-
-            // Yanıt geldikten sonra ekranı hafif yukarı kaydır ki kutu tam görünsün
-            setTimeout(() => {
-                const readerView = document.getElementById('modalBodyArea');
-                if(readerView) readerView.scrollTo({ top: 0, behavior: 'smooth' });
-            }, 100);
-
             btn.disabled = false;
 
         } catch (err) {
-            console.error("Fetch hatası:", err);
-            // Hata alırsak listedeki bir sonraki API anahtarını dene
-            await tryFetchWithKey(keyIndex + 1); 
+            console.warn(`Anahtar ${keyIndex + 1} çöktü, sonrakine geçiliyor...`);
+            await tryFetchWithKey(keyIndex + 1); // Diğer anahtarı dene
         }
     }
 
-    // İlk eklenen anahtardan (index 0) denemeye başla
+    // İlk eklenen anahtardan denemeye başla
     await tryFetchWithKey(0);
 }
 
