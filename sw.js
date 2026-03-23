@@ -5,8 +5,8 @@ const CACHE_NAME = 'scrollary-cache-v2';
 const urlsToCache = [
   './',
   './index.html',
-  './style.css?v=2.9',
-  './script.js?v=2.9',
+  './style.css?v=2.8',
+  './script.js?v=2.8',
   './manifest.json',
   './icon.png',
   './splash.png'
