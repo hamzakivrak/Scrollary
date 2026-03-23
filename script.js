@@ -878,6 +878,7 @@ function closeAIResult() {
 
 // 🤖 POLLINATIONS AI SORU SORMA VE ÖZETLEME FONKSİYONU
 // 🤖 GROQ AI SORU SORMA VE ÖZETLEME FONKSİYONU (ÇOKLU ANAHTAR DESTEKLİ)
+// 🤖 GROQ AI SORU SORMA VE ÖZETLEME FONKSİYONU
 async function handleAIRequest() {
     const inputEl = document.getElementById('aiInput');
     const query = inputEl.value.trim() || "Bu haberi özetle";
@@ -886,43 +887,43 @@ async function handleAIRequest() {
     const btn = document.getElementById('aiSendBtn');
 
     const textContainer = document.getElementById('fullTextContainer');
-    // Sayfadaki metinleri al
-    const paragraphs = Array.from(textContainer.querySelectorAll('p')).map(p => p.innerText);
     
-    // Groq çok daha büyük metinleri işleyebilir, sınırı 6000 karaktere çıkarıyoruz
+    // innerText yerine textContent kullanıyoruz (Görünmez elemanlara takılmaması için)
+    const paragraphs = Array.from(textContainer.querySelectorAll('p')).map(p => p.textContent.trim());
+    
+    // Llama 3.3 çok büyük bağlamları anlayabilir, sınırı 6000'e çekiyoruz
     let articleText = paragraphs.join(' ').substring(0, 6000); 
 
     if(articleText.length < 50) {
-        alert("Haber metni henüz yüklenmedi veya çok kısa.");
+        alert("Haber metni henüz yüklenmedi veya okunabilir metin bulunamadı.");
         return;
     }
 
-    // Toggle: Zaten açıksa kapat
+    // AI kutusu zaten açıksa ve soru aynıysa kapat (Toggle mantığı)
     if (resultModal.classList.contains('show') && query === "Bu haberi özetle") {
         closeAIResult();
         return;
     }
 
-    // Kayıtlı API anahtarlarını al
+    // 1. ADIM: Ayarlardan eklenen API anahtarlarını kontrol et
     const apiKeys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
     if (apiKeys.length === 0) {
-        alert("Lütfen Ayarlar menüsünden geçerli bir Groq API anahtarı ekleyin.");
-        openModalSafe('settingsModal');
+        alert("Yapay zeka asistanını kullanmak için geçerli bir Groq API anahtarı gerekiyor. Şimdi ayarlar ekranına yönlendiriliyorsunuz.");
+        closeModalSafe('newsModal'); // Z-Index sorunu: Okuma ekranını kapat ki ayarlar arkada kalmasın
+        setTimeout(() => { openModalSafe('settingsModal'); }, 400); 
         return;
     }
 
-    // Yükleniyor animasyonu
+    // 2. ADIM: Yükleniyor animasyonunu göster (Akordiyon kutuyu aç)
     resultModal.classList.add('show');
-    resultContent.innerHTML = '<div style="text-align:center; padding: 20px;"><span style="font-size:3rem; display:inline-block; animation:pulse 1s infinite;">⏳</span><br><br><span style="color:var(--accent); font-weight:bold;">Yapay zeka metni inceliyor...</span></div>';
+    resultContent.innerHTML = '<div style="text-align:center; padding: 20px;"><span style="font-size:3rem; display:inline-block; animation:pulse 1s infinite;">⏳</span><br><br><span style="color:var(--accent); font-weight:bold;">Yapay zeka haberi inceliyor...</span></div>';
     btn.disabled = true;
 
-    // Groq modeline gönderilecek sistem komutu
     const systemPrompt = "Sen akıllı bir haber asistanısın. Kullanıcının sorusunu verilen haber metnine göre cevapla. Yanıtını doğrudan HTML formatında ver (<b>, <i>, <ul>, <li>, <br> vb. kullan). Önemli kelimeleri <span style='color:#e11d48'> veya <span style='color:#3b82f6'> ile renklendir. Asla Markdown (**, * gibi) KULLANMA. Haberde olmayan bir bilgiyi uydurma. Sadece HTML çıktısı ver.";
 
-    // API İstek Fonksiyonu (Hata durumunda diğer anahtara geçmek için Recursive/Özyinelemeli)
+    // 3. ADIM: Fallback Mantığı (Hata alırsak diğer anahtara geç)
     async function tryFetchWithKey(keyIndex) {
         if (keyIndex >= apiKeys.length) {
-            // Tüm anahtarlar denendi ve hepsi başarısız olduysa
             resultContent.innerHTML = `<div style="color:var(--danger); text-align:center; padding: 20px;">⚠️ Ekli olan tüm API anahtarlarınızın kotası dolmuş veya bir bağlantı sorunu var. Lütfen yeni bir anahtar ekleyin veya daha sonra tekrar deneyin.</div>`;
             btn.disabled = false;
             return;
@@ -938,45 +939,45 @@ async function handleAIRequest() {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    model: "llama3-8b-8192", // Groq'un hızlı ve ücretsiz Llama 3 modeli
+                    model: "llama-3.3-70b-versatile", // Test edip çalıştığını onayladığımız model
                     messages: [
                         { role: "system", content: systemPrompt },
                         { role: "user", content: `Haber Metni:\n${articleText}\n\nKullanıcı İsteği: ${query}` }
                     ],
-                    temperature: 0.5, // Daha tutarlı cevaplar için düşürdük
+                    temperature: 0.5,
                     max_tokens: 1024
                 })
             });
 
             if (!response.ok) {
-                // Eğer 429 (Too Many Requests) veya başka bir hata alırsak bir sonraki anahtara geç
-                console.warn(`API Anahtarı ${keyIndex + 1} başarısız oldu. Durum: ${response.status}. Sonraki anahtara geçiliyor...`);
+                console.warn(`Anahtar ${keyIndex + 1} başarısız oldu. Sonraki anahtara geçiliyor...`);
                 throw new Error("KeyFailed");
             }
 
             const data = await response.json();
             
-            // Modele yanıtından HTML etiketleri dışındaki gereksiz formatları (varsa) temizle
+            // Yanıtı temizle ve ekrana bas
             let aiResponse = data.choices[0].message.content;
             let cleanHtml = aiResponse.replace(/```html/g, '').replace(/```/g, '').trim();
             
             resultContent.innerHTML = cleanHtml;
 
-            // Okuma ekranını en yukarı kaydır ki yanıt penceresi görünsün
+            // Yanıt geldikten sonra ekranı hafif yukarı kaydır ki kutu tam görünsün
             setTimeout(() => {
                 const readerView = document.getElementById('modalBodyArea');
                 if(readerView) readerView.scrollTo({ top: 0, behavior: 'smooth' });
             }, 100);
 
-            btn.disabled = false; // Başarılı olursa butonu tekrar aktif et
+            btn.disabled = false;
 
         } catch (err) {
-            // Eğer hata fırlatıldıysa (KeyFailed veya ağ hatası), dizideki bir sonraki anahtarı dene
-            await tryFetchWithKey(keyIndex + 1);
+            console.error("Fetch hatası:", err);
+            // Hata alırsak listedeki bir sonraki API anahtarını dene
+            await tryFetchWithKey(keyIndex + 1); 
         }
     }
 
-    // İlk anahtardan (index 0) denemeye başla
+    // İlk eklenen anahtardan (index 0) denemeye başla
     await tryFetchWithKey(0);
 }
 
