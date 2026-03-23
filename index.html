@@ -21,7 +21,6 @@
 
     <link rel="stylesheet" href="style.css?v=3.0">
 </head>
-
 <body>
 
     <div class="ambient-bg">
@@ -34,7 +33,7 @@
     <div class="container">
         
        <header id="mainHeader">
-           <button onclick="emergencyRefresh()">🔄 Sistemi Güncelle</button><button onclick="emergencyRefresh()" class="refresh-fab" title="Sistemi Güncelle (Zorlu Yenileme)">🔄</button>
+           <button onclick="hardRefreshApp()" class="hard-refresh-btn" title="Güncellemeleri Zorla Çek">🔄</button>
            
            <h1 class="hologram-header"><img src="icon.png" alt="S" style="height: 2em; vertical-align: baseline; border-radius: 10%; margin-right: -2px;">crollary <span>.</span></h1>            
            <p id="headerDesc" data-i18n="subtitle">Sourced from You, Your News Source</p>
@@ -158,7 +157,6 @@
                     <button class="btn-icon btn-close" onclick="closeModalSafe('settingsModal')" title="Kapat">✕</button>
                 </div>
             </div>
-           
             <div class="modal-body" style="flex: 1; overflow-y: auto; display: block; padding: 20px; padding-bottom: 60px; -webkit-overflow-scrolling: touch; cursor: default;">
                 <details class="setting-item">
                     <summary>Hesap Girişi</summary>
@@ -179,34 +177,25 @@
                         <div class="view-controls" id="themeBtnsWrapper" style="margin-bottom:0;"></div>
                     </div>
                 </details>
+                <details class="setting-item" id="aiSettingsSection">
+                    <summary>🤖 Yapay Zeka (Groq) Ayarları</summary>
+                    <div class="setting-detail" style="user-select: auto;">
+                        <p style="color: var(--text-muted); font-size: 0.85rem; margin:0 0 10px 0;">Haber özetleri için kendi Groq API anahtarlarınızı ekleyin. Birden fazla eklerseniz, birinin kotası dolduğunda sistem otomatik olarak diğerine geçer.</p>
+                        
+                        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                            <input type="password" id="newGroqKeyInput" placeholder="gsk_ ile başlayan anahtarınız..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--surface-light); background: rgba(0,0,0,0.3); color: white; outline: none; font-family: monospace;">
+                            <button onclick="addGroqKey()" style="background: var(--accent); color: white; border: none; border-radius: 8px; padding: 0 15px; font-weight: bold; cursor: pointer; pointer-events: auto;">Ekle</button>
+                        </div>
+                        
+                        <div id="groqKeysList" style="display: flex; flex-direction: column; gap: 8px;">
+                            </div>
+                    </div>
+                </details>
                 <details class="setting-item">
                     <summary data-i18n="layoutTitle">📐 Görünüm Boyutu</summary>
                     <div class="setting-detail">
                         <div class="view-controls" id="layoutBtnsWrapper"></div>
                     </div>
-                    <details 
-                        <details class="setting-item">
-    <summary>🤖 Yapay Zeka (AI) Ayarları</summary>
-    <div class="setting-detail" style="user-select: auto;">
-        <p style="color: var(--text-muted); font-size: 0.85rem; margin:0 0 10px 0;">Groq API anahtarlarınızı ekleyin. Limit dolduğunda sistem otomatik diğerine geçer.</p>
-        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-            <input type="password" id="newApiKeyInput" placeholder="gsk_ ile başlayan anahtar..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--surface-light); background: rgba(0,0,0,0.3); color: white; outline: none;">
-            <button onclick="addApiKey()" style="background: var(--accent); color: white; border: none; border-radius: 8px; padding: 0 15px; font-weight: bold; cursor: pointer;">Ekle</button>
-        </div>
-        <div id="apiKeysList" style="display: flex; flex-direction: column; gap: 5px;"></div>
-    </div>
-</details>
-                        class="setting-item">
-                    <summary>🤖 Yapay Zeka (AI) Ayarları</summary>
-                    <div class="setting-detail" style="user-select: auto;">
-                        <p style="color: var(--text-muted); font-size: 0.85rem; margin:0 0 10px 0;">Groq API anahtarlarınızı ekleyin. Limit dolduğunda sistem otomatik diğerine geçer.</p>
-                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                            <input type="password" id="newApiKeyInput" placeholder="gsk_ ile başlayan anahtar..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--surface-light); background: rgba(0,0,0,0.3); color: white; outline: none;">
-                            <button onclick="addApiKey()" style="background: var(--accent); color: white; border: none; border-radius: 8px; padding: 0 15px; font-weight: bold; cursor: pointer;">Ekle</button>
-                        </div>
-                        <div id="apiKeysList" style="display: flex; flex-direction: column; gap: 5px;"></div>
-                    </div>
-                </details>
                 </details>
                 <details class="setting-item" id="supportSection">
                     <summary>Destek & Geri Bildirim</summary>
@@ -272,13 +261,10 @@
                 
                 <div id="aiInlineResult" class="ai-inline-result">
                     <div class="ai-result-header">
-                        <span class="ai-title">✨ Haberin Özeti</span>
-                        <button onclick="closeAIResult()" class="btn-icon" style="background:var(--danger); color:white; width:40px; height:40px;">✕</button>
+                        <span class="ai-title">🤖 AI Yanıtı</span>
+                        <button onclick="closeAIResult()" class="btn-icon btn-close" style="width:30px; height:30px; font-size:1rem; padding:0; display:flex; align-items:center; justify-content:center;">✕</button>
                     </div>
                     <div id="aiResultContent" class="ai-result-content"></div>
-                    <div style="padding: 20px; text-align: center;">
-                        <button onclick="closeAIResult()" style="background:var(--surface-light); color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer;">Makaleye Geri Dön</button>
-                    </div>
                 </div>
                 
                 <div class="triple-tap-hint" data-i18n="tripleTapHint">Triple tap to close</div>
@@ -316,32 +302,5 @@
     <div id="toastNotification" class="toast-notification" onclick="handleToastClick()"><span>⬆️</span> <span id="toastText">System Update!</span></div>
 
     <script src="script.js?v=3.0"></script>
-<script>
-        function emergencyRefresh() {
-            if(confirm("Tüm uygulama önbelleği temizlenip güncel versiyon çekilecek. Emin misiniz?")) {
-                // 1. Service Worker'ı (PWA önbelleğini) devre dışı bırak
-                if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                        for(let registration of registrations) {
-                            registration.unregister();
-                        }
-                    });
-                }
-                
-                // 2. Tarayıcı önbelleğini (Cache) temizle
-                if ('caches' in window) {
-                    caches.keys().then(function(names) {
-                        for (let name of names) caches.delete(name);
-                    });
-                }
-                
-                // 3. GitHub'dan en güncel halini zorla çekmek için URL sonuna rastgele sayı ekle
-                setTimeout(() => {
-                    window.location.href = window.location.pathname + '?v=' + new Date().getTime();
-                }, 500);
-            }
-        }
-    </script>
-    
 </body>
 </html>
