@@ -1949,3 +1949,127 @@ function removeGroqKey(index) {
     localStorage.setItem('groqApiKeys', JSON.stringify(keys));
     loadGroqKeys();
 }
+
+// -------------------- 🤖 AI RSS KAYNAK BULUCU --------------------
+
+async function findRssWithAI() {
+    const topicInput = document.getElementById('aiRssTopic');
+    const topic = topicInput.value.trim();
+    const resultsDiv = document.getElementById('aiRssResults');
+
+    if (!topic) {
+        alert("Lütfen bir konu veya alan adı girin (Örn: Teknoloji, Kripto, Spor)");
+        return;
+    }
+
+    const apiKeys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
+    if (apiKeys.length === 0) {
+        alert("Lütfen Ayarlar menüsünden geçerli bir Groq API anahtarı ekleyin.");
+        return;
+    }
+
+    resultsDiv.innerHTML = '<div style="text-align:center; padding: 10px; color: var(--accent); animation: pulse 1s infinite;">⏳ Yapay zeka interneti tarıyor...</div>';
+
+    // Modelin sadece JSON döndürmesi için zorlayıcı bir sistem komutu
+    const prompt = `Kullanıcı "${topic}" konularında haber okumak istiyor. Bana bu alanla ilgili popüler, güvenilir ve gerçekten çalışan 4 adet RSS akışı URL'si bul. Öncelikle Türkçe kaynaklar olsun, bulamazsan İngilizce ver.
+    YANITINI SADECE VE SADECE JSON FORMATINDA DİZİ (ARRAY) OLARAK VER. Başka tek bir kelime bile yazma.
+    Örnek Çıktı Formatı:
+    [
+        {"name": "DonanımHaber", "url": "https://www.donanimhaber.com/rss/tum"},
+        {"name": "Webtekno", "url": "https://www.webtekno.com/rss.xml"}
+    ]`;
+
+    async function tryFetchRss(keyIndex) {
+        if (keyIndex >= apiKeys.length) {
+            resultsDiv.innerHTML = `<div style="color:var(--danger); font-size:0.85rem;">⚠️ API anahtarı hatası veya kota doldu.</div>`;
+            return;
+        }
+
+        try {
+            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiKeys[keyIndex]}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: "llama-3.3-70b-versatile",
+                    messages: [{ role: "user", content: prompt }],
+                    temperature: 0.3, // Daha tutarlı (hallüsinasyon yapmayan) yanıtlar için düşük sıcaklık
+                    max_tokens: 500
+                })
+            });
+
+            if (!response.ok) throw new Error("KeyFailed");
+
+            const data = await response.json();
+            let content = data.choices[0].message.content.trim();
+            
+            // Eğer Llama inat edip markdown bloğu (```json ... ```) içine koyarsa onu temizle
+            content = content.replace(/```json/g, '').replace(/```/g, '').trim();
+
+            const rssList = JSON.parse(content);
+            resultsDiv.innerHTML = ''; // Yükleniyor yazısını temizle
+
+            if(rssList.length === 0) {
+                resultsDiv.innerHTML = '<div style="color:#fca5a5; font-size:0.85rem;">Sonuç bulunamadı.</div>';
+                return;
+            }
+
+            // Gelen her kaynak için bir buton oluştur
+            rssList.forEach(rss => {
+                const btn = document.createElement('div');
+                btn.style.cssText = "text-align: left; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; transition: 0.2s;";
+                btn.onmouseover = () => btn.style.borderColor = "var(--primary)";
+                btn.onmouseout = () => btn.style.borderColor = "rgba(255,255,255,0.1)";
+                
+                btn.innerHTML = `
+                    <div style="font-weight: bold; color: white; display:flex; justify-content:space-between;">
+                        <span>${rss.name}</span>
+                        <span style="font-size:0.7rem; background:var(--primary); padding:2px 6px; border-radius:4px;">Ekle</span>
+                    </div>
+                    <span style="font-size:0.75rem; color:var(--text-muted); margin-top:5px; word-break:break-all;">${rss.url}</span>
+                `;
+                
+                // Tıklanınca URL'yi mevcut RSS girişine doldur ve kaydet tuşuna basmış gibi yap
+                btn.onclick = () => autoFillAndAddRss(rss.name, rss.url);
+                resultsDiv.appendChild(btn);
+            });
+
+        } catch (err) {
+            console.error("RSS getirme hatası:", err);
+            await tryFetchRss(keyIndex + 1);
+        }
+    }
+
+    await tryFetchRss(0);
+}
+
+// Seçilen AI tavsiyesini sisteme ekleyen otomatik tetikleyici
+function autoFillAndAddRss(name, url) {
+    // Scrollary'nin orijinal manuel ekleme kutusunun ID'si genelde newRssUrl'dir. 
+    // Kendi sistemindeki input id'sine göre burayı değiştirebilirsin.
+    const urlInput = document.querySelector('input[placeholder*="URL"]'); 
+    
+    if(urlInput) {
+        urlInput.value = url;
+        
+        // Eğer sende RSS adı girmek için ayrı bir input varsa:
+        // document.getElementById('newRssName').value = name; 
+        
+        showToastGlobal(`✅ ${name} eklendi! Yenileniyor...`, 3000);
+        
+        // Sende kaynak ekleyen Butonu bulup otomatik tıklatıyoruz (Magic!)
+        // Eğer butonun ID'si yoksa onClick eventi olan butonu bul:
+        const addBtn = urlInput.parentElement.querySelector('button');
+        if(addBtn) {
+            addBtn.click();
+        } else {
+            // Eğer buton bulunamazsa direkt yenileme fonksiyonunu çağırabilirsin
+            if(typeof fetchAllRSS === "function") fetchAllRSS();
+        }
+        
+    } else {
+        alert(`URL Kopyalandı: ${url}\nLütfen manuel kayıt kısmına yapıştırın.`);
+    }
+}
