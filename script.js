@@ -100,6 +100,7 @@ window.onload = () => {
     } else {
         fetchAllRSS(false); 
     }
+  loadGroqKeys(); // Groq API anahtarlarını arayüze yükle
 };
 
 function openModalSafe(modalId) {
@@ -876,6 +877,7 @@ function closeAIResult() {
 }
 
 // 🤖 POLLINATIONS AI SORU SORMA VE ÖZETLEME FONKSİYONU
+// 🤖 GROQ AI SORU SORMA VE ÖZETLEME FONKSİYONU (ÇOKLU ANAHTAR DESTEKLİ)
 async function handleAIRequest() {
     const inputEl = document.getElementById('aiInput');
     const query = inputEl.value.trim() || "Bu haberi özetle";
@@ -884,10 +886,11 @@ async function handleAIRequest() {
     const btn = document.getElementById('aiSendBtn');
 
     const textContainer = document.getElementById('fullTextContainer');
+    // Sayfadaki metinleri al
     const paragraphs = Array.from(textContainer.querySelectorAll('p')).map(p => p.innerText);
     
-    // ÇÖKME ÖNLEYİCİ: Uzun metinleri 2500 karakterle sınırlıyoruz
-    let articleText = paragraphs.join(' ').substring(0, 2500); 
+    // Groq çok daha büyük metinleri işleyebilir, sınırı 6000 karaktere çıkarıyoruz
+    let articleText = paragraphs.join(' ').substring(0, 6000); 
 
     if(articleText.length < 50) {
         alert("Haber metni henüz yüklenmedi veya çok kısa.");
@@ -900,36 +903,81 @@ async function handleAIRequest() {
         return;
     }
 
+    // Kayıtlı API anahtarlarını al
+    const apiKeys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
+    if (apiKeys.length === 0) {
+        alert("Lütfen Ayarlar menüsünden geçerli bir Groq API anahtarı ekleyin.");
+        openModalSafe('settingsModal');
+        return;
+    }
+
     // Yükleniyor animasyonu
     resultModal.classList.add('show');
     resultContent.innerHTML = '<div style="text-align:center; padding: 20px;"><span style="font-size:3rem; display:inline-block; animation:pulse 1s infinite;">⏳</span><br><br><span style="color:var(--accent); font-weight:bold;">Yapay zeka metni inceliyor...</span></div>';
     btn.disabled = true;
 
-    const systemPrompt = "Sen akıllı bir haber asistanısın. Kullanıcının sorusunu verilen haber metnine göre cevapla. Yanıtını doğrudan div içine basılacak şekilde HTML formatında ver (<b>, <i>, <ul>, <li>, <br> vb. kullan). Önemli kelimeleri <span style='color:#e11d48'> veya <span style='color:#3b82f6'> ile renklendir. Markdown (**, * gibi) KULLANMA. Sadece HTML çıktısı ver.";
-    
-    // GET İsteği İçin Güvenli Parametre (Çökmeyi tamamen engeller)
-    const fullQuery = `${systemPrompt}\n\nHaber Metni:\n${articleText}\n\nKullanıcı İsteği: ${query}`;
+    // Groq modeline gönderilecek sistem komutu
+    const systemPrompt = "Sen akıllı bir haber asistanısın. Kullanıcının sorusunu verilen haber metnine göre cevapla. Yanıtını doğrudan HTML formatında ver (<b>, <i>, <ul>, <li>, <br> vb. kullan). Önemli kelimeleri <span style='color:#e11d48'> veya <span style='color:#3b82f6'> ile renklendir. Asla Markdown (**, * gibi) KULLANMA. Haberde olmayan bir bilgiyi uydurma. Sadece HTML çıktısı ver.";
 
-    try {
-        const response = await fetch(`https://text.pollinations.ai/${encodeURIComponent(fullQuery)}?model=openai`);
+    // API İstek Fonksiyonu (Hata durumunda diğer anahtara geçmek için Recursive/Özyinelemeli)
+    async function tryFetchWithKey(keyIndex) {
+        if (keyIndex >= apiKeys.length) {
+            // Tüm anahtarlar denendi ve hepsi başarısız olduysa
+            resultContent.innerHTML = `<div style="color:var(--danger); text-align:center; padding: 20px;">⚠️ Ekli olan tüm API anahtarlarınızın kotası dolmuş veya bir bağlantı sorunu var. Lütfen yeni bir anahtar ekleyin veya daha sonra tekrar deneyin.</div>`;
+            btn.disabled = false;
+            return;
+        }
 
-        if (!response.ok) throw new Error("API hatası");
-        const data = await response.text();
-        
-        let cleanHtml = data.replace(/```html/g, '').replace(/```/g, '').trim();
-        resultContent.innerHTML = cleanHtml;
+        const currentKey = apiKeys[keyIndex];
 
-        // Okuma ekranını en yukarı kaydır ki yanıt penceresi görünsün
-        setTimeout(() => {
-            const readerView = document.getElementById('modalBodyArea');
-            readerView.scrollTo({ top: 0, behavior: 'smooth' });
-        }, 100);
+        try {
+            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${currentKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: "llama3-8b-8192", // Groq'un hızlı ve ücretsiz Llama 3 modeli
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: `Haber Metni:\n${articleText}\n\nKullanıcı İsteği: ${query}` }
+                    ],
+                    temperature: 0.5, // Daha tutarlı cevaplar için düşürdük
+                    max_tokens: 1024
+                })
+            });
 
-    } catch (err) {
-        resultContent.innerHTML = `<div style="color:var(--danger); text-align:center; padding: 20px;">⚠️ Yapay zekaya ulaşılamadı. Haber çok uzun veya sunucu yoğun olabilir. Lütfen tekrar deneyin.</div>`;
-    } finally {
-        btn.disabled = false;
+            if (!response.ok) {
+                // Eğer 429 (Too Many Requests) veya başka bir hata alırsak bir sonraki anahtara geç
+                console.warn(`API Anahtarı ${keyIndex + 1} başarısız oldu. Durum: ${response.status}. Sonraki anahtara geçiliyor...`);
+                throw new Error("KeyFailed");
+            }
+
+            const data = await response.json();
+            
+            // Modele yanıtından HTML etiketleri dışındaki gereksiz formatları (varsa) temizle
+            let aiResponse = data.choices[0].message.content;
+            let cleanHtml = aiResponse.replace(/```html/g, '').replace(/```/g, '').trim();
+            
+            resultContent.innerHTML = cleanHtml;
+
+            // Okuma ekranını en yukarı kaydır ki yanıt penceresi görünsün
+            setTimeout(() => {
+                const readerView = document.getElementById('modalBodyArea');
+                if(readerView) readerView.scrollTo({ top: 0, behavior: 'smooth' });
+            }, 100);
+
+            btn.disabled = false; // Başarılı olursa butonu tekrar aktif et
+
+        } catch (err) {
+            // Eğer hata fırlatıldıysa (KeyFailed veya ağ hatası), dizideki bir sonraki anahtarı dene
+            await tryFetchWithKey(keyIndex + 1);
+        }
     }
+
+    // İlk anahtardan (index 0) denemeye başla
+    await tryFetchWithKey(0);
 }
 
 async function openModal(art) {
@@ -1862,4 +1910,65 @@ function hardRefreshApp() {
             window.location.reload(true);
         }
     }
+}
+// -------------------- GROQ API ANAHTAR YÖNETİMİ --------------------
+
+// 1. Anahtarları ekrana yükleme
+function loadGroqKeys() {
+    const keys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
+    const listDiv = document.getElementById('groqKeysList');
+    if (!listDiv) return;
+    
+    listDiv.innerHTML = '';
+    
+    if (keys.length === 0) {
+        listDiv.innerHTML = '<div style="font-size: 0.85rem; color: #ef4444; padding: 10px; background: rgba(239, 68, 68, 0.1); border-radius: 8px; border: 1px dashed #ef4444;">⚠️ Henüz bir API anahtarı eklenmedi. Yapay zeka özellikleri çalışmayacaktır.</div>';
+        return;
+    }
+    
+    keys.forEach((key, index) => {
+        // Güvenlik için ekranda sadece başını ve sonunu gösteriyoruz
+        const maskedKey = key.substring(0, 6) + '••••••••••••••••' + key.substring(key.length - 4);
+        
+        listDiv.innerHTML += `
+            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 10px 15px; border-radius: 8px; border: 1px solid var(--surface-light);">
+                <span style="font-family: monospace; color: #a7f3d0; font-size: 0.9rem;">${maskedKey}</span>
+                <button onclick="removeGroqKey(${index})" style="background: rgba(239, 68, 68, 0.2); color: var(--danger); border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: bold; pointer-events: auto;">Sil</button>
+            </div>
+        `;
+    });
+}
+
+// 2. Yeni anahtar ekleme
+function addGroqKey() {
+    const input = document.getElementById('newGroqKeyInput');
+    const newKey = input.value.trim();
+    
+    if (!newKey) return;
+    
+    // Groq API anahtarları standart olarak gsk_ ile başlar, ufak bir kontrol yapalım
+    if (!newKey.startsWith('gsk_')) {
+        alert("Lütfen geçerli bir Groq API anahtarı girin (gsk_ ile başlamalıdır).");
+        return;
+    }
+
+    const keys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
+    
+    if (!keys.includes(newKey)) {
+        keys.push(newKey);
+        localStorage.setItem('groqApiKeys', JSON.stringify(keys));
+        input.value = '';
+        loadGroqKeys();
+        showToastGlobal("✅ Groq API Anahtarı eklendi!", 3000);
+    } else {
+        alert("Bu anahtar zaten ekli!");
+    }
+}
+
+// 3. Anahtar silme
+function removeGroqKey(index) {
+    let keys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
+    keys.splice(index, 1);
+    localStorage.setItem('groqApiKeys', JSON.stringify(keys));
+    loadGroqKeys();
 }
