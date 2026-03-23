@@ -209,7 +209,7 @@
                     <summary>Hakkında</summary>
                     <div class="setting-detail" style="color: var(--text-muted); font-size: 0.9rem;">
                         <p style="margin:0;"><strong>Scrollary News Radar</strong></p>
-                        <p style="margin:0;">Sürüm: 2.7.0 AI Voice Assistant</p>
+                        <p style="margin:0;">Sürüm: 2.8.0 AI Summarizer</p>
                         <p style="margin:0;">Tüm hakları saklıdır © 2026</p>
                     </div>
                 </details>
@@ -235,7 +235,13 @@
                 <div class="modal-top-row"><div class="modal-source-name" id="modalSource">Source</div><div class="modal-actions"><a id="modalLinkExt" href="#" target="_blank" class="btn-icon" title="Open in Browser">↗️</a><button class="btn-icon btn-close" onclick="closeModalSafe('newsModal')" title="Close">✕</button></div></div>
                 <div class="modal-tabs"><button class="tab-btn active" id="tabReader" onclick="switchTab('reader')" data-i18n="readerTab">📖 Reader View</button><button class="tab-btn" id="tabWeb" onclick="switchTab('web')" data-i18n="originalTab">🌐 Original Site</button></div>
             </div>
+            
             <div class="modal-body" id="modalBodyArea">
+                <div id="aiStickyBar" class="ai-sticky-bar">
+                    <input type="text" id="aiInput" placeholder="Habere dair soru sor..." value="Bu haberi özetle">
+                    <button onclick="handleAIRequest()" id="aiSendBtn">✨ AI</button>
+                </div>
+                
                 <div class="triple-tap-hint" data-i18n="tripleTapHint">Triple tap to close</div>
                 <div id="readerView">
                     <h2 class="reader-title" id="modalTitle">Title</h2>
@@ -265,6 +271,14 @@
                 <div id="iframeView"><div class="iframe-banner" id="iframeBanner"><span style="animation: pulse 1.5s infinite;">⏳</span> <span data-i18n="loadingSite">Loading original site...</span></div><iframe id="modalIframe" class="modal-iframe" sandbox="allow-same-origin allow-scripts allow-forms allow-popups"></iframe></div>
             </div>
         </div>
+    </div>
+
+    <div id="aiResultModal" class="ai-result-modal">
+        <div class="ai-result-header">
+            <span class="ai-title">🤖 AI Yanıtı</span>
+            <button onclick="document.getElementById('aiResultModal').classList.remove('show')" class="btn-icon btn-close" style="width:30px; height:30px; font-size:1rem;">✕</button>
+        </div>
+        <div id="aiResultContent" class="ai-result-content"></div>
     </div>
 
     <div id="toastNotification" class="toast-notification" onclick="handleToastClick()"><span>⬆️</span> <span id="toastText">System Update!</span></div>
