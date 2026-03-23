@@ -184,7 +184,19 @@
                     <div class="setting-detail">
                         <div class="view-controls" id="layoutBtnsWrapper"></div>
                     </div>
-                    <details class="setting-item">
+                    <details 
+                        <details class="setting-item">
+    <summary>🤖 Yapay Zeka (AI) Ayarları</summary>
+    <div class="setting-detail" style="user-select: auto;">
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin:0 0 10px 0;">Groq API anahtarlarınızı ekleyin. Limit dolduğunda sistem otomatik diğerine geçer.</p>
+        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <input type="password" id="newApiKeyInput" placeholder="gsk_ ile başlayan anahtar..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--surface-light); background: rgba(0,0,0,0.3); color: white; outline: none;">
+            <button onclick="addApiKey()" style="background: var(--accent); color: white; border: none; border-radius: 8px; padding: 0 15px; font-weight: bold; cursor: pointer;">Ekle</button>
+        </div>
+        <div id="apiKeysList" style="display: flex; flex-direction: column; gap: 5px;"></div>
+    </div>
+</details>
+                        class="setting-item">
                     <summary>🤖 Yapay Zeka (AI) Ayarları</summary>
                     <div class="setting-detail" style="user-select: auto;">
                         <p style="color: var(--text-muted); font-size: 0.85rem; margin:0 0 10px 0;">Groq API anahtarlarınızı ekleyin. Limit dolduğunda sistem otomatik diğerine geçer.</p>
