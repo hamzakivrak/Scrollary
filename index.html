@@ -247,10 +247,13 @@
                 
                 <div id="aiInlineResult" class="ai-inline-result">
                     <div class="ai-result-header">
-                        <span class="ai-title">🤖 AI Yanıtı</span>
-                        <button onclick="closeAIResult()" class="btn-icon btn-close" style="width:30px; height:30px; font-size:1rem; padding:0; display:flex; align-items:center; justify-content:center;">✕</button>
+                        <span class="ai-title">✨ Haberin Özeti</span>
+                        <button onclick="closeAIResult()" class="btn-icon" style="background:var(--danger); color:white; width:40px; height:40px;">✕</button>
                     </div>
                     <div id="aiResultContent" class="ai-result-content"></div>
+                    <div style="padding: 20px; text-align: center;">
+                        <button onclick="closeAIResult()" style="background:var(--surface-light); color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer;">Makaleye Geri Dön</button>
+                    </div>
                 </div>
                 
                 <div class="triple-tap-hint" data-i18n="tripleTapHint">Triple tap to close</div>
