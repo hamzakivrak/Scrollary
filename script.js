@@ -1952,6 +1952,8 @@ function removeGroqKey(index) {
 
 // -------------------- 🤖 AI RSS KAYNAK BULUCU --------------------
 
+// -------------------- 🤖 AI RSS KAYNAK BULUCU --------------------
+
 async function findRssWithAI() {
     const topicInput = document.getElementById('aiRssTopic');
     const topic = topicInput.value.trim();
@@ -1970,7 +1972,6 @@ async function findRssWithAI() {
 
     resultsDiv.innerHTML = '<div style="text-align:center; padding: 10px; color: var(--accent); animation: pulse 1s infinite;">⏳ Yapay zeka interneti tarıyor...</div>';
 
-    // Modelin sadece JSON döndürmesi için zorlayıcı bir sistem komutu
     const prompt = `Kullanıcı "${topic}" konularında haber okumak istiyor. Bana bu alanla ilgili popüler, güvenilir ve gerçekten çalışan 4 adet RSS akışı URL'si bul. Öncelikle Türkçe kaynaklar olsun, bulamazsan İngilizce ver.
     YANITINI SADECE VE SADECE JSON FORMATINDA DİZİ (ARRAY) OLARAK VER. Başka tek bir kelime bile yazma.
     Örnek Çıktı Formatı:
@@ -1995,7 +1996,7 @@ async function findRssWithAI() {
                 body: JSON.stringify({
                     model: "llama-3.3-70b-versatile",
                     messages: [{ role: "user", content: prompt }],
-                    temperature: 0.3, // Daha tutarlı (hallüsinasyon yapmayan) yanıtlar için düşük sıcaklık
+                    temperature: 0.3,
                     max_tokens: 500
                 })
             });
@@ -2004,35 +2005,46 @@ async function findRssWithAI() {
 
             const data = await response.json();
             let content = data.choices[0].message.content.trim();
-            
-            // Eğer Llama inat edip markdown bloğu (```json ... ```) içine koyarsa onu temizle
             content = content.replace(/```json/g, '').replace(/```/g, '').trim();
 
             const rssList = JSON.parse(content);
-            resultsDiv.innerHTML = ''; // Yükleniyor yazısını temizle
+            resultsDiv.innerHTML = '';
 
             if(rssList.length === 0) {
                 resultsDiv.innerHTML = '<div style="color:#fca5a5; font-size:0.85rem;">Sonuç bulunamadı.</div>';
                 return;
             }
 
-            // Gelen her kaynak için bir buton oluştur
+            // Gelen her kaynak için tıklanabilir butonlar oluştur
             rssList.forEach(rss => {
                 const btn = document.createElement('div');
-                btn.style.cssText = "text-align: left; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; transition: 0.2s;";
-                btn.onmouseover = () => btn.style.borderColor = "var(--primary)";
-                btn.onmouseout = () => btn.style.borderColor = "rgba(255,255,255,0.1)";
+                btn.style.cssText = "text-align: left; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; transition: 0.3s;";
+                btn.onmouseover = () => { if(btn.style.pointerEvents !== "none") btn.style.borderColor = "var(--primary)"; };
+                btn.onmouseout = () => { if(btn.style.pointerEvents !== "none") btn.style.borderColor = "rgba(255,255,255,0.1)"; };
                 
                 btn.innerHTML = `
-                    <div style="font-weight: bold; color: white; display:flex; justify-content:space-between;">
+                    <div style="font-weight: bold; color: white; display:flex; justify-content:space-between; align-items:center;">
                         <span>${rss.name}</span>
-                        <span style="font-size:0.7rem; background:var(--primary); padding:2px 6px; border-radius:4px;">Ekle</span>
+                        <span class="ai-add-badge" style="font-size:0.75rem; background:var(--primary); padding:4px 10px; border-radius:6px; transition:0.3s; font-weight:bold;">Ekle</span>
                     </div>
                     <span style="font-size:0.75rem; color:var(--text-muted); margin-top:5px; word-break:break-all;">${rss.url}</span>
                 `;
                 
-                // Tıklanınca URL'yi mevcut RSS girişine doldur ve kaydet tuşuna basmış gibi yap
-                btn.onclick = () => autoFillAndAddRss(rss.name, rss.url);
+                btn.onclick = function() {
+                    // Kaydetme fonksiyonunu tetikle
+                    autoFillAndAddRss(rss.name, rss.url);
+                    
+                    // GÖRSEL GERİ BİLDİRİM: Tıklanan buton yeşil olsun ve "Eklendi" yazsın
+                    const badge = this.querySelector('.ai-add-badge');
+                    if(badge) {
+                        badge.innerText = "Eklendi ✅";
+                        badge.style.background = "var(--success)"; // Yeşil renk
+                    }
+                    this.style.borderColor = "var(--success)";
+                    this.style.background = "rgba(16, 185, 129, 0.1)";
+                    this.style.pointerEvents = "none"; // Aynı butona ikinci kez tıklanmasını engelle
+                };
+                
                 resultsDiv.appendChild(btn);
             });
 
@@ -2045,44 +2057,35 @@ async function findRssWithAI() {
     await tryFetchRss(0);
 }
 
-// Seçilen AI tavsiyesini sisteme ekleyen otomatik tetikleyici (Fiziksel Tıklama Simülasyonu)
+// Seçilen AI tavsiyesini sisteme ekleyen otomatik tetikleyici
 function autoFillAndAddRss(name, url) {
-    // 1. Manuel Kayıt bölümünü ve kutucukları bul
     const manualSection = document.getElementById('manualAddSection');
     const nameInput = document.getElementById('newRssName');
     const urlInput = document.getElementById('newRssUrl');
     
     if (manualSection && nameInput && urlInput) {
-        // 2. Kullanıcının ne olduğunu görmesi için "Gelişmiş: Manuel Kayıt Aç" bölümünü görünür yap
         manualSection.classList.add('show');
         
-        // 3. AI'dan gelen verileri fiziksel olarak kutulara yaz
         nameInput.value = name;
         urlInput.value = url;
         
-        // 4. "Save to Cloud" (Buluta Kaydet) butonunu bul
         const saveBtn = manualSection.querySelector('button');
         
         if (saveBtn) {
-            // UI'nin (Arayüzün) kutulara yazılan yazıyı algılaması için 300 milisaniye bekleyip butona TIKLA
+            // Ekleme hızını artırdık (300ms yerine 100ms)
             setTimeout(() => {
-                saveBtn.click(); // Doğrudan kullanıcının tıklamasını simüle eder
+                saveBtn.click(); 
                 
-                // İşlem bittikten sonra ortalığı temizle ve kapat
+                // Form içini temizle AMA MENÜYÜ KAPATMA!
                 setTimeout(() => {
                     nameInput.value = '';
                     urlInput.value = '';
-                    manualSection.classList.remove('show');
-                }, 1000); // 1 saniye sonra temizle ki kullanıcı eklendiğini görsün
+                    // manualSection.classList.remove('show'); <--- İŞTE BU SATIRI SİLDİK! Artık menü kapanmayacak.
+                }, 400); 
                 
-            }, 300);
+            }, 100);
         } else {
-            // Eğer buton bulunamazsa orijinal fonksiyonu tetiklemeyi dene (Yedek plan)
-            if (typeof addCustomRSSManual === "function") {
-                addCustomRSSManual();
-            } else {
-                alert("Kaydetme butonu bulunamadı. Lütfen manuel olarak basın.");
-            }
+            if (typeof addCustomRSSManual === "function") addCustomRSSManual();
         }
     } else {
         alert(`Kutucuklar bulunamadı. Lütfen URL'yi kendiniz kopyalayın: ${url}`);
