@@ -905,13 +905,13 @@ async function handleAIRequest() {
     resultContent.innerHTML = '<div style="text-align:center; padding: 20px;"><span style="font-size:3rem; display:inline-block; animation:pulse 1s infinite;">⏳</span><br><br><span style="color:var(--accent); font-weight:bold;">Yapay zeka metni inceliyor...</span></div>';
     btn.disabled = true;
 
-    const systemPrompt = "Sen profesyonel bir haber analiz asistanısın. 
+    const systemPrompt = `Sen profesyonel bir haber analiz asistanısın. 
 Görevin, verilen haberi şu kurallara göre özetlemektir:
 1. Haberin EN ÖNEMLİ özünü en başa, tek bir paragraf ve çarpıcı bir cümle olarak yaz.
 2. Ardından önemli noktaları 'Maddelerle Detaylar' başlığı altında liste (<ul><li>) halinde ver.
 3. Önemli isim, tarih veya kavramları <b></b> içine alarak vurgula.
 4. Okuma kolaylığı için gerekli yerlerde <i></i> kullan.
-5. Yanıtı doğrudan HTML formatında ver (Markdown kullanma).";
+5. Yanıtı doğrudan HTML formatında ver (Markdown kullanma).`;
     
     // GET İsteği İçin Güvenli Parametre (Çökmeyi tamamen engeller)
     const fullQuery = `${systemPrompt}\n\nHaber Metni:\n${articleText}\n\nKullanıcı İsteği: ${query}`;
