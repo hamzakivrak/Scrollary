@@ -364,3 +364,30 @@ input, textarea, select { pointer-events: auto !important; user-select: auto !im
 
 .voice-btn-action { background: var(--surface-light); color: white; border: 1px solid var(--accent); padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; width: 100%; text-align: left; }
 .voice-btn-action:hover { background: var(--accent); }
+
+/* Acil Durum Yenileme Butonu (Yuvarlak İkon) */
+.refresh-fab {
+    position: fixed;
+    bottom: 100px; /* Butonu ne kadar yukarı almak istersen bu sayıyı büyüt (Örn: 120px) */
+    right: 30px;   /* Ekranın sağından olan uzaklık */
+    width: 50px;
+    height: 50px;
+    background: var(--surface-light);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 50%;
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 2000;
+    box-shadow: var(--shadow-card);
+    transition: all 0.3s ease;
+}
+
+/* Üzerine gelince dönsün ve kırmızı olsun */
+.refresh-fab:hover {
+    background: var(--primary);
+    transform: rotate(180deg) scale(1.1);
+}
