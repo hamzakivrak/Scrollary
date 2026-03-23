@@ -2045,39 +2045,46 @@ async function findRssWithAI() {
     await tryFetchRss(0);
 }
 
-// Seçilen AI tavsiyesini sisteme ekleyen otomatik tetikleyici
-// Seçilen AI tavsiyesini sisteme ekleyen otomatik tetikleyici (DÜZELTİLDİ)
+// Seçilen AI tavsiyesini sisteme ekleyen otomatik tetikleyici (Fiziksel Tıklama Simülasyonu)
 function autoFillAndAddRss(name, url) {
-    // 1. Doğrudan senin "Manuel Kayıt" kutucuklarının ID'lerini hedef alıyoruz
+    // 1. Manuel Kayıt bölümünü ve kutucukları bul
+    const manualSection = document.getElementById('manualAddSection');
     const nameInput = document.getElementById('newRssName');
     const urlInput = document.getElementById('newRssUrl');
     
-    if (nameInput && urlInput) {
-        // 2. Yapay zekanın bulduğu adı ve linki kutulara yaz
+    if (manualSection && nameInput && urlInput) {
+        // 2. Kullanıcının ne olduğunu görmesi için "Gelişmiş: Manuel Kayıt Aç" bölümünü görünür yap
+        manualSection.classList.add('show');
+        
+        // 3. AI'dan gelen verileri fiziksel olarak kutulara yaz
         nameInput.value = name;
         urlInput.value = url;
         
-        // 3. Doğrudan Scrollary'nin orijinal bulut/yerel kaydetme fonksiyonunu tetikle
-        if (typeof addCustomRSSManual === "function") {
-            addCustomRSSManual();
-            
-            // 4. Kullanıcıya şık bir bildirim ver
-            if(typeof showToastGlobal === "function") {
-                showToastGlobal(`✅ ${name} başarıyla kaynaklara eklendi!`, 3000);
-            } else {
-                alert(`✅ ${name} eklendi!`);
-            }
-            
-            // 5. Arka planda işi biten kutuların içini temizle (temiz görünüm)
+        // 4. "Save to Cloud" (Buluta Kaydet) butonunu bul
+        const saveBtn = manualSection.querySelector('button');
+        
+        if (saveBtn) {
+            // UI'nin (Arayüzün) kutulara yazılan yazıyı algılaması için 300 milisaniye bekleyip butona TIKLA
             setTimeout(() => {
-                nameInput.value = '';
-                urlInput.value = '';
-            }, 500);
-
+                saveBtn.click(); // Doğrudan kullanıcının tıklamasını simüle eder
+                
+                // İşlem bittikten sonra ortalığı temizle ve kapat
+                setTimeout(() => {
+                    nameInput.value = '';
+                    urlInput.value = '';
+                    manualSection.classList.remove('show');
+                }, 1000); // 1 saniye sonra temizle ki kullanıcı eklendiğini görsün
+                
+            }, 300);
         } else {
-            alert("Kaydetme fonksiyonu bulunamadı. Lütfen 'Save to Cloud' butonuna manuel basın.");
+            // Eğer buton bulunamazsa orijinal fonksiyonu tetiklemeyi dene (Yedek plan)
+            if (typeof addCustomRSSManual === "function") {
+                addCustomRSSManual();
+            } else {
+                alert("Kaydetme butonu bulunamadı. Lütfen manuel olarak basın.");
+            }
         }
     } else {
-        alert(`Kutucuklar bulunamadı. URL: ${url}\nLütfen manuel kayıt kısmına yapıştırın.`);
+        alert(`Kutucuklar bulunamadı. Lütfen URL'yi kendiniz kopyalayın: ${url}`);
     }
 }
