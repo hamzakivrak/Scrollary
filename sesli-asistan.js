@@ -1,4 +1,4 @@
-// sesli-asistan.js - Ekrandan (DOM) Okuma Yapan, Dinamik ve Hızlı Sürüm
+// sesli-asistan.js - Anahtar Kelime Avcısı, DOM Okuyan, Dinamik ve Hızlı Sürüm
 
 let voiceReadLinks = new Set();
 let lastVoiceCommand = "";
@@ -128,13 +128,14 @@ async function processVoiceCommand(komut) {
 
     const sourceNames = typeof RSS_FEEDS !== 'undefined' ? RSS_FEEDS.map(f => f.name) : [];
     
+    // GÜNCELLENEN KISIM: Arama niyetini çok daha zeki ayıklayacak prompt kuralı eklendi.
     const intentSystemPrompt = `Sen akıllı bir haber asistanısın. Kullanıcı komutunu SADECE JSON vererek analiz et.
     KAYNAKLAR: ${sourceNames.join(', ')}
     
     KURALLAR:
     1. Kullanıcı "Haber 2", "3. haber", "ilk haberi aç" gibi daha önce listelenen bir haberi detaylandırmak istiyorsa intent: "detail", "list_index": [sayı] (Örn: 2) ver.
     2. Kullanıcı "devam et", "sonraki haberler", "başka" diyorsa intent: "continue".
-    3. Kullanıcı "ekonomi", "Galatasaray", "ara", "filtrele" gibi YENİ bir arama istiyorsa intent: "search", "search_query": "aranacak kelime", "source": "Kaynak".
+    3. Kullanıcı YENİ bir arama istiyorsa intent: "search" yap. ÇOK ÖNEMLİ: "search_query" alanına asla cümlenin tamamını yazma. Sadece odaklanılan anahtar kelimeyi veya kelime grubunu yaz. (Örn: "soma ile ilgili haberler var mı" -> "soma", "iş kazası haberlerini bul" -> "iş kazası"). "haber, var mı, bul, göster, ile ilgili" gibi konuşma dili eklerini kesinlikle sil!
     4. ui_message: Ekranda belirecek kısa bilgi.
     
     JSON FORMATI: {"intent":"search|detail|continue", "list_index": 1, "search_query":"", "source":"", "ui_message":""}`;
@@ -151,7 +152,7 @@ async function processVoiceCommand(komut) {
 
     if(typeof showToastGlobal === 'function') showToastGlobal("🤖 " + aiData.ui_message, 4000);
 
-    // EYLEM: DETAY (HABER 3'Ü AÇ)
+    // EYLEM: DETAY
     if (aiData.intent === "detail" && aiData.list_index) {
         let index = aiData.list_index - 1;
         if (index < 0 || index >= currentListedArticles.length) {
@@ -217,7 +218,6 @@ async function processVoiceCommand(komut) {
                 voiceReadLinks.add(unread[i].link); 
                 await sesliOkuAsync(summaryArray[i], myCmdId);
                 
-                // HABERLER ARASI BEKLEME 1 SANİYEYE DÜŞÜRÜLDÜ
                 if (i < summaryArray.length - 1 && myCmdId === currentVoiceCmdId) {
                     await new Promise(r => setTimeout(r, 1000)); 
                 }
@@ -233,7 +233,6 @@ async function processVoiceCommand(komut) {
     }
 }
 
-// YENİ EKRANDAN (DOM) OKUYAN DETAY MODU
 async function handleDeepResearch(article, listIndex, myCmdId) {
     if(typeof openModal === 'function') openModal(article);
     
@@ -243,7 +242,6 @@ async function handleDeepResearch(article, listIndex, myCmdId) {
     let isDone = false;
     let seconds = 0;
 
-    // Asistan kendi kendine fetch atmıyor! Ekrana (DOM'a) metnin düşmesini bekliyor.
     while (seconds < 12 && myCmdId === currentVoiceCmdId && isVoiceActive) {
         await new Promise(r => setTimeout(r, 1000));
         seconds++;
@@ -252,24 +250,20 @@ async function handleDeepResearch(article, listIndex, myCmdId) {
         if (textContainer) {
             const htmlContent = textContainer.innerHTML;
             
-            // Eğer "loading-pulse" (yükleniyor animasyonu) ekrandan gittiyse ve içeriğe metin geldiyse
             if (!htmlContent.includes('loading-pulse') && textContainer.innerText.trim().length > 100) {
-                // Sadece <p> etiketleri içindeki temiz metinleri al (butonlar vs dahil olmasın)
                 const pTags = textContainer.querySelectorAll('p');
                 if (pTags.length > 0) {
                     fullText = Array.from(pTags).map(p => p.textContent.trim()).join(' ');
                 } else {
-                    fullText = textContainer.innerText; // Fallback
+                    fullText = textContainer.innerText;
                 }
                 
-                // Çok uzunsa Groq kotası için ilk 2000 karakteri al
                 fullText = fullText.substring(0, 2000); 
                 isDone = true;
                 break;
             }
         }
         
-        // Ara ara bilgi ver
         if (seconds === 4 && !isDone) {
             sesliOkuAsync("Ekrandaki metinleri analiz ediyorum...", myCmdId);
         }
@@ -284,7 +278,6 @@ async function handleDeepResearch(article, listIndex, myCmdId) {
         return await sesliOkuAsync("Maalesef sitenin güvenliği metni ekrana çekmeme izin vermedi. Sağ üstteki mavi oktan orijinal haberi açabilirsiniz.", myCmdId);
     }
 
-    // Ekranda (DOM) görülen metin başarıyla çekildiyse Groq'a özetlet
     const detailPrompt = `Sen profesyonel bir haber spikerisin. Aşağıdaki metinden yararlanarak olayın ana detaylarını 3-4 cümleyle akıcı Türkçe ile özetle.
     Haber: ${article.title}
     Metin: ${fullText}`;
