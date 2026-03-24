@@ -232,7 +232,21 @@ body.shorts-mode .news-content { height: 40%; justify-content: center; }
 .ai-sticky-bar button:hover { opacity: 0.9; transform: scale(1.05); }
 .ai-sticky-bar button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-.ai-inline-result { display: none; flex-direction: column; background: #0f172a; border-bottom: 1px solid var(--surface-light); box-shadow: inset 0 -10px 20px rgba(0,0,0,0.3); max-height: 50vh; overflow-y: auto; }
+.ai-inline-result { 
+    display: none;
+    flex-direction: column; 
+    background: #0f172a; 
+    border-bottom: 1px solid var(--surface-light); 
+    box-shadow: inset 0 -10px 20px rgba(0,0,0,0.3); 
+    
+    /* EKLENEN/DEĞİŞTİRİLEN KISIMLAR */
+    flex-shrink: 0;       /* Haberin uzun metni bu kutuyu ezmesin! */
+    position: relative;   /* Kutunun diğer metinlerin altında kalmasını engeller */
+    z-index: 50;          /* En üstte görünmesini garantiler */
+    max-height: none;     /* Daracık ekrana sıkışmasını engeller */
+    overflow-y: visible;  /* İçeriğin rahatça uzamasını sağlar */
+}
+
 .ai-inline-result.show { display: flex; animation: slideDownAI 0.3s ease; }
 @keyframes slideDownAI { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
 
