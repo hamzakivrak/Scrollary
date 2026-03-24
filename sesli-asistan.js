@@ -1,4 +1,4 @@
-// sesli-asistan.js - Kademeli Altyazı, Kopya Haber Engelleyici ve Akıllı Etkileşim Sürümü
+// sesli-asistan.js - Kesin Numaralandırma, Zeki Bağlam ve Etkileşimli Altyazı Sürümü (Final)
 
 let voiceReadLinks = new Set();
 let lastVoiceCommand = "";
@@ -29,10 +29,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // EKRANA DOKUNUNCA VEYA KAYDIRINCA ALTYAZIYI GİZLEME (YENİ ÖZELLİK)
+    // EKRANA DOKUNUNCA/KAYDIRINCA ALTYAZIYI GİZLE
     const hideOnInteraction = () => {
         const subBox = document.getElementById('voiceSubtitleBox');
-        // Eğer kutu görünürdeyse ve asistan o an KONUŞMUYORSA hemen gizle
         if (subBox && subBox.style.opacity === '1') {
             if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
                 hideVoiceSubtitle(0);
@@ -74,18 +73,16 @@ document.addEventListener('DOMContentLoaded', () => {
     recognition.onerror = () => { recognition.stop(); micBtn.classList.remove('listening'); };
 });
 
-// --- KADEMELİ (YIĞIN) ALTYAZI MOTORU ---
+// --- KADEMELİ ALTYAZI MOTORU ---
 function showVoiceSubtitle(text, append = false) {
     let subBox = document.getElementById('voiceSubtitleBox');
     if (!subBox) {
         subBox = document.createElement('div');
         subBox.id = 'voiceSubtitleBox';
-        // Kutunun metin hizalamasını sola aldık (liste görünümü için) ve flex yapısı ekledik
         subBox.style.cssText = 'position:fixed; bottom:110px; left:50%; transform:translateX(-50%); width:90%; max-width:600px; background:rgba(15, 23, 42, 0.95); color:#e2e8f0; padding:15px 20px; border-radius:12px; border:1px solid var(--accent); z-index:999998; box-shadow:0 10px 25px rgba(0,0,0,0.5); text-align:left; font-size:1rem; line-height:1.5; opacity:0; transition:opacity 0.4s ease; pointer-events:none; backdrop-filter:blur(10px); display:flex; flex-direction:column; gap:8px;';
         document.body.appendChild(subBox);
     }
     
-    // YENİ: Eğer 'append' true ise, eski yazıyı silmeden alta yeni satır (div) ekler
     if (append && subBox.innerHTML !== "") {
         let newRow = document.createElement('div');
         newRow.style.cssText = 'padding-top:8px; border-top:1px solid rgba(255,255,255,0.1);';
@@ -106,8 +103,8 @@ function hideVoiceSubtitle(delay = 5000) {
         if (subBox) subBox.style.opacity = '0';
     }, delay);
 }
-// ------------------------------------------
 
+// --- GROQ API MOTORU ---
 async function fetchFromGroq(systemPrompt, userPrompt, isJson = false) {
     let apiKeys = [];
     const keysString = localStorage.getItem('groqApiKeys');
@@ -153,8 +150,6 @@ function sesliOkuAsync(metin, myCmdId, appendSubtitle = false) {
         if (!isVoiceActive || myCmdId !== currentVoiceCmdId || !('speechSynthesis' in window)) return resolve();
         
         window.speechSynthesis.cancel();
-        
-        // Altyazıyı çağır (eğer append true ise alta ekleyecek)
         showVoiceSubtitle(metin, appendSubtitle); 
 
         const utterance = new SpeechSynthesisUtterance(metin);
@@ -179,20 +174,22 @@ function sesliOkuAsync(metin, myCmdId, appendSubtitle = false) {
     });
 }
 
+// --- ANA İŞLEM DÖNGÜSÜ ---
 async function processVoiceCommand(komut) {
     let myCmdId = currentVoiceCmdId;
     if (!isVoiceActive) return;
     
+    // ZEKİ BAĞLAM PROMPTU
     const intentSystemPrompt = `Sen akıllı bir haber asistanısın. Kullanıcı komutunu SADECE JSON vererek analiz et.
     
     KURALLAR:
-    1. Kullanıcı daha önce listelenen bir haberi (Örn: "2. haber", "ilk haberi aç") detaylandırmak istiyorsa intent: "detail", "list_index": [sayı] ver.
-    2. Kullanıcı "devam et", "sonraki haberler" diyorsa intent: "continue".
-    3. Kullanıcı YENİ bir konu veya kaynak adı söyleyerek arama istiyorsa intent: "search" yap. "search_query" alanına aranan konuyu yaz. "haber, var mı, bul, göster" gibi kelimeleri sil!
-    4. Kullanıcı "filtreleri sıfırla", "aramayı temizle" derse intent: "clear" yap.
+    1. DETAY: Daha önce listelenen bir haberi (Örn: "2. haber", "ilk haberi aç") detaylandırmak istiyorsa intent: "detail", "list_index": [sayı] ver.
+    2. DEVAM ET: Kullanıcı "devam et", "sonraki haberler", "başka var mı" diyorsa intent: "continue". (Önceki aramayı bozmaz).
+    3. GENEL LİSTE/ÖZET: Kullanıcı "özet ver", "haberleri özetle", "neler var", "liste", "tüm haberler" diyorsa intent: "general_list" yap. (Bu, arama kutusunu temizler).
+    4. YENİ ARAMA: Kullanıcı BELİRLİ bir konu veya kaynak adı söyleyerek arama istiyorsa (Örn: "soma haberleri", "iş kazası", "sözcü") intent: "search" yap. "search_query" alanına aranan konuyu yaz. ("haber, var mı" kelimelerini sil!)
     5. ui_message: Ekranda belirecek kısa bilgi.
     
-    JSON FORMATI: {"intent":"search|detail|continue|clear", "list_index": 1, "search_query":"", "ui_message":""}`;
+    JSON FORMATI: {"intent":"search|detail|continue|general_list", "list_index": 1, "search_query":"", "ui_message":""}`;
 
     let aiData;
     try {
@@ -200,12 +197,15 @@ async function processVoiceCommand(komut) {
         if(myCmdId !== currentVoiceCmdId) return;
         aiData = JSON.parse(intentResult);
     } catch (e) {
+        if (e.message === "NO_KEY") return sesliOkuAsync("Lütfen ayarlardan API anahtarı ekleyin.", myCmdId, false);
         return sesliOkuAsync("Bağlantı sorunu yaşıyorum.", myCmdId, false);
     }
 
     if(typeof showToastGlobal === 'function') showToastGlobal("🤖 " + aiData.ui_message, 4000);
 
-    // EYLEM: DETAY OKUMA
+    const searchInput = document.getElementById('searchInput');
+
+    // EYLEM 1: DETAY OKUMA
     if (aiData.intent === "detail" && aiData.list_index) {
         let index = aiData.list_index - 1;
         if (index < 0 || index >= currentListedArticles.length) {
@@ -214,110 +214,111 @@ async function processVoiceCommand(komut) {
         let targetArticle = currentListedArticles[index];
         return await handleDeepResearch(targetArticle, aiData.list_index, myCmdId);
     } 
-    // EYLEM: ARAMA, TEMİZLEME VEYA LİSTELEMEYE DEVAM ETME
-    else {
-        const searchInput = document.getElementById('searchInput');
+    // EYLEM 2: GENEL ÖZET/LİSTE (Aramayı temizle)
+    else if (aiData.intent === "general_list") {
+        if (searchInput) searchInput.value = "";
+        if(typeof handleSearch === 'function') handleSearch(true);
+        await sesliOkuAsync("Sizin için güncel haberleri derliyorum...", myCmdId, false);
+    }
+    // EYLEM 3: YENİ ARAMA
+    else if (aiData.intent === "search") {
+        if (searchInput) searchInput.value = aiData.search_query || "";
+        if(typeof handleSearch === 'function') handleSearch(true);
+        await sesliOkuAsync("İstediğiniz haberleri arıyorum...", myCmdId, false);
+    }
+    // "continue" (Devam et) durumunda filtreye dokunmuyoruz.
+
+    // Haberlerin Ağdan Çekilmesini Bekleme (Polling)
+    let waitCount = 0;
+    let unread = [];
+    let currentFiltered = [];
+    
+    while (waitCount < 5 && isVoiceActive && myCmdId === currentVoiceCmdId) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        waitCount++;
+        currentFiltered = (typeof filteredArticles !== 'undefined' ? filteredArticles : []);
+        unread = currentFiltered.filter(a => !voiceReadLinks.has(a.link)).slice(0, 5); 
         
-        if (aiData.intent === "clear") {
-            if (searchInput) searchInput.value = "";
-            if(typeof handleSearch === 'function') handleSearch(true);
-            await sesliOkuAsync("Aramayı temizledim, tüm haberleri listeliyorum...", myCmdId, false);
-        }
-        else if (aiData.intent === "search") {
-            if (searchInput) searchInput.value = aiData.search_query || "";
-            if(typeof handleSearch === 'function') handleSearch(true);
-            await sesliOkuAsync("İstediğiniz haberleri arıyorum...", myCmdId, false);
+        let isFetching = typeof isFetchingRefresh !== 'undefined' ? isFetchingRefresh : false;
+        if (unread.length > 0 && !isFetching) break; 
+    }
+
+    if (myCmdId !== currentVoiceCmdId || !isVoiceActive) return;
+
+    if (unread.length === 0) {
+        return sesliOkuAsync("Bu kriterlere uygun listelenecek yeni haber bulamadım.", myCmdId, false);
+    }
+
+    // KOPYA HABER FİLTRESİ (DEDUPLICATION)
+    let haberlerMetni = unread.map((h, i) => `[ID: ${i}] ${h.title}`).join("\n");
+    
+    const summaryPrompt = `Sen bir spikersin. Aşağıdaki haberleri incele. BİREBİR AYNI konuyu anlatan kopya haberler varsa sadece birini tut, kopyaları yoksay. 
+    Kalan benzersiz haberlerin her birini sadece 1 cümleyle özetle.
+    SADECE JSON formatında bir dizi dön. Format şu şekilde olmalı:
+    [{"id": 0, "summary": "Özet metni..."}, {"id": 2, "summary": "Özet metni..."}]
+    HABERLER:\n${haberlerMetni}`;
+
+    try {
+        const summaryResult = await fetchFromGroq(summaryPrompt, "Özetle", false);
+        if (myCmdId !== currentVoiceCmdId) return;
+
+        let parsedArray = [];
+        try { 
+            parsedArray = JSON.parse(summaryResult); 
+        } catch(e) { 
+            return sesliOkuAsync("Haberleri derlerken bir hata oluştu.", myCmdId, false);
         }
 
-        let waitCount = 0;
-        let unread = [];
-        let currentFiltered = [];
-        
-        while (waitCount < 5 && isVoiceActive && myCmdId === currentVoiceCmdId) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            waitCount++;
-            currentFiltered = (typeof filteredArticles !== 'undefined' ? filteredArticles : []);
-            unread = currentFiltered.filter(a => !voiceReadLinks.has(a.link)).slice(0, 5); 
+        currentListedArticles = [];
+        let validSummaries = [];
+
+        // Yeni ve temizlenmiş listeyi hafızaya al
+        parsedArray.forEach((item) => {
+            if (unread[item.id]) {
+                currentListedArticles.push(unread[item.id]);
+                validSummaries.push(item.summary);
+            }
+        });
+
+        if (validSummaries.length === 0) return sesliOkuAsync("Okunacak yeni haber kalmadı.", myCmdId, false);
+
+        for (let i = 0; i < validSummaries.length; i++) {
+            if (myCmdId !== currentVoiceCmdId || !isVoiceActive) break;
             
-            let isFetching = typeof isFetchingRefresh !== 'undefined' ? isFetchingRefresh : false;
-            if (unread.length > 0 && !isFetching) break; 
-        }
-
-        if (myCmdId !== currentVoiceCmdId || !isVoiceActive) return;
-
-        if (unread.length === 0) {
-            return sesliOkuAsync("Bu kriterlere uygun listelenecek yeni haber bulamadım.", myCmdId, false);
-        }
-
-        // YENİ DEDUPLICATION (KOPYA ELEME) MANTIĞI İÇİN HABERLERE ID VERİYORUZ
-        let haberlerMetni = unread.map((h, i) => `[ID: ${i}] ${h.title}`).join("\n");
-        
-        const summaryPrompt = `Sen bir spikersin. Aşağıdaki haberleri incele. Eğer BİREBİR AYNI konuyu/olayı anlatan kopya haberler varsa sadece birini tut, kopyaları yoksay. 
-        Kalan benzersiz haberlerin her birini sadece 1 cümleyle özetle.
-        SADECE JSON formatında bir dizi dön. Format şu şekilde olmalı:
-        [{"id": 0, "summary": "1. Haber: [Özet metni...]"}, {"id": 2, "summary": "2. Haber: [Özet metni...]"}]
-        HABERLER:\n${haberlerMetni}`;
-
-        try {
-            const summaryResult = await fetchFromGroq(summaryPrompt, "Özetle", false);
-            if (myCmdId !== currentVoiceCmdId) return;
-
-            let parsedArray = [];
-            try { 
-                parsedArray = JSON.parse(summaryResult); 
-            } catch(e) { 
-                // JSON patlarsa Fallback
-                return sesliOkuAsync("Haberleri derlerken bir hata oluştu.", myCmdId, false);
-            }
-
-            // Kopya olmayan, AI tarafından seçilen haberleri hafızaya al
-            currentListedArticles = [];
-            let validSummaries = [];
-
-            parsedArray.forEach((item) => {
-                if (unread[item.id]) {
-                    currentListedArticles.push(unread[item.id]);
-                    validSummaries.push(item.summary);
-                }
-            });
-
-            if (validSummaries.length === 0) return sesliOkuAsync("Okunacak yeni haber kalmadı.", myCmdId, false);
-
-            for (let i = 0; i < validSummaries.length; i++) {
-                if (myCmdId !== currentVoiceCmdId || !isVoiceActive) break;
-                
-                voiceReadLinks.add(currentListedArticles[i].link); 
-                
-                // YENİ: İlk haberde kutuyu temizle, diğerlerinde (i > 0) alta satır ekle (append: true)
-                let shouldAppend = (i > 0);
-                await sesliOkuAsync(validSummaries[i], myCmdId, shouldAppend);
-                
-                if (i < validSummaries.length - 1 && myCmdId === currentVoiceCmdId) {
-                    await new Promise(r => setTimeout(r, 1000)); 
-                }
-            }
+            voiceReadLinks.add(currentListedArticles[i].link); 
             
-            if (myCmdId === currentVoiceCmdId) {
-                // Sona ekleme (append: true) yaparak asistanın son sorusunu listeye yapıştırıyoruz
-                await sesliOkuAsync("Dinlemek istediğiniz haberin numarasını söyleyebilir veya devam et diyebilirsiniz.", myCmdId, true);
-            }
+            // GARANTİLİ NUMARALANDIRMA (Yapay zekanın hatalarını düzeltir)
+            let cleanSummary = validSummaries[i].replace(/^\d+[\.\-\)]?\s*(Haber|Haber:|Sıra:)?\s*/i, '').trim();
+            let finalSpokenText = `${i + 1}. Haber: ${cleanSummary}`;
 
-        } catch (e) {
-            if (myCmdId === currentVoiceCmdId) await sesliOkuAsync("Özetleme sırasında bir hata oluştu.", myCmdId, false);
+            let shouldAppend = (i > 0);
+            await sesliOkuAsync(finalSpokenText, myCmdId, shouldAppend);
+            
+            if (i < validSummaries.length - 1 && myCmdId === currentVoiceCmdId) {
+                await new Promise(r => setTimeout(r, 1000)); 
+            }
         }
+        
+        if (myCmdId === currentVoiceCmdId) {
+            await sesliOkuAsync("Dinlemek istediğiniz haberin numarasını söyleyebilir veya devam et diyebilirsiniz.", myCmdId, true);
+        }
+
+    } catch (e) {
+        if (myCmdId === currentVoiceCmdId) await sesliOkuAsync("Özetleme sırasında bir hata oluştu.", myCmdId, false);
     }
 }
 
+// --- EKRANDAN OKUYAN DETAY MODU ---
 async function handleDeepResearch(article, listIndex, myCmdId) {
     if(typeof openModal === 'function') openModal(article);
     
-    // Detay okumaya geçerken altyazıyı sıfırlıyoruz (eski liste gidiyor, append = false)
     sesliOkuAsync(`${listIndex}. haberin detaylarına iniyorum, lütfen bekleyin...`, myCmdId, false);
 
     let fullText = "";
     let isDone = false;
     let seconds = 0;
 
+    // Ekrandaki DOM'a haberin yansımasını bekle
     while (seconds < 12 && myCmdId === currentVoiceCmdId && isVoiceActive) {
         await new Promise(r => setTimeout(r, 1000));
         seconds++;
@@ -340,7 +341,6 @@ async function handleDeepResearch(article, listIndex, myCmdId) {
             }
         }
         
-        // Bu bilgilendirme mesajlarını ekrana append etmeye gerek yok, eskisi silinip yenisi yazılsın (append=false)
         if (seconds === 4 && !isDone) {
             sesliOkuAsync("Ekrandaki metinleri analiz ediyorum...", myCmdId, false);
         }
@@ -369,9 +369,9 @@ async function handleDeepResearch(article, listIndex, myCmdId) {
         if (myCmdId !== currentVoiceCmdId) return;
         voiceReadLinks.add(article.link); 
         
-        // Detay okumasını tek parça olarak ekrana basıyoruz (append = false)
         await sesliOkuAsync(res, myCmdId, false);
 
+        // Detay okuması bitince okuma modunu kapatıp listeye dön
         if (myCmdId === currentVoiceCmdId && typeof closeModalSafe === 'function') {
             setTimeout(() => { if (myCmdId === currentVoiceCmdId && isVoiceActive) closeModalSafe('newsModal'); }, 1000);
         }
