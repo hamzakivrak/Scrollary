@@ -1,4 +1,4 @@
-// sesli-asistan.js - Sadece Kelime Araması Yapan, Filtrelere Dokunmayan Sürüm
+// sesli-asistan.js - Detay Okuması Sonrası Listeye Dönüş Eklenmiş Sürüm
 
 let voiceReadLinks = new Set();
 let lastVoiceCommand = "";
@@ -126,7 +126,8 @@ async function processVoiceCommand(komut) {
     let myCmdId = currentVoiceCmdId;
     if (!isVoiceActive) return;
     
-    // YENİ PROMPT: Kaynakları da, konuları da sadece arama kutusuna yazdırıyoruz!
+    const sourceNames = typeof RSS_FEEDS !== 'undefined' ? RSS_FEEDS.map(f => f.name) : [];
+    
     const intentSystemPrompt = `Sen akıllı bir haber asistanısın. Kullanıcı komutunu SADECE JSON vererek analiz et.
     
     KURALLAR:
@@ -172,8 +173,6 @@ async function processVoiceCommand(komut) {
         // EĞER YENİ ARAMA (SOMA veya SÖZCÜ) YAPILACAKSA
         else if (aiData.intent === "search") {
             if (searchInput) searchInput.value = aiData.search_query || "";
-            // DİKKAT: Artık sistem filtreleriyle (activeSources) KESİNLİKLE OYNAMIYORUZ.
-            // Sadece arama kutusuna yazıp handleSearch'i tetikliyoruz.
             if(typeof handleSearch === 'function') handleSearch(true);
             await sesliOkuAsync("İstediğiniz haberleri arıyorum...", myCmdId);
         }
@@ -276,7 +275,15 @@ async function handleDeepResearch(article, listIndex, myCmdId) {
     if (myCmdId !== currentVoiceCmdId || !isVoiceActive) return;
 
     if (!isDone || !fullText || fullText.length < 50) {
-        return await sesliOkuAsync("Maalesef sitenin güvenliği metni ekrana çekmeme izin vermedi. Sağ üstteki mavi oktan orijinal haberi açabilirsiniz.", myCmdId);
+        await sesliOkuAsync("Maalesef sitenin güvenliği metni ekrana çekmeme izin vermedi. Sağ üstteki mavi oktan orijinal haberi açabilirsiniz.", myCmdId);
+        
+        // Okuyamadıysa da 1 sn sonra geri listeye dönsün
+        if (myCmdId === currentVoiceCmdId && typeof closeModalSafe === 'function') {
+            setTimeout(() => {
+                if (myCmdId === currentVoiceCmdId && isVoiceActive) closeModalSafe('newsModal');
+            }, 1000);
+        }
+        return;
     }
 
     const detailPrompt = `Sen profesyonel bir haber spikerisin. Aşağıdaki metinden yararlanarak olayın ana detaylarını 3-4 cümleyle akıcı Türkçe ile özetle.
@@ -288,7 +295,26 @@ async function handleDeepResearch(article, listIndex, myCmdId) {
         if (myCmdId !== currentVoiceCmdId) return;
         voiceReadLinks.add(article.link); 
         await sesliOkuAsync(res, myCmdId);
+
+        // YENİ EKLENEN KISIM: Okuma bittikten sonra 1 saniye bekleyip listeye geri dön
+        if (myCmdId === currentVoiceCmdId && typeof closeModalSafe === 'function') {
+            setTimeout(() => {
+                if (myCmdId === currentVoiceCmdId && isVoiceActive) {
+                    closeModalSafe('newsModal');
+                }
+            }, 1000);
+        }
+
     } catch(e) { 
-        if (myCmdId === currentVoiceCmdId) await sesliOkuAsync("Haberin detaylarını özetlerken bir sorun oluştu.", myCmdId); 
+        if (myCmdId === currentVoiceCmdId) {
+            await sesliOkuAsync("Haberin detaylarını özetlerken bir sorun oluştu.", myCmdId);
+            
+            // Hata alsa bile 1 sn sonra geri dönsün
+            setTimeout(() => {
+                if (myCmdId === currentVoiceCmdId && isVoiceActive && typeof closeModalSafe === 'function') {
+                    closeModalSafe('newsModal');
+                }
+            }, 1000);
+        }
     }
 }
