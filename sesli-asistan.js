@@ -1,4 +1,4 @@
-// sesli-asistan.js - Güvenli ve Dinamik Sürüm (GitHub Uyumlu)
+// sesli-asistan.js - Çoklu API Anahtarı (Fallback) Destekli Sürüm
 
 document.addEventListener('DOMContentLoaded', () => {
     const micBtn = document.querySelector('.mic-fab');
@@ -18,7 +18,6 @@ document.addEventListener('DOMContentLoaded', () => {
     micBtn.addEventListener('click', (e) => {
         e.preventDefault();
         
-        // Eğer o an konuşan bir yapay zeka varsa onu sustur ve yeniden dinlemeye başla
         if(window.speechSynthesis.speaking) {
             window.speechSynthesis.cancel();
         }
@@ -33,7 +32,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         sesliOku("Hemen bakıyorum...");
         
-        // Yapay zeka sürecini başlat
         processVoiceCommand(komut); 
     };
 
@@ -52,19 +50,32 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function processVoiceCommand(komut) {
-    // GÜVENLİK GÜNCELLEMESİ: API Key'i ayarlardan (localStorage) dinamik olarak çekiyoruz
-    // Not: Senin sisteminde anahtar hangi isimle kaydediliyorsa (groqApiKey, apiKey vb.) onu bulur
-    const ASISTAN_GROQ_KEY = localStorage.getItem('groqApiKey') || localStorage.getItem('apiKey') || localStorage.getItem('GROQ_API_KEY');
+    // 1. ADIM: Tüm API Anahtarlarını Listeye Al
+    let apiKeys = [];
+    const keysString = localStorage.getItem('groqApiKeys');
+    
+    if (keysString) {
+        try {
+            const parsed = JSON.parse(keysString);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                apiKeys = parsed;
+            } else if (typeof parsed === 'string') {
+                apiKeys = [parsed]; // Eski kayıtlar düz metinse listeye çevir
+            }
+        } catch (e) {
+            console.error("API Anahtarı okunurken hata oluştu:", e);
+        }
+    }
 
-    if (!ASISTAN_GROQ_KEY) {
+    if (apiKeys.length === 0) {
         sesliOku("Lütfen ayarlar menüsünden Groq API anahtarınızı ekleyin.");
-        alert("Groq API Anahtarı bulunamadı! Lütfen ayarlardan anahtarınızı girin.");
+        alert("Groq API Anahtarı bulunamadı veya okunamadı! Lütfen ayarlardan anahtarınızı kontrol edin.");
         return;
     }
 
     let haberlerMetni = "";
     
-    // Güvenli Veri Çekme
+    // 2. ADIM: Haber Verilerini Çek
     if (typeof allArticles !== 'undefined' && allArticles.length > 0) {
         const secilenHaberler = allArticles.slice(0, 25); 
         haberlerMetni = secilenHaberler.map(h => `Başlık: ${h.title} | Kaynak: ${h.source}`).join("\n");
@@ -91,35 +102,50 @@ Görevlerin:
 Haber Listesi:
 ${haberlerMetni}`;
 
-    try {
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${ASISTAN_GROQ_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                // DİNAMİK MODEL GÜNCELLEMESİ: Senin kodlarında kullanılan LLaMA modeli
-                model: 'llama3-8b-8192', 
-                messages: [
-                    { role: 'system', content: systemPrompt }
-                ],
-                temperature: 0.5,
-                max_tokens: 350
-            })
-        });
+    // 3. ADIM: Çoklu Anahtar (Fallback) Döngüsü
+    async function tryFetchWithKey(keyIndex) {
+        // Eğer denenecek anahtar kalmadıysa uyar ve işlemi bitir
+        if (keyIndex >= apiKeys.length) {
+            console.warn("Tüm anahtarların kotası dolmuş veya geçersiz.");
+            sesliOku("Ekli olan tüm API anahtarlarınızın kotası dolmuş veya bir bağlantı sorunu var. Lütfen ayarlardan yeni bir anahtar ekleyin.");
+            return;
+        }
 
-        if (!response.ok) throw new Error("API Yanıt Hatası");
+        try {
+            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiKeys[keyIndex]}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: 'llama3-8b-8192', 
+                    messages: [
+                        { role: 'system', content: systemPrompt }
+                    ],
+                    temperature: 0.5,
+                    max_tokens: 350
+                })
+            });
 
-        const data = await response.json();
-        const yapayZekaYaniti = data.choices[0].message.content;
+            // Yanıt 200 OK değilse (Limit aşımı vs.) kasten hata fırlat ki catch bloğuna düşsün
+            if (!response.ok) throw new Error("API Limit veya Bağlantı Hatası");
 
-        sesliOku(yapayZekaYaniti);
+            const data = await response.json();
+            const yapayZekaYaniti = data.choices[0].message.content;
 
-    } catch (error) {
-        console.error("Groq Asistan Hatası:", error);
-        sesliOku("Bağlantı sorunu nedeniyle şu an özet yapamıyorum.");
+            // Başarılı olursa spiker okumaya başlasın
+            sesliOku(yapayZekaYaniti);
+
+        } catch (error) {
+            console.warn(`${keyIndex + 1}. anahtar başarısız oldu, listedeki bir sonraki anahtara geçiliyor...`);
+            // Çökerse listedeki bir sonraki anahtarı (keyIndex + 1) dene
+            await tryFetchWithKey(keyIndex + 1); 
+        }
     }
+
+    // İlk anahtardan (0. index) denemeye başla
+    await tryFetchWithKey(0);
 }
 
 function sesliOku(metin) {
