@@ -1,4 +1,4 @@
-// sesli-asistan.js - Anahtar Kelime Avcısı, DOM Okuyan, Dinamik ve Hızlı Sürüm
+// sesli-asistan.js - Sadece Kelime Araması Yapan, Filtrelere Dokunmayan Sürüm
 
 let voiceReadLinks = new Set();
 let lastVoiceCommand = "";
@@ -125,20 +125,18 @@ function sesliOkuAsync(metin, myCmdId) {
 async function processVoiceCommand(komut) {
     let myCmdId = currentVoiceCmdId;
     if (!isVoiceActive) return;
-
-    const sourceNames = typeof RSS_FEEDS !== 'undefined' ? RSS_FEEDS.map(f => f.name) : [];
     
-    // GÜNCELLENEN KISIM: Arama niyetini çok daha zeki ayıklayacak prompt kuralı eklendi.
+    // YENİ PROMPT: Kaynakları da, konuları da sadece arama kutusuna yazdırıyoruz!
     const intentSystemPrompt = `Sen akıllı bir haber asistanısın. Kullanıcı komutunu SADECE JSON vererek analiz et.
-    KAYNAKLAR: ${sourceNames.join(', ')}
     
     KURALLAR:
-    1. Kullanıcı "Haber 2", "3. haber", "ilk haberi aç" gibi daha önce listelenen bir haberi detaylandırmak istiyorsa intent: "detail", "list_index": [sayı] (Örn: 2) ver.
-    2. Kullanıcı "devam et", "sonraki haberler", "başka" diyorsa intent: "continue".
-    3. Kullanıcı YENİ bir arama istiyorsa intent: "search" yap. ÇOK ÖNEMLİ: "search_query" alanına asla cümlenin tamamını yazma. Sadece odaklanılan anahtar kelimeyi veya kelime grubunu yaz. (Örn: "soma ile ilgili haberler var mı" -> "soma", "iş kazası haberlerini bul" -> "iş kazası"). "haber, var mı, bul, göster, ile ilgili" gibi konuşma dili eklerini kesinlikle sil!
-    4. ui_message: Ekranda belirecek kısa bilgi.
+    1. Kullanıcı daha önce listelenen bir haberi (Örn: "2. haber", "ilk haberi aç") detaylandırmak istiyorsa intent: "detail", "list_index": [sayı] ver.
+    2. Kullanıcı "devam et", "sonraki haberler" diyorsa intent: "continue".
+    3. Kullanıcı YENİ bir konu veya bir kaynak adı söyleyerek arama istiyorsa intent: "search" yap. "search_query" alanına aranan konuyu veya kaynağın adını yaz. (Örn: "soma haberleri" -> "soma", "sözcü haberleri" -> "Sözcü", "iş kazası var mı" -> "iş kazası"). "haber, var mı, bul, göster" gibi kelimeleri sil!
+    4. Kullanıcı "filtreleri sıfırla", "aramayı temizle", "tüm haberleri göster" derse intent: "clear" yap.
+    5. ui_message: Ekranda belirecek kısa bilgi.
     
-    JSON FORMATI: {"intent":"search|detail|continue", "list_index": 1, "search_query":"", "source":"", "ui_message":""}`;
+    JSON FORMATI: {"intent":"search|detail|continue|clear", "list_index": 1, "search_query":"", "ui_message":""}`;
 
     let aiData;
     try {
@@ -161,20 +159,23 @@ async function processVoiceCommand(komut) {
         let targetArticle = currentListedArticles[index];
         return await handleDeepResearch(targetArticle, aiData.list_index, myCmdId);
     } 
-    // EYLEM: ARAMA VEYA LİSTELEMEYE DEVAM ETME
+    // EYLEM: ARAMA, TEMİZLEME VEYA LİSTELEMEYE DEVAM ETME
     else {
-        if (aiData.intent === "search") {
-            const searchInput = document.getElementById('searchInput');
-            if (searchInput) searchInput.value = aiData.search_query || "";
-
-            if (aiData.source) activeSources = [aiData.source]; 
-            else activeSources = sourceNames;
-            
-            if(typeof saveActiveSources === 'function') saveActiveSources();
-            if(typeof renderChips === 'function') renderChips();
+        const searchInput = document.getElementById('searchInput');
+        
+        // EĞER ARAMAYI SIFIRLA DEDİYSE
+        if (aiData.intent === "clear") {
+            if (searchInput) searchInput.value = "";
             if(typeof handleSearch === 'function') handleSearch(true);
-            
-            await sesliOkuAsync("Haberleri tarıyorum, listeyi hazırlıyorum...", myCmdId);
+            await sesliOkuAsync("Aramayı temizledim, tüm haberleri listeliyorum...", myCmdId);
+        }
+        // EĞER YENİ ARAMA (SOMA veya SÖZCÜ) YAPILACAKSA
+        else if (aiData.intent === "search") {
+            if (searchInput) searchInput.value = aiData.search_query || "";
+            // DİKKAT: Artık sistem filtreleriyle (activeSources) KESİNLİKLE OYNAMIYORUZ.
+            // Sadece arama kutusuna yazıp handleSearch'i tetikliyoruz.
+            if(typeof handleSearch === 'function') handleSearch(true);
+            await sesliOkuAsync("İstediğiniz haberleri arıyorum...", myCmdId);
         }
 
         let waitCount = 0;
