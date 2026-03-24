@@ -1,4 +1,4 @@
-// sesli-asistan.js - Çoklu API Anahtarı (Fallback) Destekli Sürüm
+// sesli-asistan.js - Tam Sürüm (Çoklu Anahtar + LLaMA 3.1 8B Instant Modeli)
 
 document.addEventListener('DOMContentLoaded', () => {
     const micBtn = document.querySelector('.mic-fab');
@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     micBtn.addEventListener('click', (e) => {
         e.preventDefault();
         
+        // Eğer o an konuşan bir yapay zeka varsa onu sustur ve yeniden dinlemeye başla
         if(window.speechSynthesis.speaking) {
             window.speechSynthesis.cancel();
         }
@@ -119,7 +120,8 @@ ${haberlerMetni}`;
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    model: 'llama3-8b-8192', 
+                    // TESTİ GEÇEN EN HIZLI MODEL BURAYA EKLENDİ
+                    model: 'llama-3.1-8b-instant', 
                     messages: [
                         { role: 'system', content: systemPrompt }
                     ],
