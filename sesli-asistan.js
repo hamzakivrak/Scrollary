@@ -1,18 +1,15 @@
-// sesli-asistan.js - Gelişmiş Dinamik Beklemeli, Hafızalı ve RAG Destekli Sürüm
+// sesli-asistan.js - Ekrandan (DOM) Okuma Yapan, Dinamik ve Hızlı Sürüm
 
 let voiceReadLinks = new Set();
 let lastVoiceCommand = "";
 let isVoiceActive = false;
-let currentVoiceCmdId = 0; // Birbirine giren asenkron işlemleri iptal etmek için kimlik
-
-// Asistanın hafızası: En son listelenen 5 haberi burada tutar, "Haber 3'ü aç" dendiğinde buradan çeker.
+let currentVoiceCmdId = 0; 
 let currentListedArticles = []; 
 
 document.addEventListener('DOMContentLoaded', () => {
     const micBtn = document.querySelector('.mic-fab');
     if (!micBtn) return;
 
-    // ZIRHLI SUSTUR BUTONU
     if (!document.getElementById('voiceStopBtn')) {
         let stopBtn = document.createElement('button');
         stopBtn.id = 'voiceStopBtn';
@@ -24,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.speechSynthesis.cancel();
             stopBtn.style.setProperty('display', 'none', 'important');
             isVoiceActive = false;
-            currentVoiceCmdId++; // Devam eden tüm arka plan işlemlerini kes
+            currentVoiceCmdId++; 
             micBtn.classList.remove('listening');
         });
     }
@@ -59,7 +56,6 @@ document.addEventListener('DOMContentLoaded', () => {
     recognition.onerror = () => { recognition.stop(); micBtn.classList.remove('listening'); };
 });
 
-// KOTA DOSTU AI İSTEK MOTORU
 async function fetchFromGroq(systemPrompt, userPrompt, isJson = false) {
     let apiKeys = [];
     const keysString = localStorage.getItem('groqApiKeys');
@@ -100,7 +96,6 @@ async function fetchFromGroq(systemPrompt, userPrompt, isJson = false) {
     throw new Error("ALL_KEYS_FAILED");
 }
 
-// ASENKRON SESLİ OKUMA FONKSİYONU (Beklemeler ve sequence için)
 function sesliOkuAsync(metin, myCmdId) {
     return new Promise((resolve) => {
         if (!isVoiceActive || myCmdId !== currentVoiceCmdId || !('speechSynthesis' in window)) return resolve();
@@ -109,7 +104,7 @@ function sesliOkuAsync(metin, myCmdId) {
         
         const utterance = new SpeechSynthesisUtterance(metin);
         utterance.lang = 'tr-TR';
-        utterance.rate = 1.5; // Okuma hızı 1.5x yapıldı
+        utterance.rate = 1.5; 
 
         const stopBtn = document.getElementById('voiceStopBtn');
         stopBtn.style.setProperty('display', 'block', 'important');
@@ -127,14 +122,12 @@ function sesliOkuAsync(metin, myCmdId) {
     });
 }
 
-// ANA İŞLEM DÖNGÜSÜ
 async function processVoiceCommand(komut) {
     let myCmdId = currentVoiceCmdId;
     if (!isVoiceActive) return;
 
     const sourceNames = typeof RSS_FEEDS !== 'undefined' ? RSS_FEEDS.map(f => f.name) : [];
     
-    // NİYET OKUMA SİSTEMİ (Hafıza Destekli)
     const intentSystemPrompt = `Sen akıllı bir haber asistanısın. Kullanıcı komutunu SADECE JSON vererek analiz et.
     KAYNAKLAR: ${sourceNames.join(', ')}
     
@@ -170,7 +163,6 @@ async function processVoiceCommand(komut) {
     // EYLEM: ARAMA VEYA LİSTELEMEYE DEVAM ETME
     else {
         if (aiData.intent === "search") {
-            // Yeni arama yapılıyorsa filtreleri güncelle ve ekrana yansıt
             const searchInput = document.getElementById('searchInput');
             if (searchInput) searchInput.value = aiData.search_query || "";
 
@@ -184,7 +176,6 @@ async function processVoiceCommand(komut) {
             await sesliOkuAsync("Haberleri tarıyorum, listeyi hazırlıyorum...", myCmdId);
         }
 
-        // Dinamik bekleme (Ağdan haberlerin çekilmesi)
         let waitCount = 0;
         let unread = [];
         let currentFiltered = [];
@@ -205,7 +196,6 @@ async function processVoiceCommand(komut) {
             return sesliOkuAsync("Bu kriterlere uygun listelenecek yeni haber bulamadım.", myCmdId);
         }
 
-        // Bulunan 5 haberi hafızaya al
         currentListedArticles = unread;
         let haberlerMetni = unread.map((h, i) => `[Haber ${i+1}] ${h.title}`).join("\n");
         
@@ -221,16 +211,15 @@ async function processVoiceCommand(komut) {
             try { summaryArray = JSON.parse(summaryResult); } 
             catch(e) { summaryArray = summaryResult.split('\n').filter(s => s.trim().length > 10); }
 
-            // Haberleri sırayla oku ve aralarında 2 saniye bekle
             for (let i = 0; i < summaryArray.length; i++) {
                 if (myCmdId !== currentVoiceCmdId || !isVoiceActive) break;
                 
-                voiceReadLinks.add(unread[i].link); // Okundu işaretle
+                voiceReadLinks.add(unread[i].link); 
                 await sesliOkuAsync(summaryArray[i], myCmdId);
                 
-                // Son haber değilse 2 saniye es ver
+                // HABERLER ARASI BEKLEME 1 SANİYEYE DÜŞÜRÜLDÜ
                 if (i < summaryArray.length - 1 && myCmdId === currentVoiceCmdId) {
-                    await new Promise(r => setTimeout(r, 2000)); 
+                    await new Promise(r => setTimeout(r, 1000)); 
                 }
             }
             
@@ -244,77 +233,59 @@ async function processVoiceCommand(komut) {
     }
 }
 
-// DETAY MODU: 10 Saniyelik Dinamik Polling ve Arayüz Entegrasyonu
+// YENİ EKRANDAN (DOM) OKUYAN DETAY MODU
 async function handleDeepResearch(article, listIndex, myCmdId) {
-    // UI Tarafında da haberi şık bir şekilde aç (Script.js'deki openModal tetiklenir)
     if(typeof openModal === 'function') openModal(article);
     
-    // Geri bildirim ile başla
-    sesliOkuAsync(`${listIndex}. haberin içeriğini çekiyorum, lütfen bekleyin...`, myCmdId);
+    sesliOkuAsync(`${listIndex}. haberin detaylarına iniyorum, lütfen bekleyin...`, myCmdId);
 
+    let fullText = "";
     let isDone = false;
-    let fullText = null;
-
-    // Arkaplanda metin çekme işlemini (Promise) başlat
-    const fetchTask = async () => {
-        const encodedUrl = encodeURIComponent(article.link);
-        const proxies = [
-            `https://corsproxy.io/?${encodedUrl}`,
-            `https://api.allorigins.win/raw?url=${encodedUrl}`,
-            `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}`
-        ];
-
-        for (let p of proxies) {
-            if (myCmdId !== currentVoiceCmdId) break;
-            try {
-                const ctrl = new AbortController();
-                const tid = setTimeout(() => ctrl.abort(), 8000); 
-                const res = await fetch(p, { signal: ctrl.signal });
-                clearTimeout(tid);
-                
-                if(!res.ok) continue;
-                const html = await res.text();
-                if(html.includes('security service') || html.length < 500) continue;
-                
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                const pTags = Array.from(doc.querySelectorAll('p, .content p, .news-text p, article p'));
-                const validText = pTags.map(p => p.textContent.trim()).filter(t => t.length > 60);
-                
-                if(validText.length > 0) {
-                    fullText = [...new Set(validText)].join(' ').substring(0, 2000); 
-                    break;
-                }
-            } catch(e) { continue; }
-        }
-        isDone = true;
-    };
-
-    fetchTask(); // Bekletmeden başlat
-
-    // 10 Saniyelik Bekleme ve Kullanıcıyı Bilgilendirme Döngüsü
     let seconds = 0;
-    while (!isDone && seconds < 10 && myCmdId === currentVoiceCmdId && isVoiceActive) {
+
+    // Asistan kendi kendine fetch atmıyor! Ekrana (DOM'a) metnin düşmesini bekliyor.
+    while (seconds < 12 && myCmdId === currentVoiceCmdId && isVoiceActive) {
         await new Promise(r => setTimeout(r, 1000));
         seconds++;
         
-        // Ara ara bilgi ver (Kullanıcı sıkılmasın)
+        const textContainer = document.getElementById('fullTextContainer');
+        if (textContainer) {
+            const htmlContent = textContainer.innerHTML;
+            
+            // Eğer "loading-pulse" (yükleniyor animasyonu) ekrandan gittiyse ve içeriğe metin geldiyse
+            if (!htmlContent.includes('loading-pulse') && textContainer.innerText.trim().length > 100) {
+                // Sadece <p> etiketleri içindeki temiz metinleri al (butonlar vs dahil olmasın)
+                const pTags = textContainer.querySelectorAll('p');
+                if (pTags.length > 0) {
+                    fullText = Array.from(pTags).map(p => p.textContent.trim()).join(' ');
+                } else {
+                    fullText = textContainer.innerText; // Fallback
+                }
+                
+                // Çok uzunsa Groq kotası için ilk 2000 karakteri al
+                fullText = fullText.substring(0, 2000); 
+                isDone = true;
+                break;
+            }
+        }
+        
+        // Ara ara bilgi ver
         if (seconds === 4 && !isDone) {
-            sesliOkuAsync("Bağlantı kuruldu, metni analiz ediyorum...", myCmdId);
+            sesliOkuAsync("Ekrandaki metinleri analiz ediyorum...", myCmdId);
         }
         if (seconds === 8 && !isDone) {
-            sesliOkuAsync("Sitenin güvenlik duvarı biraz zorluyor, aşmayı deniyorum...", myCmdId);
+            sesliOkuAsync("Bağlantı biraz yavaş, haberin ekrana düşmesini bekliyorum...", myCmdId);
         }
     }
 
     if (myCmdId !== currentVoiceCmdId || !isVoiceActive) return;
 
-    if (!fullText) {
-        return await sesliOkuAsync("Maalesef 10 saniye içinde güvenlik duvarını aşamadım. Ekranda açılan sayfadan orijinal haberi okuyabilirsiniz.", myCmdId);
+    if (!isDone || !fullText || fullText.length < 50) {
+        return await sesliOkuAsync("Maalesef sitenin güvenliği metni ekrana çekmeme izin vermedi. Sağ üstteki mavi oktan orijinal haberi açabilirsiniz.", myCmdId);
     }
 
-    // Metin başarıyla geldiyse özetlet
-    const detailPrompt = `Sen uzman bir spikersin. Aşağıdaki haber metnini kullanarak olayın detaylarını, uzatmadan 3-4 cümleyle akıcı Türkçe ile özetle.
+    // Ekranda (DOM) görülen metin başarıyla çekildiyse Groq'a özetlet
+    const detailPrompt = `Sen profesyonel bir haber spikerisin. Aşağıdaki metinden yararlanarak olayın ana detaylarını 3-4 cümleyle akıcı Türkçe ile özetle.
     Haber: ${article.title}
     Metin: ${fullText}`;
 
@@ -324,6 +295,6 @@ async function handleDeepResearch(article, listIndex, myCmdId) {
         voiceReadLinks.add(article.link); 
         await sesliOkuAsync(res, myCmdId);
     } catch(e) { 
-        if (myCmdId === currentVoiceCmdId) await sesliOkuAsync("Haberin detaylarını analiz ederken bir hata oluştu.", myCmdId); 
+        if (myCmdId === currentVoiceCmdId) await sesliOkuAsync("Haberin detaylarını özetlerken bir sorun oluştu.", myCmdId); 
     }
 }
