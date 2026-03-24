@@ -1,10 +1,11 @@
-// sesli-asistan.js - Detay Okuması Sonrası Listeye Dönüş Eklenmiş Sürüm
+// sesli-asistan.js - Altyazı (Subtitle) Destekli, DOM Okuyan, Dinamik Sürüm
 
 let voiceReadLinks = new Set();
 let lastVoiceCommand = "";
 let isVoiceActive = false;
 let currentVoiceCmdId = 0; 
 let currentListedArticles = []; 
+let subtitleTimeout = null; // Altyazı zamanlayıcısı
 
 document.addEventListener('DOMContentLoaded', () => {
     const micBtn = document.querySelector('.mic-fab');
@@ -23,6 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
             isVoiceActive = false;
             currentVoiceCmdId++; 
             micBtn.classList.remove('listening');
+            hideVoiceSubtitle(0); // Susturulunca altyazıyı anında gizle
         });
     }
 
@@ -41,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if(window.speechSynthesis.speaking) {
             window.speechSynthesis.cancel();
             document.getElementById('voiceStopBtn').style.setProperty('display', 'none', 'important');
+            hideVoiceSubtitle(0);
         }
         recognition.start();
         micBtn.classList.add('listening'); 
@@ -55,6 +58,29 @@ document.addEventListener('DOMContentLoaded', () => {
     recognition.onspeechend = () => { recognition.stop(); micBtn.classList.remove('listening'); };
     recognition.onerror = () => { recognition.stop(); micBtn.classList.remove('listening'); };
 });
+
+// --- DİNAMİK ALTYAZI (SUBTITLE) MOTORU ---
+function showVoiceSubtitle(text) {
+    let subBox = document.getElementById('voiceSubtitleBox');
+    if (!subBox) {
+        subBox = document.createElement('div');
+        subBox.id = 'voiceSubtitleBox';
+        subBox.style.cssText = 'position:fixed; bottom:110px; left:50%; transform:translateX(-50%); width:90%; max-width:600px; background:rgba(15, 23, 42, 0.95); color:#e2e8f0; padding:15px 20px; border-radius:12px; border:1px solid var(--accent); z-index:999998; box-shadow:0 10px 25px rgba(0,0,0,0.5); text-align:center; font-size:1rem; line-height:1.5; opacity:0; transition:opacity 0.4s ease; pointer-events:none; backdrop-filter:blur(10px);';
+        document.body.appendChild(subBox);
+    }
+    subBox.innerHTML = `🎙️ ${text}`;
+    subBox.style.opacity = '1';
+    clearTimeout(subtitleTimeout);
+}
+
+function hideVoiceSubtitle(delay = 5000) {
+    clearTimeout(subtitleTimeout);
+    subtitleTimeout = setTimeout(() => {
+        const subBox = document.getElementById('voiceSubtitleBox');
+        if (subBox) subBox.style.opacity = '0';
+    }, delay);
+}
+// ------------------------------------------
 
 async function fetchFromGroq(systemPrompt, userPrompt, isJson = false) {
     let apiKeys = [];
@@ -102,6 +128,8 @@ function sesliOkuAsync(metin, myCmdId) {
         
         window.speechSynthesis.cancel();
         
+        showVoiceSubtitle(metin); // Okumaya başladığında altyazıyı ekrana bas
+
         const utterance = new SpeechSynthesisUtterance(metin);
         utterance.lang = 'tr-TR';
         utterance.rate = 1.5; 
@@ -111,10 +139,12 @@ function sesliOkuAsync(metin, myCmdId) {
 
         utterance.onend = () => { 
             stopBtn.style.setProperty('display', 'none', 'important'); 
+            hideVoiceSubtitle(5000); // Konuşma bittikten 5 saniye sonra gizle
             resolve(); 
         };
         utterance.onerror = () => { 
             stopBtn.style.setProperty('display', 'none', 'important'); 
+            hideVoiceSubtitle(0);
             resolve(); 
         };
 
@@ -164,13 +194,11 @@ async function processVoiceCommand(komut) {
     else {
         const searchInput = document.getElementById('searchInput');
         
-        // EĞER ARAMAYI SIFIRLA DEDİYSE
         if (aiData.intent === "clear") {
             if (searchInput) searchInput.value = "";
             if(typeof handleSearch === 'function') handleSearch(true);
             await sesliOkuAsync("Aramayı temizledim, tüm haberleri listeliyorum...", myCmdId);
         }
-        // EĞER YENİ ARAMA (SOMA veya SÖZCÜ) YAPILACAKSA
         else if (aiData.intent === "search") {
             if (searchInput) searchInput.value = aiData.search_query || "";
             if(typeof handleSearch === 'function') handleSearch(true);
@@ -277,7 +305,6 @@ async function handleDeepResearch(article, listIndex, myCmdId) {
     if (!isDone || !fullText || fullText.length < 50) {
         await sesliOkuAsync("Maalesef sitenin güvenliği metni ekrana çekmeme izin vermedi. Sağ üstteki mavi oktan orijinal haberi açabilirsiniz.", myCmdId);
         
-        // Okuyamadıysa da 1 sn sonra geri listeye dönsün
         if (myCmdId === currentVoiceCmdId && typeof closeModalSafe === 'function') {
             setTimeout(() => {
                 if (myCmdId === currentVoiceCmdId && isVoiceActive) closeModalSafe('newsModal');
@@ -296,7 +323,6 @@ async function handleDeepResearch(article, listIndex, myCmdId) {
         voiceReadLinks.add(article.link); 
         await sesliOkuAsync(res, myCmdId);
 
-        // YENİ EKLENEN KISIM: Okuma bittikten sonra 1 saniye bekleyip listeye geri dön
         if (myCmdId === currentVoiceCmdId && typeof closeModalSafe === 'function') {
             setTimeout(() => {
                 if (myCmdId === currentVoiceCmdId && isVoiceActive) {
@@ -309,7 +335,6 @@ async function handleDeepResearch(article, listIndex, myCmdId) {
         if (myCmdId === currentVoiceCmdId) {
             await sesliOkuAsync("Haberin detaylarını özetlerken bir sorun oluştu.", myCmdId);
             
-            // Hata alsa bile 1 sn sonra geri dönsün
             setTimeout(() => {
                 if (myCmdId === currentVoiceCmdId && isVoiceActive && typeof closeModalSafe === 'function') {
                     closeModalSafe('newsModal');
