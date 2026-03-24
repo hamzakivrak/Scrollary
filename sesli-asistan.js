@@ -1,7 +1,4 @@
-// sesli-asistan.js - Tamamlanmış Sürüm (Dinleme + Zeka + Konuşma)
-
-// Kendi Groq API anahtarını buraya yapıştır
-const ASISTAN_GROQ_KEY = "BURAYA_GROQ_API_ANAHTARINI_YAZ"; 
+// sesli-asistan.js - Güvenli ve Dinamik Sürüm (GitHub Uyumlu)
 
 document.addEventListener('DOMContentLoaded', () => {
     const micBtn = document.querySelector('.mic-fab');
@@ -34,7 +31,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const komut = event.results[0][0].transcript.toLowerCase();
         micBtn.classList.remove('listening'); 
         
-        // Komut alındığında kullanıcıya sesli bir onay verelim
         sesliOku("Hemen bakıyorum...");
         
         // Yapay zeka sürecini başlat
@@ -55,13 +51,22 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 });
 
-// YENİ BÖLÜM: YAPAY ZEKA VE HABER FİLTRELEME MANTIĞI
 async function processVoiceCommand(komut) {
+    // GÜVENLİK GÜNCELLEMESİ: API Key'i ayarlardan (localStorage) dinamik olarak çekiyoruz
+    // Not: Senin sisteminde anahtar hangi isimle kaydediliyorsa (groqApiKey, apiKey vb.) onu bulur
+    const ASISTAN_GROQ_KEY = localStorage.getItem('groqApiKey') || localStorage.getItem('apiKey') || localStorage.getItem('GROQ_API_KEY');
+
+    if (!ASISTAN_GROQ_KEY) {
+        sesliOku("Lütfen ayarlar menüsünden Groq API anahtarınızı ekleyin.");
+        alert("Groq API Anahtarı bulunamadı! Lütfen ayarlardan anahtarınızı girin.");
+        return;
+    }
+
     let haberlerMetni = "";
     
-    // Güvenlik Önlemi: allArticles dizisi hazır değilse doğrudan ekrandaki başlıkları topla
+    // Güvenli Veri Çekme
     if (typeof allArticles !== 'undefined' && allArticles.length > 0) {
-        const secilenHaberler = allArticles.slice(0, 25); // Çok fazla token harcamamak için ilk 25 haber
+        const secilenHaberler = allArticles.slice(0, 25); 
         haberlerMetni = secilenHaberler.map(h => `Başlık: ${h.title} | Kaynak: ${h.source}`).join("\n");
     } else {
         const baslikElementleri = document.querySelectorAll('.news-content h3');
@@ -74,7 +79,6 @@ async function processVoiceCommand(komut) {
         return;
     }
 
-    // Groq'a vereceğimiz gizli direktif (Sistem Promptu)
     const systemPrompt = `Sen bir akıllı araç içi sesli haber spikerisin.
 Kullanıcının senden istediği şey: "${komut}"
 
@@ -95,12 +99,13 @@ ${haberlerMetni}`;
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: 'llama3-70b-8192', // Veya kendi kullandığın hızlı Groq modeli
+                // DİNAMİK MODEL GÜNCELLEMESİ: Senin kodlarında kullanılan LLaMA modeli
+                model: 'llama3-8b-8192', 
                 messages: [
                     { role: 'system', content: systemPrompt }
                 ],
                 temperature: 0.5,
-                max_tokens: 300 // Yanıtı kısa tutmaya zorluyoruz
+                max_tokens: 350
             })
         });
 
@@ -109,7 +114,6 @@ ${haberlerMetni}`;
         const data = await response.json();
         const yapayZekaYaniti = data.choices[0].message.content;
 
-        // Groq'tan gelen zekice yazılmış cevabı hoparlörden oku
         sesliOku(yapayZekaYaniti);
 
     } catch (error) {
@@ -118,13 +122,12 @@ ${haberlerMetni}`;
     }
 }
 
-// YENİ BÖLÜM: METNİ SESE ÇEVİRME (TEXT-TO-SPEECH)
 function sesliOku(metin) {
     if ('speechSynthesis' in window) {
         const utterance = new SpeechSynthesisUtterance(metin);
         utterance.lang = 'tr-TR';
-        utterance.rate = 1.0; // Konuşma hızı (İstersen 1.1 veya 1.2 yapıp hızlandırabilirsin)
-        utterance.pitch = 1.0; // Sesin kalınlık/incelik tonu
+        utterance.rate = 1.0; 
+        utterance.pitch = 1.0; 
         
         window.speechSynthesis.speak(utterance);
     } else {
