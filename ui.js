@@ -49,10 +49,21 @@ window.addEventListener('popstate', (e) => {
     document.getElementById('sourceFilterModal').style.display = 'none';
     document.getElementById('guideModal').style.display = 'none';
     document.getElementById('voiceModal').style.display = 'none';
+
+    // EKSİK OLAN HAYATİ TEMİZLİK (Geri tuşuna basınca sesin ve arka plan videolarının susması için)
+    window.speechSynthesis.cancel();
     
     const aiModal = document.getElementById('aiInlineResult');
     if(aiModal) aiModal.classList.remove('show');
-    
+
+    const oldIframe = document.getElementById('modalIframe');
+    if(oldIframe) {
+        const newIframe = document.createElement('iframe');
+        newIframe.id = 'modalIframe';
+        newIframe.className = 'modal-iframe';
+        oldIframe.parentNode.replaceChild(newIframe, oldIframe);
+    }
+
     const wrapper = document.getElementById('controlsWrapper');
     if (wrapper && !wrapper.classList.contains('collapsed')) {
         wrapper.classList.add('collapsed');
@@ -63,24 +74,29 @@ window.addEventListener('popstate', (e) => {
 });
 
 function closeModalSafe(modalId) {
+    // 1. ŞARTSIZ ŞURTSUZ ÖNCE EKRANI KAPAT VE TEMİZLİĞİ YAP
+    document.getElementById(modalId).style.display = 'none';
+    document.body.style.overflow = 'auto';
+
+    if(modalId === 'newsModal') {
+        window.speechSynthesis.cancel();
+        
+        const aiModal = document.getElementById('aiInlineResult');
+        if(aiModal) aiModal.classList.remove('show');
+
+        const oldIframe = document.getElementById('modalIframe');
+        if(oldIframe) {
+            const newIframe = document.createElement('iframe');
+            newIframe.id = 'modalIframe';
+            newIframe.className = 'modal-iframe';
+            oldIframe.parentNode.replaceChild(newIframe, oldIframe);
+        }
+    }
+
+    // 2. EĞER TARAYICI GEÇMİŞİNDE BİZİM MODAL VARSA, ONU DA SİL 
+    // (Iframe tuzağı yaşansa bile ekran zaten kapandığı için kullanıcı sorunu hissetmez)
     if(history.state && history.state.modal === modalId) {
         history.back();
-    } else {
-        document.getElementById(modalId).style.display = 'none';
-        document.body.style.overflow = 'auto';
-        if(modalId === 'newsModal') {
-            window.speechSynthesis.cancel();
-            const aiModal = document.getElementById('aiInlineResult');
-            if(aiModal) aiModal.classList.remove('show');
-            
-            const oldIframe = document.getElementById('modalIframe');
-            if(oldIframe) { 
-                const newIframe = document.createElement('iframe');
-                newIframe.id = 'modalIframe'; 
-                newIframe.className = 'modal-iframe'; 
-                oldIframe.parentNode.replaceChild(newIframe, oldIframe); 
-            }
-        }
     }
 }
 
