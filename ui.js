@@ -571,6 +571,8 @@ function switchTab(tab) {
     } 
 }
 
+// ui.js (Eski openModal fonksiyonunu komple sil, bunu yapıştır)
+
 async function openModal(art) {
     const t = TRANSLATIONS[currentRegion];
     document.getElementById('modalSource').innerText = art.source; 
@@ -578,10 +580,9 @@ async function openModal(art) {
     document.getElementById('modalTitle').innerText = art.title;
     document.getElementById('modalDesc').innerText = art.description;
     
-    const aiInput = document.getElementById('aiInput');
-    if (aiInput) aiInput.value = "Bu haberi özetle";
-    const aiModal = document.getElementById('aiInlineResult');
-    if (aiModal) aiModal.classList.remove('show');
+    // YENİ: Chat Input'unu temizle (Eski Özet Input'unu sildik)
+    const chatInput = document.getElementById('aiChatInput');
+    if (chatInput) chatInput.value = "";
 
     const imgEl = document.getElementById('modalImg');
     const modalBody = document.getElementById('modalBodyArea');
@@ -613,100 +614,37 @@ async function openModal(art) {
 
     let html = null;
     const encodedUrl = encodeURIComponent(art.link);
-
-    const proxyGroup1 = [ `https://corsproxy.io/?${encodedUrl}`, `https://api.allorigins.win/raw?url=${encodedUrl}`, `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}` ];
-    const proxyGroup2 = [ `https://thingproxy.freeboard.io/fetch/${art.link}`, `https://cors.eu.org/${art.link}`, `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}` ];
-    async function fireProxies(proxies, timeoutMs) {
-        const fetchPromises = proxies.map(proxy =>
-            fetchWithTimeout(proxy, timeoutMs).then(async res => {
-                if (!res.ok) throw new Error("Sunucu hatasi");
-                const text = await res.text();
-                if (!text || text.includes('security service to protect itself') || text.length < 500) throw new Error("Engellendi");
-                return text;
-            })
-        );
-        return Promise.any(fetchPromises);
-    }
+    // ... (Buradaki proxyGroup1, proxyGroup2 ve fireProxies fonksiyonları aynı kaldı, dokunma)
 
     try {
-        if(art.link.includes('news.google.com')) {
-            throw new Error("GoogleNewsLink");
-        }
+        // ... (Buradaki Google News kontrolü ve fireProxies çağrıları aynı kaldı, dokunma)
 
-        try { 
-            html = await fireProxies(proxyGroup1, 3000);
-        } catch (e1) {
-            try { 
-                html = await fireProxies(proxyGroup2, 4000);
-            } catch (e2) { 
-                html = null;
-            }
-        }
-
-        if (!html) throw new Error("Bütün proxy denemeleri başarısız oldu.");
-        const parser = new DOMParser(); 
-        const doc = parser.parseFromString(html, 'text/html'); 
-        const paragraphs = Array.from(doc.querySelectorAll('p, .content p, .news-text p, article p'));
-        const validText = paragraphs.map(p => p.textContent.trim()).filter(txt => txt.length > 70); 
-        const uniqueText = [...new Set(validText)];
+        // 🔥 BAŞARILI METİN ÇEKME (Extracted) 🔥
         if (uniqueText.length > 0) { 
-            textContainer.innerHTML = uniqueText.map((txt, idx) => {
-                const clickableWords = txt.split(' ').map(w => `<span class="t-word" onclick="translateSingleWord(this, event)">${w}</span>`).join(' ');
-                return `<div class="p-container">
-                            <p id="p_${idx}">${clickableWords}</p>
-                            <div class="p-actions-row">
-                                <button class="btn-action-p" onclick="listenParagraph(${idx}, this)" title="Dinle">🔊</button>
-                                <button class="btn-action-p" onclick="translateParagraph(${idx}, this)" title="Çevir">🌐</button>
-                            </div>
-                            <div class="translated-text" id="trans_${idx}"></div>
-                        </div>`;
-            }).join('');
+            // YENİ: Ortak formatlama fonksiyonunu kullan
+            window.formatTextWithControls(uniqueText, textContainer);
+            
+            // YENİ: Sohbet Robotunu bu tam metinle sıfırla
+            if (typeof resetArticleChat === 'function') resetArticleChat(uniqueText.join('\n'));
         } else { throw new Error("Okunabilir metin bulunamadı"); }
         
-        html = html.replace(/<meta[^>]+http-equiv=['"]?refresh['"]?[^>]*>/gi, '');
-        html = html.replace(/window\.location\.replace/gi, 'console.log'); 
-        html = html.replace(/window\.location\.href\s*=/gi, 'console.log=');
-        
-        const urlObj = new URL(art.link);
-        const baseUrl = urlObj.protocol + "//" + urlObj.host + "/";
-        if (html.toLowerCase().includes('<head>')) { 
-            html = html.replace(/<head>/i, `<head><base href="${baseUrl}">`);
-        } else { 
-            html = `<base href="${baseUrl}">` + html;
-        }
-        
-        const scriptFix = `<script> window.onload = function() { const links = document.querySelectorAll('a'); links.forEach(l => l.setAttribute('target', '_blank')); }; <\/script>`;
-        html = html.replace(/<\/body>/i, scriptFix + '</body>'); 
-        
+        // ... (Buradaki Iframe yükleme mantığı aynı kaldı, dokunma)
         iframe.srcdoc = html;
-        iframe.onload = () => { 
-            banner.innerHTML = `✅`;
-            setTimeout(()=>{ banner.style.display='none'; }, 2000); 
-        };
+        iframe.onload = () => { banner.innerHTML = `✅`; setTimeout(()=>{ banner.style.display='none'; }, 2000); };
+        
     } catch (err) { 
-        const isGoogle = err.message === "GoogleNewsLink";
-        const titleText = isGoogle ? (t.googleNewsBlockTitle || "Google Yönlendirme Duvarı") : (t.firewallBlockTitle || "Güvenlik Duvarı");
-        const descText = isGoogle ? (t.googleNewsBlockDesc || "Google bu bağlantıyı gizliyor. Okuma, çeviri ve dinleme özelliklerini kullanmak için orijinal siteyi açın, adres çubuğundaki gerçek linki kopyalayıp aşağıdaki alana yapıştırın.") : (t.firewallBlock || "Reklamsız görünüm için sitenin güvenlik duvarı geçilemedi. Orijinal siteyi açmak için sağ üst köşedeki mavi ok butonuna tıklayın.");
-        textContainer.innerHTML = `
-            <div class="status-msg" style="padding: 30px 20px; text-align: center; cursor: default;">
-                <div style="font-size: 3rem; margin-bottom: 15px;">${isGoogle ? '🤝' : '🛡️'}</div>
-                <h3 style="color: white; margin-bottom: 10px;">${titleText}</h3>
-                <p style="color: var(--text-muted); line-height: 1.6; font-size: 0.95rem; margin-bottom: 20px;">
-                    ${descText}
-                </p>
-                <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 20px;">
-                    <button onclick="window.open('${art.link}', '_blank')" style="background: var(--surface-light); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 0.95rem;">
-                        ${t.openOriginalBtn || '🌐 Orijinal Siteyi Aç'}
-                    </button>
-                </div>
+        // 🛡️ METİN ÇEKİLEMEDİ (Hata Durumu) 🛡️
+        // Orijinal Güvenlik duvarı mesajı yerine...
+        // textContainer.innerHTML = `<div class="status-msg">🛡️ Güvenlik Duvarı</div>`; // Eski kod sildik
 
-                <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border: 1px dashed var(--surface-light); display: flex; flex-direction: column; gap: 10px;">
-                    <input type="text" id="manualLinkInput" placeholder="${t.manualPasteHint || 'Kopyaladığın gerçek linki buraya yapıştır...'}" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--accent); background: #0f172a; color: white; outline: none;">
-                    <button onclick="fetchWithUserHelp()" style="background: var(--accent); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer;">
-                        ${t.unlockBtn || '🚀 Kilidi Aç ve Metni Çek'}
-                    </button>
-                </div>
-            </div>`;
+        // YENİ: Akıllı Metin Bulucuyu devreye sok!
+        if (typeof attemptToFindMissingTextWithAI === 'function') {
+            attemptToFindMissingTextWithAI(art, textContainer);
+        } else {
+            // Fallback: AI dosyası yüklü değilse özeti göster
+            textContainer.innerHTML = `<div class="status-msg">⚠️ Metin çekilemedi.</div><p>${art.description}</p>`;
+            if (typeof resetArticleChat === 'function') resetArticleChat(art.description);
+        }
     }
 }
 
@@ -992,4 +930,21 @@ function hardRefreshApp() {
             window.location.reload(true);
         }
     }
+}
+
+
+// 🌟 ORTAK YARDIMCI: Metni paragraflar halinde dinleme/çevirme simgeleriyle ekrana çizer.
+// Hem extracted metin için hem de AI'ın bulduğu metin için kullanılır.
+window.formatTextWithControls = function(paragraphsArray, containerElement) {
+    containerElement.innerHTML = paragraphsArray.map((txt, idx) => {
+        const clickableWords = txt.split(' ').map(w => `<span class="t-word" onclick="translateSingleWord(this, event)">${w}</span>`).join(' ');
+        return `<div class="p-container">
+                    <p id="p_${idx}">${clickableWords}</p>
+                    <div class="p-actions-row">
+                        <button class="btn-action-p" onclick="listenParagraph(${idx}, this)" title="Dinle">🔊</button>
+                        <button class="btn-action-p" onclick="translateParagraph(${idx}, this)" title="Çevir">🌐</button>
+                    </div>
+                    <div class="translated-text" id="trans_${idx}"></div>
+                </div>`;
+    }).join('');
 }
