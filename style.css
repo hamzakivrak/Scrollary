@@ -570,3 +570,72 @@ border: 1px solid var(--accent); padding: 12px; border-radius: 8px; font-weight:
 }
 .voice-btn-action:hover { background: var(--accent); }
 
+/* index.html (CSS Bölümü) */
+.ai-chat-section {
+    border-top: 1px solid var(--surface-light);
+    margin-top: 20px;
+    padding-top: 15px;
+    background: rgba(0,0,0,0.1);
+    border-radius: 8px;
+    padding: 15px;
+}
+
+.ai-chat-history {
+    max-height: 250px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 15px;
+    padding-right: 5px;
+}
+
+.ai-msg {
+    padding: 10px 15px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    max-width: 80%;
+}
+
+.ai-msg.user {
+    background: var(--accent);
+    color: white;
+    align-self: flex-end;
+    border-bottom-right-radius: 2px;
+}
+
+.ai-msg.assistant {
+    background: var(--surface-light);
+    color: white;
+    align-self: flex-start;
+    border-bottom-left-radius: 2px;
+}
+
+.ai-msg span.renk-ozet { color: #e11d48; } /* Kırmızı vurgu */
+.ai-msg span.renk-bilgi { color: #3b82f6; } /* Mavi vurgu */
+
+.ai-chat-bar {
+    display: flex;
+    gap: 10px;
+}
+
+#aiChatInput {
+    flex: 1;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid var(--surface-light);
+    background: rgba(0,0,0,0.3);
+    color: white;
+    outline: none;
+}
+
+#aiChatSendBtn {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 0 20px;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+}
