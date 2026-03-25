@@ -35,7 +35,7 @@
        <header id="mainHeader">
            <button onclick="hardRefreshApp()" class="hard-refresh-btn" title="Güncellemeleri Zorla Çek">🔄</button>
            
-           <h1 class="hologram-header"><img src="icon.png" alt="S" style="height: 2em; vertical-align: baseline; border-radius: 10%; margin-right: -2px;">crollary <span>.</span></h1>            
+           <h1 class="hologram-header"><img src="icon.png" alt="S" style="height: 2em; vertical-align: baseline; border-radius: 10%; margin-right: -2px;">crollary <span>.</span></h1>           
            <p id="headerDesc" data-i18n="subtitle">Sourced from You, Your News Source</p>
         </header>
 
@@ -126,7 +126,7 @@
         <div id="endRefreshSpinner" class="status-msg" style="display: none; padding: 20px; font-size:0.95rem; color:var(--accent);" data-i18n="checkingUpdates">Checking network for updates...</div>
     </div>
 
-    <button class="mic-fab" id="micFab" onclick="startVoiceAssistant()">🎙️</button>
+    <button class="mic-fab" id="micFab">🎙️</button>
     
     <div id="voiceModal" class="modal" style="z-index: 2600;">
         <div class="modal-content" style="max-width: 450px; height: auto; text-align: center; padding: 20px; border-radius: 20px;">
@@ -265,15 +265,75 @@
     <div id="newsModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <div class="modal-top-row"><div class="modal-source-name" id="modalSource">Source</div><div class="modal-actions"><a id="modalLinkExt" href="#" target="_blank" class="btn-icon" title="Open in Browser">↗️</a><button class="btn-icon btn-close" onclick="closeModalSafe('newsModal')" title="Close">✕</button></div></div>
-                <div class="modal-tabs"><button class="tab-btn active" id="tabReader" onclick="switchTab('reader')" data-i18n="readerTab">📖 Reader View</button><button class="tab-btn" id="tabWeb" onclick="switchTab('web')" data-i18n="originalTab">🌐 Original Site</button></div>
+                <div class="modal-top-row">
+                    <div class="modal-source-name" id="modalSource">Source</div>
+                    <div class="modal-actions">
+                        <a id="modalLinkExt" href="#" target="_blank" class="btn-icon" title="Open in Browser">↗️</a>
+                        <button class="btn-icon btn-close" onclick="closeModalSafe('newsModal')" title="Close">✕</button>
+                    </div>
+                </div>
+                <div class="modal-tabs">
+                    <button class="tab-btn active" id="tabReader" onclick="switchTab('reader')" data-i18n="readerTab">📖 Reader View</button>
+                    <button class="tab-btn" id="tabWeb" onclick="switchTab('web')" data-i18n="originalTab">🌐 Original Site</button>
+                </div>
             </div>
             
-   
+            <div class="modal-body" id="modalBodyArea" style="position: relative;">
+                
+                <div id="aiStickyBar" class="ai-sticky-bar" style="display: flex; gap: 10px; padding: 12px 15px; border-bottom: 1px solid var(--surface-light); background: var(--bg-dark); position: sticky; top: 0; z-index: 5;">
+                    <input type="text" id="aiChatInput" value="Bu haberi özetle" onfocus="this.select()" onkeydown="if(event.key === 'Enter') handleNewChatMessage('aiChatInput')" style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid var(--surface-light); background: rgba(0,0,0,0.3); color: white; outline: none; font-size: 0.95rem;">
+                    <button id="aiChatSendBtn" onclick="handleNewChatMessage('aiChatInput')" style="background: var(--primary); color: white; border: none; padding: 0 20px; border-radius: 8px; font-weight: bold; cursor: pointer;">✨ Gönder</button>
+                </div>
+                
+                <div id="aiInlineResult" class="ai-inline-result" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 50; background: var(--bg-dark); flex-direction: column; padding: 15px; box-sizing: border-box;">
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; flex-shrink: 0;">
+                        <span style="font-weight: bold; color: white; font-size: 1.1rem;">🤖 Yapay Zeka Asistanı</span>
+                        <button onclick="closeAIResult()" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: none; width: 32px; height: 32px; border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center;">✕</button>
+                    </div>
+                    
+                    <div id="aiChatHistory" class="ai-chat-history" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 5px; margin-top: 15px; margin-bottom: 15px;">
+                        </div>
+                    
+                    <div style="flex-shrink: 0; display: flex; gap: 10px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+                        <input type="text" id="aiChatInputInner" placeholder="Sohbete devam et veya soru sor..." onkeydown="if(event.key === 'Enter') handleNewChatMessage('aiChatInputInner')" style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid var(--surface-light); background: rgba(0,0,0,0.3); color: white; outline: none; font-size: 0.95rem;">
+                        <button onclick="handleNewChatMessage('aiChatInputInner')" style="background: var(--primary); color: white; border: none; padding: 0 20px; border-radius: 8px; font-weight: bold; cursor: pointer;">Gönder</button>
+                    </div>
+                </div>
+                <div class="triple-tap-hint" data-i18n="tripleTapHint">Triple tap to close</div>
+                
+                <div id="readerView">
+                    <h2 class="reader-title" id="modalTitle">Title</h2>
+                    <img id="modalImg" src="" class="reader-image" onerror="this.style.display='none'">
+                    <div class="summary-box"><p id="modalDesc">Summary...</p></div>
+                    
+                    <div id="readerControls" class="reader-controls">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="font-size: 0.85rem; color: var(--text-muted); font-weight:bold;">Hedef Dil:</span>
+                            <select id="targetLangSelect">
+                                <option value="tr">🇹🇷 Türkçe</option>
+                                <option value="en">🇬🇧 English</option>
+                                <option value="de">🇩🇪 Deutsch</option>
+                                <option value="es">🇪🇸 Español</option>
+                                <option value="fr">🇫🇷 Français</option>
+                                <option value="ru">🇷🇺 Русский</option>
+                                <option value="ar">🇦🇪 العربية</option>
+                                <option value="hi">🇮🇳 हिन्दी</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div id="fullTextContainer" class="reader-text-container"></div>
+                    <div id="wordTooltip"></div>
+                </div>
+                
+                <div id="iframeView"><div class="iframe-banner" id="iframeBanner"><span style="animation: pulse 1.5s infinite;">⏳</span> <span data-i18n="loadingSite">Loading original site...</span></div><iframe id="modalIframe" class="modal-iframe" sandbox="allow-same-origin allow-scripts allow-forms allow-popups"></iframe></div>
+            </div>
         </div>
     </div>
 
     <div id="toastNotification" class="toast-notification" onclick="handleToastClick()"><span>⬆️</span> <span id="toastText">System Update!</span></div>
+    
 <script src="config.js"></script>
 <script src="auth.js"></script>
 <script src="api.js"></script>
