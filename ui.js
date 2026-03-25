@@ -580,9 +580,9 @@ async function openModal(art) {
     document.getElementById('modalTitle').innerText = art.title;
     document.getElementById('modalDesc').innerText = art.description;
     
-    // YENİ: Chat Input'unu ve AI Modalını temizle
+    // YENİ: Chat Input'una varsayılan metni yaz ve AI Modalını gizle
     const chatInput = document.getElementById('aiChatInput');
-    if (chatInput) chatInput.value = "";
+    if (chatInput) chatInput.value = "Bu haberi özetle";
     const aiModal = document.getElementById('aiInlineResult');
     if (aiModal) aiModal.classList.remove('show');
 
