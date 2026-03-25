@@ -580,11 +580,15 @@ async function openModal(art) {
     document.getElementById('modalTitle').innerText = art.title;
     document.getElementById('modalDesc').innerText = art.description;
     
-    // YENİ: Chat Input'una varsayılan metni yaz ve AI Modalını gizle
+    // YENİ: Chat Input'unu ve AI Modalını temizle
     const chatInput = document.getElementById('aiChatInput');
     if (chatInput) chatInput.value = "Bu haberi özetle";
+    
     const aiModal = document.getElementById('aiInlineResult');
-    if (aiModal) aiModal.classList.remove('show');
+    if (aiModal) {
+        aiModal.classList.remove('show');
+        aiModal.style.display = 'none';
+    }
 
     const imgEl = document.getElementById('modalImg');
     const modalBody = document.getElementById('modalBodyArea');
