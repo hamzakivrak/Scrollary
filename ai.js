@@ -36,20 +36,30 @@ async function handleAIRequest() {
     await getAIResponseWithHistory("Bu haberi benim için özetle ve en önemli detayları maddeler halinde listele.");
 }
 
-// "Gönder" butonuna basıldığında çalışır (Sohbet)
-async function handleNewChatMessage() {
-    const inputEl = document.getElementById('aiChatInput');
+// Hangi kutudan gönderildiğini anlayıp işlemi yapar
+async function handleNewChatMessage(inputId = 'aiChatInput') {
+    const inputEl = document.getElementById(inputId);
     const userInput = inputEl.value.trim();
     if (!userInput) return;
 
-    // YENİ: Sadece Gönder butonuna basıldığında AI Penceresini aç ve göster!
+    // Pencereyi göster ve CSS yapısını flex olarak ayarla (içinin kayabilmesi için)
     const resultModal = document.getElementById('aiInlineResult');
-    if (resultModal) resultModal.classList.add('show');
+    if (resultModal) {
+        resultModal.classList.add('show');
+        resultModal.style.display = 'flex';
+    }
 
     const historyDiv = document.getElementById('aiChatHistory');
     historyDiv.innerHTML += `<div class="ai-msg user">${userInput}</div>`;
     
-    inputEl.value = ''; // Gönderdikten sonra kutuyu temizle ki yeni soru yazılabilsin
+    // Alttaki kutudan gönderildiyse içini temizle, üsttense elleme ("Bu haberi özetle" kalsın)
+    if (inputId === 'aiChatInputInner') {
+        inputEl.value = ''; 
+    } else {
+        const innerInput = document.getElementById('aiChatInputInner');
+        if(innerInput) innerInput.value = ''; // İç kutuyu her ihtimale karşı temizle
+    }
+    
     historyDiv.scrollTop = historyDiv.scrollHeight; 
 
     await getAIResponseWithHistory(userInput);
@@ -131,9 +141,13 @@ KURAL 4: Önemli kelimeleri <span style="color:#3b82f6"> (mavi) veya <span style
     historyDiv.scrollTop = historyDiv.scrollHeight;
 }
 
+// Pencereyi tamamen gizle
 function closeAIResult() {
     const modal = document.getElementById('aiInlineResult');
-    if(modal) modal.classList.remove('show');
+    if(modal) {
+        modal.classList.remove('show');
+        modal.style.display = 'none';
+    }
 }
 
 // ==========================================
