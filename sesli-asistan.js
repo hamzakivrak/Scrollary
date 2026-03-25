@@ -6,7 +6,8 @@ let checkSpeakingInterval;
 let isVoiceActive = false; // Asistanın o an aktif işlem yapıp yapmadığını takip eder
 
 document.addEventListener('DOMContentLoaded', () => {
-    const micBtn = document.querySelector('.mic-fab');
+    // BURAYI GÜNCELLEDİK: .mic-fab class'ı yerine doğrudan micFab ID'sini arıyoruz.
+    const micBtn = document.getElementById('micFab'); 
     if (!micBtn) return;
 
     // 1. ZIRHLI VE GÖRÜNÜR SUSTUR BUTONU
