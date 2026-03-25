@@ -512,3 +512,82 @@ const modalBodyArea = document.getElementById('modalBodyArea');
 if(modalBodyArea) {
     modalBodyArea.addEventListener('scroll', () => { hideTooltip(); }, {passive: true});
 }
+
+// ==========================================
+// 5. ESKİ "ÖZETLE" BUTONU İÇİN FONKSİYONLAR
+// ==========================================
+
+async function handleAIRequest() {
+    const inputEl = document.getElementById('aiInput');
+    const query = (inputEl && inputEl.value.trim()) ? inputEl.value.trim() : "Bu haberi özetle";
+    const resultModal = document.getElementById('aiInlineResult');
+    const resultContent = document.getElementById('aiResultContent');
+    const btn = document.getElementById('aiSendBtn');
+    const textContainer = document.getElementById('fullTextContainer');
+    const paragraphs = Array.from(textContainer.querySelectorAll('p')).map(p => p.textContent.trim());
+    let articleText = paragraphs.join(' ').substring(0, 6000);
+    
+    if(articleText.length < 50) {
+        alert("Haber metni henüz yüklenmedi veya okunabilir metin bulunamadı.");
+        return;
+    }
+
+    if (resultModal && resultModal.classList.contains('show') && query === "Bu haberi özetle") {
+        closeAIResult();
+        return;
+    }
+
+    const apiKeys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
+    if (apiKeys.length === 0) {
+        alert("Yapay zeka asistanını kullanmak için geçerli bir Groq API anahtarı gerekiyor.");
+        if(typeof closeModalSafe === 'function') closeModalSafe('newsModal'); 
+        setTimeout(() => { if(typeof openModalSafe === 'function') openModalSafe('settingsModal'); }, 400); 
+        return;
+    }
+
+    if(resultModal) resultModal.classList.add('show');
+    if(resultContent) resultContent.innerHTML = '<div style="text-align:center; padding: 40px;"><span style="font-size:4rem; display:inline-block; animation:pulse 1s infinite;">⏳</span><br><br><span style="color:var(--accent); font-weight:bold; font-size:1.2rem;">Yapay zeka yanıt hazırlıyor...</span></div>';
+    if(btn) btn.disabled = true;
+    
+    const systemPrompt = "Sen profesyonel ve analitik bir haber asistanısın. Kullanıcının sorusunu yanıtlarken okuma kolaylığı sağlamak zorundasın. Özeti kısa bir giriş cümlesiyle başlat ve ardından haberin en önemli detaylarını DÜZENLİ BİR LİSTE (<ul><li>...</li></ul>) formatında madde madde anlat. Önemli kelimeleri, kişi veya kurum isimlerini <span style='color:#e11d48'> veya <span style='color:#3b82f6'> ile renklendir. Asla Markdown (**, * gibi) KULLANMA. Haberde olmayan bir bilgiyi uydurma. Sadece şık ve temiz HTML çıktısı ver.";
+    
+    async function tryFetchWithKey(keyIndex) {
+        if (keyIndex >= apiKeys.length) {
+            if(resultContent) resultContent.innerHTML = `<div style="color:var(--danger); text-align:center; padding: 20px;">⚠️ Ekli olan tüm API anahtarlarınızın kotası dolmuş veya bir bağlantı sorunu var. Lütfen yeni bir anahtar ekleyin.</div>`;
+            if(btn) btn.disabled = false;
+            return;
+        }
+
+        try {
+            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${apiKeys[keyIndex]}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: "llama-3.3-70b-versatile", 
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: `Haber Metni:\n${articleText}\n\nKullanıcı İsteği: ${query}` }
+                    ],
+                    temperature: 0.5,
+                    max_tokens: 1024
+                })
+            });
+            if (!response.ok) throw new Error("KeyFailed");
+
+            const data = await response.json();
+            let cleanHtml = data.choices[0].message.content.replace(/```html/g, '').replace(/```/g, '').trim();
+            if(resultContent) resultContent.innerHTML = cleanHtml;
+            if(btn) btn.disabled = false;
+
+        } catch (err) {
+            await tryFetchWithKey(keyIndex + 1);
+        }
+    }
+
+    await tryFetchWithKey(0);
+}
+
+function closeAIResult() {
+    const modal = document.getElementById('aiInlineResult');
+    if(modal) modal.classList.remove('show');
+}
