@@ -269,18 +269,23 @@
                 <div class="modal-tabs"><button class="tab-btn active" id="tabReader" onclick="switchTab('reader')" data-i18n="readerTab">📖 Reader View</button><button class="tab-btn" id="tabWeb" onclick="switchTab('web')" data-i18n="originalTab">🌐 Original Site</button></div>
             </div>
             
-            <div class="modal-body" id="modalBodyArea">
+   <div class="modal-body" id="modalBodyArea">
                 
                 <div id="aiStickyBar" class="ai-sticky-bar" style="display: flex; gap: 10px; padding: 12px 15px; border-bottom: 1px solid var(--surface-light); background: var(--bg-dark); position: sticky; top: 0; z-index: 5;">
-                    <input type="text" id="aiChatInput" value="Bu haberi özetle" placeholder="Soru sor veya bilgi iste..." onkeydown="if(event.key === 'Enter') handleNewChatMessage()" style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid var(--surface-light); background: rgba(0,0,0,0.3); color: white; outline: none; font-size: 0.95rem;">
-                    <button id="aiChatSendBtn" onclick="handleNewChatMessage()" style="background: var(--primary); color: white; border: none; padding: 0 20px; border-radius: 8px; font-weight: bold; cursor: pointer;">✨ Gönder</button>
+                    <input type="text" id="aiChatInput" value="Bu haberi özetle" onfocus="this.select()" onkeydown="if(event.key === 'Enter') handleNewChatMessage('aiChatInput')" style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid var(--surface-light); background: rgba(0,0,0,0.3); color: white; outline: none; font-size: 0.95rem;">
+                    <button id="aiChatSendBtn" onclick="handleNewChatMessage('aiChatInput')" style="background: var(--primary); color: white; border: none; padding: 0 20px; border-radius: 8px; font-weight: bold; cursor: pointer;">✨ Gönder</button>
                 </div>
                 
-                <div id="aiInlineResult" class="ai-inline-result" style="max-height: 70vh; padding: 15px; border-radius: 12px;">
+                <div id="aiInlineResult" class="ai-inline-result" style="display: none; flex-direction: column; height: 60vh; padding: 15px; border-radius: 12px; background: var(--bg-dark); border: 1px solid var(--surface-light); margin-top: 15px; position: relative;">
                     <button class="ai-close-btn" onclick="closeAIResult()" style="position: absolute; right: 10px; top: 10px; z-index: 10; background: rgba(239, 68, 68, 0.2); color: #ef4444; border: none; width: 30px; height: 30px; border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center;">✕</button>
                     
-                    <div id="aiChatHistory" class="ai-chat-history" style="display: flex; flex-direction: column; gap: 10px; max-height: 50vh; overflow-y: auto; padding-right: 5px; margin-top: 25px;">
+                    <div id="aiChatHistory" class="ai-chat-history" style="flex: 1; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; padding-right: 5px; margin-top: 25px; margin-bottom: 15px;">
                         </div>
+                    
+                    <div style="flex-shrink: 0; display: flex; gap: 10px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+                        <input type="text" id="aiChatInputInner" placeholder="Sohbete devam et veya soru sor..." onkeydown="if(event.key === 'Enter') handleNewChatMessage('aiChatInputInner')" style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid var(--surface-light); background: rgba(0,0,0,0.3); color: white; outline: none; font-size: 0.95rem;">
+                        <button onclick="handleNewChatMessage('aiChatInputInner')" style="background: var(--primary); color: white; border: none; padding: 0 20px; border-radius: 8px; font-weight: bold; cursor: pointer;">Gönder</button>
+                    </div>
                 </div>
                 
                 <div class="triple-tap-hint" data-i18n="tripleTapHint">Triple tap to close</div>
