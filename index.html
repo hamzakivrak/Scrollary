@@ -269,54 +269,7 @@
                 <div class="modal-tabs"><button class="tab-btn active" id="tabReader" onclick="switchTab('reader')" data-i18n="readerTab">📖 Reader View</button><button class="tab-btn" id="tabWeb" onclick="switchTab('web')" data-i18n="originalTab">🌐 Original Site</button></div>
             </div>
             
-   <div class="modal-body" id="modalBodyArea">
-                
-                <div id="aiStickyBar" class="ai-sticky-bar" style="display: flex; gap: 10px; padding: 12px 15px; border-bottom: 1px solid var(--surface-light); background: var(--bg-dark); position: sticky; top: 0; z-index: 5;">
-                    <input type="text" id="aiChatInput" value="Bu haberi özetle" onfocus="this.select()" onkeydown="if(event.key === 'Enter') handleNewChatMessage('aiChatInput')" style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid var(--surface-light); background: rgba(0,0,0,0.3); color: white; outline: none; font-size: 0.95rem;">
-                    <button id="aiChatSendBtn" onclick="handleNewChatMessage('aiChatInput')" style="background: var(--primary); color: white; border: none; padding: 0 20px; border-radius: 8px; font-weight: bold; cursor: pointer;">✨ Gönder</button>
-                </div>
-                
-                <div id="aiInlineResult" class="ai-inline-result" style="display: none; flex-direction: column; height: 60vh; padding: 15px; border-radius: 12px; background: var(--bg-dark); border: 1px solid var(--surface-light); margin-top: 15px; position: relative;">
-                    <button class="ai-close-btn" onclick="closeAIResult()" style="position: absolute; right: 10px; top: 10px; z-index: 10; background: rgba(239, 68, 68, 0.2); color: #ef4444; border: none; width: 30px; height: 30px; border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center;">✕</button>
-                    
-                    <div id="aiChatHistory" class="ai-chat-history" style="flex: 1; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; padding-right: 5px; margin-top: 25px; margin-bottom: 15px;">
-                        </div>
-                    
-                    <div style="flex-shrink: 0; display: flex; gap: 10px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
-                        <input type="text" id="aiChatInputInner" placeholder="Sohbete devam et veya soru sor..." onkeydown="if(event.key === 'Enter') handleNewChatMessage('aiChatInputInner')" style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid var(--surface-light); background: rgba(0,0,0,0.3); color: white; outline: none; font-size: 0.95rem;">
-                        <button onclick="handleNewChatMessage('aiChatInputInner')" style="background: var(--primary); color: white; border: none; padding: 0 20px; border-radius: 8px; font-weight: bold; cursor: pointer;">Gönder</button>
-                    </div>
-                </div>
-                
-                <div class="triple-tap-hint" data-i18n="tripleTapHint">Triple tap to close</div>
-                
-                <div id="readerView">
-                    <h2 class="reader-title" id="modalTitle">Title</h2>
-                    <img id="modalImg" src="" class="reader-image" onerror="this.style.display='none'">
-                    <div class="summary-box"><p id="modalDesc">Summary...</p></div>
-                    
-                    <div id="readerControls" class="reader-controls">
-                        <div style="display:flex; align-items:center; gap:10px;">
-                            <span style="font-size: 0.85rem; color: var(--text-muted); font-weight:bold;">Hedef Dil:</span>
-                            <select id="targetLangSelect">
-                                <option value="tr">🇹🇷 Türkçe</option>
-                                <option value="en">🇬🇧 English</option>
-                                <option value="de">🇩🇪 Deutsch</option>
-                                <option value="es">🇪🇸 Español</option>
-                                <option value="fr">🇫🇷 Français</option>
-                                <option value="ru">🇷🇺 Русский</option>
-                                <option value="ar">🇦🇪 العربية</option>
-                                <option value="hi">🇮🇳 हिन्दी</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div id="fullTextContainer" class="reader-text-container"></div>
-                    <div id="wordTooltip"></div>
-                </div>
-                
-                <div id="iframeView"><div class="iframe-banner" id="iframeBanner"><span style="animation: pulse 1.5s infinite;">⏳</span> <span data-i18n="loadingSite">Loading original site...</span></div><iframe id="modalIframe" class="modal-iframe" sandbox="allow-same-origin allow-scripts allow-forms allow-popups"></iframe></div>
-            </div>
+   
         </div>
     </div>
 
