@@ -580,9 +580,11 @@ async function openModal(art) {
     document.getElementById('modalTitle').innerText = art.title;
     document.getElementById('modalDesc').innerText = art.description;
     
-    // YENİ: Chat Input'unu temizle (Eski Özet Input'unu sildik)
+    // YENİ: Chat Input'unu ve AI Modalını temizle
     const chatInput = document.getElementById('aiChatInput');
     if (chatInput) chatInput.value = "";
+    const aiModal = document.getElementById('aiInlineResult');
+    if (aiModal) aiModal.classList.remove('show');
 
     const imgEl = document.getElementById('modalImg');
     const modalBody = document.getElementById('modalBodyArea');
@@ -602,6 +604,7 @@ async function openModal(art) {
     
     const textContainer = document.getElementById('fullTextContainer'); 
     textContainer.innerHTML = `<div class="loading-pulse">${t.extracting}</div>`;
+    
     const oldIframe = document.getElementById('modalIframe'); 
     const iframe = document.createElement('iframe'); 
     iframe.id = 'modalIframe'; 
@@ -614,35 +617,99 @@ async function openModal(art) {
 
     let html = null;
     const encodedUrl = encodeURIComponent(art.link);
-    // ... (Buradaki proxyGroup1, proxyGroup2 ve fireProxies fonksiyonları aynı kaldı, dokunma)
+
+    const proxyGroup1 = [ `https://corsproxy.io/?${encodedUrl}`, `https://api.allorigins.win/raw?url=${encodedUrl}`, `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}` ];
+    const proxyGroup2 = [ `https://thingproxy.freeboard.io/fetch/${art.link}`, `https://cors.eu.org/${art.link}`, `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}` ];
+    
+    async function fireProxies(proxies, timeoutMs) {
+        const fetchPromises = proxies.map(proxy =>
+            fetchWithTimeout(proxy, timeoutMs).then(async res => {
+                if (!res.ok) throw new Error("Sunucu hatasi");
+                const text = await res.text();
+                if (!text || text.includes('security service to protect itself') || text.length < 500) throw new Error("Engellendi");
+                return text;
+            })
+        );
+        return Promise.any(fetchPromises);
+    }
 
     try {
-        // ... (Buradaki Google News kontrolü ve fireProxies çağrıları aynı kaldı, dokunma)
+        if(art.link.includes('news.google.com')) {
+            throw new Error("GoogleNewsLink");
+        }
 
-        // 🔥 BAŞARILI METİN ÇEKME (Extracted) 🔥
+        try { 
+            html = await fireProxies(proxyGroup1, 3000);
+        } catch (e1) {
+            try { 
+                html = await fireProxies(proxyGroup2, 4000);
+            } catch (e2) { 
+                html = null;
+            }
+        }
+
+        if (!html) throw new Error("Bütün proxy denemeleri başarısız oldu.");
+        
+        const parser = new DOMParser(); 
+        const doc = parser.parseFromString(html, 'text/html'); 
+        const paragraphs = Array.from(doc.querySelectorAll('p, .content p, .news-text p, article p'));
+        const validText = paragraphs.map(p => p.textContent.trim()).filter(txt => txt.length > 70); 
+        const uniqueText = [...new Set(validText)];
+        
         if (uniqueText.length > 0) { 
             // YENİ: Ortak formatlama fonksiyonunu kullan
-            window.formatTextWithControls(uniqueText, textContainer);
+            if (typeof window.formatTextWithControls === 'function') {
+                window.formatTextWithControls(uniqueText, textContainer);
+            } else {
+                // Utility fonksiyon henüz yüklenmediyse düzgün göster
+                textContainer.innerHTML = uniqueText.map((txt, idx) => {
+                    const clickableWords = txt.split(' ').map(w => `<span class="t-word" onclick="translateSingleWord(this, event)">${w}</span>`).join(' ');
+                    return `<div class="p-container">
+                                <p id="p_${idx}">${clickableWords}</p>
+                                <div class="p-actions-row">
+                                    <button class="btn-action-p" onclick="listenParagraph(${idx}, this)" title="Dinle">🔊</button>
+                                    <button class="btn-action-p" onclick="translateParagraph(${idx}, this)" title="Çevir">🌐</button>
+                                </div>
+                                <div class="translated-text" id="trans_${idx}"></div>
+                            </div>`;
+                }).join('');
+            }
             
             // YENİ: Sohbet Robotunu bu tam metinle sıfırla
             if (typeof resetArticleChat === 'function') resetArticleChat(uniqueText.join('\n'));
-        } else { throw new Error("Okunabilir metin bulunamadı"); }
+        } else { 
+            throw new Error("Okunabilir metin bulunamadı"); 
+        }
         
-        // ... (Buradaki Iframe yükleme mantığı aynı kaldı, dokunma)
+        html = html.replace(/<meta[^>]+http-equiv=['"]?refresh['"]?[^>]*>/gi, '');
+        html = html.replace(/window\.location\.replace/gi, 'console.log'); 
+        html = html.replace(/window\.location\.href\s*=/gi, 'console.log=');
+        
+        const urlObj = new URL(art.link);
+        const baseUrl = urlObj.protocol + "//" + urlObj.host + "/";
+        if (html.toLowerCase().includes('<head>')) { 
+            html = html.replace(/<head>/i, `<head><base href="${baseUrl}">`);
+        } else { 
+            html = `<base href="${baseUrl}">` + html;
+        }
+        
+        const scriptFix = `<script> window.onload = function() { const links = document.querySelectorAll('a'); links.forEach(l => l.setAttribute('target', '_blank')); }; <\/script>`;
+        html = html.replace(/<\/body>/i, scriptFix + '</body>'); 
+        
         iframe.srcdoc = html;
-        iframe.onload = () => { banner.innerHTML = `✅`; setTimeout(()=>{ banner.style.display='none'; }, 2000); };
+        iframe.onload = () => { 
+            banner.innerHTML = `✅`;
+            setTimeout(()=>{ banner.style.display='none'; }, 2000); 
+        };
         
     } catch (err) { 
-        // 🛡️ METİN ÇEKİLEMEDİ (Hata Durumu) 🛡️
-        // Orijinal Güvenlik duvarı mesajı yerine...
-        // textContainer.innerHTML = `<div class="status-msg">🛡️ Güvenlik Duvarı</div>`; // Eski kod sildik
-
-        // YENİ: Akıllı Metin Bulucuyu devreye sok!
+        // 🛡️ METİN ÇEKİLEMEDİ (Güvenlik Duvarı veya Hata Durumu) 🛡️
+        // YENİ: Akıllı Metin Bulucuyu (Fallback AI) devreye sok
         if (typeof attemptToFindMissingTextWithAI === 'function') {
             attemptToFindMissingTextWithAI(art, textContainer);
         } else {
-            // Fallback: AI dosyası yüklü değilse özeti göster
-            textContainer.innerHTML = `<div class="status-msg">⚠️ Metin çekilemedi.</div><p>${art.description}</p>`;
+            // Fallback: AI dosyası veya fonksiyon yüklü değilse sadece özeti göster
+            textContainer.innerHTML = `<div class="status-msg">⚠️ Metin çekilemedi.</div><p style="padding:15px;">${art.description}</p>`;
             if (typeof resetArticleChat === 'function') resetArticleChat(art.description);
         }
     }
