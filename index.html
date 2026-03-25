@@ -309,6 +309,18 @@
                     
                     <div id="fullTextContainer" class="reader-text-container"></div>
                     <div id="wordTooltip"></div>
+                    <div class="ai-chat-section" id="aiChatSection">
+    <div class="ai-chat-history" id="aiChatHistory">
+        <div class="ai-msg assistant">
+            🤖 Haber hakkında ne düşünüyorsun? Sorularını buraya yazabilirsin.
+        </div>
+    }
+    
+    <div class="ai-chat-bar">
+        <input type="text" id="aiChatInput" placeholder="Haberi yorumla veya soru sor...">
+        <button id="aiChatSendBtn" onclick="handleNewChatMessage()">Gönder</button>
+    </div>
+</div>
                 </div>
                 
                 <div id="iframeView"><div class="iframe-banner" id="iframeBanner"><span style="animation: pulse 1.5s infinite;">⏳</span> <span data-i18n="loadingSite">Loading original site...</span></div><iframe id="modalIframe" class="modal-iframe" sandbox="allow-same-origin allow-scripts allow-forms allow-popups"></iframe></div>
