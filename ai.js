@@ -1,6 +1,187 @@
-// ai.js (Temizlenmiş - Yeni Sesli Asistan Uyumlu)
+// ai.js (Final Sürüm: Sohbet + Akıllı Metin Bulma + Çeviri ve Ses Özellikleri)
 
 const ttsLangMap = { 'EN': 'en-US', 'TR': 'tr-TR', 'DE': 'de-DE', 'ES': 'es-ES', 'FR': 'fr-FR', 'RU': 'ru-RU', 'AR': 'ar-SA', 'HI': 'hi-IN' };
+
+// ==========================================
+// 1. YAPAY ZEKA SOHBET (CHAT) MANTIĞI
+// ==========================================
+
+let currentArticleChatHistory = []; 
+let currentArticleContext = "";   
+
+function resetArticleChat(fullText) {
+    currentArticleChatHistory = []; 
+    currentArticleContext = fullText.substring(0, 7000); 
+    
+    const historyDiv = document.getElementById('aiChatHistory');
+    if (historyDiv) {
+        historyDiv.innerHTML = '<div class="ai-msg assistant">🤖 Haber hakkında ne düşünüyorsun? Sorularını buraya yazabilirsin.</div>';
+    }
+}
+
+async function handleNewChatMessage() {
+    const inputEl = document.getElementById('aiChatInput');
+    const userInput = inputEl.value.trim();
+    if (!userInput) return;
+
+    const historyDiv = document.getElementById('aiChatHistory');
+    historyDiv.innerHTML += `<div class="ai-msg user">${userInput}</div>`;
+    inputEl.value = ''; 
+    historyDiv.scrollTop = historyDiv.scrollHeight; 
+
+    await getAIResponseWithHistory(userInput);
+}
+
+async function getAIResponseWithHistory(query) {
+    const historyDiv = document.getElementById('aiChatHistory');
+    const sendBtn = document.getElementById('aiChatSendBtn');
+    
+    const apiKeys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
+    if (apiKeys.length === 0) {
+        historyDiv.innerHTML += `<div class="ai-msg assistant" style="background: var(--danger);">⚠️ API anahtarı eksik. Ayarlardan Groq API anahtarı ekleyin.</div>`;
+        return;
+    }
+
+    sendBtn.disabled = true;
+    sendBtn.innerText = "⏳";
+
+    const loadingDiv = document.createElement('div');
+    loadingDiv.className = "ai-msg assistant loading";
+    loadingDiv.innerText = "🤖 Düşünüyor...";
+    historyDiv.appendChild(loadingDiv);
+    historyDiv.scrollTop = historyDiv.scrollHeight;
+
+    const systemPrompt = `Sen profesyonel bir haber asistanısın. 
+KURAL 1: Sana sağlanan [HABER METNİ] dışına çıkmadan analiz yap, soruları yanıtla.
+KURAL 2: Eğer kullanıcının sorusunun cevabı [HABER METNİ] içinde yoksa, halüsinasyon görme. Kesinlikle "Bu bilgi haber metninde yer almıyor" de. 
+KURAL 3: Eğer haber metni çekilememiş bir özet ise (Sana belirtilecek), bunu kullanıcıya açıkça söyle.
+KURAL 4: Kullanıcıyı önemli kelimeler için renklendirme kullanarak yönlendir (Örn: Önemli kelimeleri <span class="renk-ozet" style="color:#e11d48"> veya <span class="renk-bilgi" style="color:#3b82f6"> içine al). Markdown (** vb.) KULLANMA. Şık HTML çıktısı ver.`;
+
+    let messagesPayload = [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `[HABER METNİ]:\n${currentArticleContext}` }
+    ];
+
+    messagesPayload.push(...currentArticleChatHistory);
+    messagesPayload.push({ role: "user", content: query });
+
+    async function tryFetchChat(keyIndex) {
+        if (keyIndex >= apiKeys.length) {
+            loadingDiv.innerText = "⚠️ Kotanız doldu veya bağlantı hatası.";
+            sendBtn.disabled = false;
+            sendBtn.innerText = "Gönder";
+            return;
+        }
+
+        try {
+            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${apiKeys[keyIndex]}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: "llama-3.3-70b-versatile",
+                    messages: messagesPayload,
+                    temperature: 0.4,
+                    max_tokens: 1024
+                })
+            });
+            if (!response.ok) throw new Error("KeyFailed");
+
+            const data = await response.json();
+            let cleanHtml = data.choices[0].message.content.replace(/```html/g, '').replace(/```/g, '').trim();
+
+            historyDiv.removeChild(loadingDiv);
+            historyDiv.innerHTML += `<div class="ai-msg assistant">${cleanHtml}</div>`;
+            
+            currentArticleChatHistory.push({ role: "user", content: query });
+            currentArticleChatHistory.push({ role: "assistant", content: cleanHtml });
+
+        } catch (err) {
+            await tryFetchChat(keyIndex + 1);
+        }
+    }
+
+    await tryFetchChat(0);
+    sendBtn.disabled = false;
+    sendBtn.innerText = "Gönder";
+    historyDiv.scrollTop = historyDiv.scrollHeight;
+}
+
+// ==========================================
+// 2. AKILLI METİN BULUCU (FALLBACK)
+// ==========================================
+
+async function attemptToFindMissingTextWithAI(art, textContainer) {
+    textContainer.innerHTML = `<div class="loading-pulse" style="padding: 20px; text-align: center; color: var(--accent);">⚠️ Sitenin güvenlik duvarı aşılamadı.<br><br>🤖 Yapay zeka bu haberin tam metnini internet hafızasından bulmaya çalışıyor... (Halüsinasyon engeli aktif)</div>`;
+    
+    const apiKeys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
+    if (apiKeys.length === 0) {
+        textContainer.innerHTML = `<div class="status-msg">⚠️ Metni AI ile tamamlamak için Ayarlar'dan API anahtarı eklemelisiniz.</div>`;
+        return;
+    }
+
+    const prompt = `Sana bir haberin özetini ve başlığını veriyorum. Bana internetteki eğitim verinden yararlanarak bu haberin GERÇEK TAM METNİNİ BUL VE VER. 
+KURAL 1: Kesinlikle uydurma (Halüsinasyon yok). Eğer haberin tam metnini net hatırlamıyorsan veya güncel (Eğitim verinden sonraki) bir haber ise, kesinlikle açıkça "Bu haberin tam metnine internet hafızamdan erişemedim" de.
+KURAL 2: Yanıtını paragraflar halinde ver. Markdown KULLANMA.
+KURAL 3: Sadece haber metnini ver, yorum yapma.
+
+Haber Başlığı: ${art.title}
+Haber Özeti: ${art.description}`;
+
+    async function tryFetchFallback(keyIndex) {
+        if (keyIndex >= apiKeys.length) {
+            textContainer.innerHTML = `<div class="status-msg">❌ Metin ne proxy ile ne de AI ile bulunamadı. Aşağıda haberin özeti yer almaktadır.</div><p style="padding:15px;">${art.description}</p>`;
+            resetArticleChat(art.description); 
+            return;
+        }
+
+        try {
+            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${apiKeys[keyIndex]}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: "llama-3.3-70b-versatile",
+                    messages: [{ role: "user", content: prompt }],
+                    temperature: 0.1, 
+                    max_tokens: 2000
+                })
+            });
+            if (!response.ok) throw new Error("KeyFailed");
+
+            const data = await response.json();
+            let aiFoundText = data.choices[0].message.content.trim();
+
+            if (aiFoundText.includes("internet hafızamdan erişemedim") || aiFoundText.length <= art.description.length + 50) {
+                textContainer.innerHTML = `<div class="status-msg" style="padding:15px; border-radius:8px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3);">🤖 Yapay zeka bu haberin tam metnini internet hafızasında bulamadı.<br>Haberin mevcut özeti aşağıdadır:</div>
+                                          <p style="padding: 15px; font-size:1.1rem; line-height:1.6;">${art.description}</p>`;
+                resetArticleChat(art.description); 
+            } else {
+                const paragraphs = aiFoundText.split('\n').filter(p => p.trim().length > 30);
+                if (typeof window.formatTextWithControls === 'function') {
+                    textContainer.innerHTML = `<div style="padding:10px; text-align:center; color:#10b981; font-weight:bold; font-size:0.9rem; border-bottom:1px solid #10b981; margin-bottom:15px;">✨ Bu metin Yapay Zeka tarafından internet hafızasından kurtarılmıştır.</div>`;
+                    
+                    const tempDiv = document.createElement('div');
+                    window.formatTextWithControls(paragraphs, tempDiv);
+                    textContainer.appendChild(tempDiv);
+                    
+                    resetArticleChat(aiFoundText); 
+                } else {
+                    textContainer.innerHTML = `<div class="ai-msg assistant">🤖 Yapay zeka metni kurtardı:</div><br>` + paragraphs.map(p => `<p>${p}</p>`).join('');
+                    resetArticleChat(aiFoundText);
+                }
+            }
+
+        } catch (err) {
+            await tryFetchFallback(keyIndex + 1);
+        }
+    }
+
+    await tryFetchFallback(0);
+}
+
+
+// ==========================================
+// 3. API ANAHTARI VE RSS AI YÖNETİMİ
+// ==========================================
 
 function loadGroqKeys() {
     const keys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
@@ -51,81 +232,6 @@ function removeGroqKey(index) {
     keys.splice(index, 1);
     localStorage.setItem('groqApiKeys', JSON.stringify(keys));
     loadGroqKeys();
-}
-
-async function handleAIRequest() {
-    const inputEl = document.getElementById('aiInput');
-    const query = inputEl.value.trim() || "Bu haberi özetle";
-    const resultModal = document.getElementById('aiInlineResult');
-    const resultContent = document.getElementById('aiResultContent');
-    const btn = document.getElementById('aiSendBtn');
-    const textContainer = document.getElementById('fullTextContainer');
-    const paragraphs = Array.from(textContainer.querySelectorAll('p')).map(p => p.textContent.trim());
-    let articleText = paragraphs.join(' ').substring(0, 6000);
-    
-    if(articleText.length < 50) {
-        alert("Haber metni henüz yüklenmedi veya okunabilir metin bulunamadı.");
-        return;
-    }
-
-    if (resultModal.classList.contains('show') && query === "Bu haberi özetle") {
-        closeAIResult();
-        return;
-    }
-
-    const apiKeys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
-    if (apiKeys.length === 0) {
-        alert("Yapay zeka asistanını kullanmak için geçerli bir Groq API anahtarı gerekiyor.");
-        closeModalSafe('newsModal'); 
-        setTimeout(() => { openModalSafe('settingsModal'); }, 400); 
-        return;
-    }
-
-    resultModal.classList.add('show');
-    resultContent.innerHTML = '<div style="text-align:center; padding: 40px;"><span style="font-size:4rem; display:inline-block; animation:pulse 1s infinite;">⏳</span><br><br><span style="color:var(--accent); font-weight:bold; font-size:1.2rem;">Yapay zeka yanıt hazırlıyor...</span></div>';
-    btn.disabled = true;
-    
-    const systemPrompt = "Sen profesyonel ve analitik bir haber asistanısın. Kullanıcının sorusunu yanıtlarken okuma kolaylığı sağlamak zorundasın. Özeti kısa bir giriş cümlesiyle başlat ve ardından haberin en önemli detaylarını DÜZENLİ BİR LİSTE (<ul><li>...</li></ul>) formatında madde madde anlat. Önemli kelimeleri, kişi veya kurum isimlerini <span style='color:#e11d48'> veya <span style='color:#3b82f6'> ile renklendir. Asla Markdown (**, * gibi) KULLANMA. Haberde olmayan bir bilgiyi uydurma. Sadece şık ve temiz HTML çıktısı ver.";
-    
-    async function tryFetchWithKey(keyIndex) {
-        if (keyIndex >= apiKeys.length) {
-            resultContent.innerHTML = `<div style="color:var(--danger); text-align:center; padding: 20px;">⚠️ Ekli olan tüm API anahtarlarınızın kotası dolmuş veya bir bağlantı sorunu var. Lütfen yeni bir anahtar ekleyin.</div>`;
-            btn.disabled = false;
-            return;
-        }
-
-        try {
-            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${apiKeys[keyIndex]}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    model: "llama-3.3-70b-versatile", 
-                    messages: [
-                        { role: "system", content: systemPrompt },
-                        { role: "user", content: `Haber Metni:\n${articleText}\n\nKullanıcı İsteği: ${query}` }
-                    ],
-                    temperature: 0.5,
-                    max_tokens: 1024
-                })
-            });
-            if (!response.ok) throw new Error("KeyFailed");
-
-            const data = await response.json();
-            let cleanHtml = data.choices[0].message.content.replace(/```html/g, '').replace(/```/g, '').trim();
-            resultContent.innerHTML = cleanHtml;
-            btn.disabled = false;
-
-        } catch (err) {
-            await tryFetchWithKey(keyIndex + 1);
-        }
-    }
-
-    await tryFetchWithKey(0);
-}
-
-function closeAIResult() {
-    const modal = document.getElementById('aiInlineResult');
-    if(modal) modal.classList.remove('show');
 }
 
 async function findRssWithAI() {
@@ -240,6 +346,10 @@ function autoFillAndAddRss(name, url) {
         alert(`Kutucuklar bulunamadı. Lütfen URL'yi kendiniz kopyalayın: ${url}`);
     }
 }
+
+// ==========================================
+// 4. ÇEVİRİ VE SES İŞLEMLERİ (METİN ETKİLEŞİMLERİ)
+// ==========================================
 
 async function getTranslation(text, targetLang) {
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
@@ -398,4 +508,7 @@ document.addEventListener('click', (e) => {
     }
 });
 
-document.getElementById('modalBodyArea').addEventListener('scroll', () => { hideTooltip(); }, {passive: true});
+const modalBodyArea = document.getElementById('modalBodyArea');
+if(modalBodyArea) {
+    modalBodyArea.addEventListener('scroll', () => { hideTooltip(); }, {passive: true});
+}
