@@ -271,22 +271,17 @@
             
             <div class="modal-body" id="modalBodyArea">
                 
-                <div id="aiStickyBar" class="ai-sticky-bar">
-                    <input type="text" id="aiInput" placeholder="Habere dair soru sor..." value="Bu haberi özetle">
-                    <button onclick="handleAIRequest()" id="aiSendBtn">✨ AI</button>
+                <div id="aiStickyBar" class="ai-sticky-bar" style="display: flex; gap: 10px; padding: 12px 15px; border-bottom: 1px solid var(--surface-light); background: var(--bg-dark); position: sticky; top: 0; z-index: 5;">
+                    <input type="text" id="aiChatInput" value="Bu haberi özetle" placeholder="Soru sor veya bilgi iste..." onkeydown="if(event.key === 'Enter') handleNewChatMessage()" style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid var(--surface-light); background: rgba(0,0,0,0.3); color: white; outline: none; font-size: 0.95rem;">
+                    <button id="aiChatSendBtn" onclick="handleNewChatMessage()" style="background: var(--primary); color: white; border: none; padding: 0 20px; border-radius: 8px; font-weight: bold; cursor: pointer;">✨ Gönder</button>
                 </div>
                 
-                <div id="aiInlineResult" class="ai-inline-result" style="display: flex; flex-direction: column; max-height: 70vh; padding: 15px;">
-    <button class="ai-close-btn" onclick="closeAIResult()" style="position: absolute; right: 10px; top: 10px; z-index: 10;">✕</button>
-    
-    <div id="aiChatHistory" class="ai-chat-history" style="flex: 1; overflow-y: auto; padding-right: 5px; margin-top: 15px; margin-bottom: 15px;">
-        </div>
-    
-    <div class="ai-chat-bar" style="display: flex; gap: 10px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
-        <input type="text" id="aiChatInput" placeholder="Soru sor veya dış dünyadan bilgi iste..." style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid var(--surface-light); background: rgba(0,0,0,0.3); color: white; outline: none;">
-        <button id="aiChatSendBtn" onclick="handleNewChatMessage()" style="background: var(--primary); color: white; border: none; padding: 0 20px; border-radius: 8px; font-weight: bold; cursor: pointer;">Gönder</button>
-    </div>
-</div>
+                <div id="aiInlineResult" class="ai-inline-result" style="max-height: 70vh; padding: 15px; border-radius: 12px;">
+                    <button class="ai-close-btn" onclick="closeAIResult()" style="position: absolute; right: 10px; top: 10px; z-index: 10; background: rgba(239, 68, 68, 0.2); color: #ef4444; border: none; width: 30px; height: 30px; border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center;">✕</button>
+                    
+                    <div id="aiChatHistory" class="ai-chat-history" style="display: flex; flex-direction: column; gap: 10px; max-height: 50vh; overflow-y: auto; padding-right: 5px; margin-top: 25px;">
+                        </div>
+                </div>
                 
                 <div class="triple-tap-hint" data-i18n="tripleTapHint">Triple tap to close</div>
                 
@@ -313,8 +308,6 @@
                     
                     <div id="fullTextContainer" class="reader-text-container"></div>
                     <div id="wordTooltip"></div>
-                   <div class="ai-chat-section" id="aiChatSection">
-   
                 </div>
                 
                 <div id="iframeView"><div class="iframe-banner" id="iframeBanner"><span style="animation: pulse 1.5s infinite;">⏳</span> <span data-i18n="loadingSite">Loading original site...</span></div><iframe id="modalIframe" class="modal-iframe" sandbox="allow-same-origin allow-scripts allow-forms allow-popups"></iframe></div>
