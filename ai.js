@@ -12,7 +12,6 @@ let currentArticleContext = "";
 // Haber ilk açıldığında bağlamı ayarlar
 function resetArticleChat(fullText, description) {
     currentArticleChatHistory = []; 
-    // Eğer tam metin çekilemediyse (çok kısaysa), yapay zekaya bari özeti verelim ki haberi bilsin
     if (fullText.length > 100) {
         currentArticleContext = fullText.substring(0, 7000); 
     } else {
@@ -21,7 +20,7 @@ function resetArticleChat(fullText, description) {
     
     const historyDiv = document.getElementById('aiChatHistory');
     if (historyDiv) {
-        historyDiv.innerHTML = '<div class="ai-msg assistant">🤖 Merhaba! Yukarıdaki <b>Yapay Zeka</b> butonuna tıklayarak haberi özetletebilir veya aşağıdaki çubuktan haberle/dünyayla ilgili her türlü soruyu sorabilirsin.</div>';
+        historyDiv.innerHTML = ''; // ESKİ MERHABA YAZISINI SİLDİK, TERTEMİZ BAŞLIYOR!
     }
 }
 
@@ -37,15 +36,20 @@ async function handleAIRequest() {
     await getAIResponseWithHistory("Bu haberi benim için özetle ve en önemli detayları maddeler halinde listele.");
 }
 
-// Aşağıdaki "Gönder" butonuna basıldığında çalışır (Sohbet)
+// "Gönder" butonuna basıldığında çalışır (Sohbet)
 async function handleNewChatMessage() {
     const inputEl = document.getElementById('aiChatInput');
     const userInput = inputEl.value.trim();
     if (!userInput) return;
 
+    // YENİ: Sadece Gönder butonuna basıldığında AI Penceresini aç ve göster!
+    const resultModal = document.getElementById('aiInlineResult');
+    if (resultModal) resultModal.classList.add('show');
+
     const historyDiv = document.getElementById('aiChatHistory');
     historyDiv.innerHTML += `<div class="ai-msg user">${userInput}</div>`;
-    inputEl.value = ''; 
+    
+    inputEl.value = ''; // Gönderdikten sonra kutuyu temizle ki yeni soru yazılabilsin
     historyDiv.scrollTop = historyDiv.scrollHeight; 
 
     await getAIResponseWithHistory(userInput);
