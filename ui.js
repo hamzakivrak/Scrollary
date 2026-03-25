@@ -676,7 +676,7 @@ async function openModal(art) {
             }
             
             // YENİ: Sohbet Robotunu bu tam metinle sıfırla
-            if (typeof resetArticleChat === 'function') resetArticleChat(uniqueText.join('\n'));
+            if (typeof resetArticleChat === 'function') resetArticleChat(uniqueText.join('\n'), art.description);
         } else { 
             throw new Error("Okunabilir metin bulunamadı"); 
         }
@@ -710,7 +710,7 @@ async function openModal(art) {
         } else {
             // Fallback: AI dosyası veya fonksiyon yüklü değilse sadece özeti göster
             textContainer.innerHTML = `<div class="status-msg">⚠️ Metin çekilemedi.</div><p style="padding:15px;">${art.description}</p>`;
-            if (typeof resetArticleChat === 'function') resetArticleChat(art.description);
+            if (typeof resetArticleChat === 'function') resetArticleChat("", art.description);
         }
     }
 }
