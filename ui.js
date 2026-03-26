@@ -797,7 +797,7 @@ async function openModal(art) {
 
 
         
-}
+
 
 async function fetchWithUserHelp() {
     const manualUrl = document.getElementById('manualLinkInput').value.trim();
