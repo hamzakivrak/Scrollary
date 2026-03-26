@@ -706,17 +706,64 @@ async function openModal(art) {
             setTimeout(()=>{ banner.style.display='none'; }, 2000); 
         };
         
-    } catch (err) { 
-        // 🛡️ METİN ÇEKİLEMEDİ (Güvenlik Duvarı veya Hata Durumu) 🛡️
-        // YENİ: Akıllı Metin Bulucuyu (Fallback AI) devreye sok
-        if (typeof attemptToFindMissingTextWithAI === 'function') {
-            attemptToFindMissingTextWithAI(art, textContainer);
-        } else {
-            // Fallback: AI dosyası veya fonksiyon yüklü değilse sadece özeti göster
-            textContainer.innerHTML = `<div class="status-msg">⚠️ Metin çekilemedi.</div><p style="padding:15px;">${art.description}</p>`;
-            if (typeof resetArticleChat === 'function') resetArticleChat("", art.description);
-        }
+
+
+            catch (err) { 
+        // 🛡️ METİN ÇEKİLEMEDİ VEYA GOOGLE NEWS LİNKİ 🛡️
+        // YENİ: Başarısız olunduğunda veya Google News olduğunda Jina Reader API devreye girer
+        
+        textContainer.innerHTML = `<div class="loading-pulse">Güvenlik duvarı aşılamadı. Özel okuyucu ile deneniyor ⏳</div>`;
+        
+        // Asenkron (await) işlemleri yapabilmek için kendi içinde küçük bir async fonksiyon oluşturup çağırıyoruz
+        (async () => {
+            try {
+                // Jina Reader API'ye istek atıyoruz (Kayıtsız, şartsız, limitsiz)
+                const jinaUrl = "https://r.jina.ai/" + art.link;
+                const jinaRes = await fetchWithTimeout(jinaUrl, 8000);
+                
+                if (!jinaRes.ok) throw new Error("Jina API de başarısız oldu.");
+                
+                // Jina bize sayfayı tertemiz Markdown veya düz metin olarak döndürür
+                let jinaText = await jinaRes.text();
+                
+                // Jina'dan gelen gereksiz resim ve link kodlarını (Markdown) temizle
+                jinaText = jinaText.replace(/!\[.*?\]\(.*?\)/g, ''); // Resimleri sil
+                jinaText = jinaText.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'); // Linkleri temizle metni bırak
+                jinaText = jinaText.replace(/^#+\s*/gm, ''); // Başlık işaretlerini (#) sil
+                jinaText = jinaText.replace(/[*_]{1,2}/g, ''); // Kalın/İtalik işaretlerini sil
+                
+                // Metni paragraflara böl ve çok kısa olanları (menü vs) ele
+                const paragraphs = jinaText.split('\n').map(t => t.trim()).filter(t => t.length > 70);
+                
+                if (paragraphs.length < 1) throw new Error("Jina okunabilir bir metin bulamadı.");
+
+                // Jina başarılı olduysa, metni ekrana senin formatınla çizdir
+                if (typeof window.formatTextWithControls === 'function') {
+                    window.formatTextWithControls(paragraphs, textContainer);
+                } else {
+                    textContainer.innerHTML = paragraphs.map((txt, idx) => `<p>${txt}</p>`).join('');
+                }
+                
+                // Yapay zeka asistanını bu metinle sıfırla
+                if (typeof resetArticleChat === 'function') resetArticleChat(paragraphs.join('\n'), art.description);
+
+            } catch (jinaErr) {
+                // Jina da başarısız olursa (Çok nadir), en son çare özeti gösterip bırak
+                if (typeof attemptToFindMissingTextWithAI === 'function') {
+                    attemptToFindMissingTextWithAI(art, textContainer);
+                } else {
+                    textContainer.innerHTML = `<div class="status-msg">⚠️ Metin çekilemedi. Site okumaya izin vermiyor.</div><p style="padding:15px;">${art.description}</p>`;
+                    if (typeof resetArticleChat === 'function') resetArticleChat("", art.description);
+                }
+            }
+        })();
     }
+
+
+
+
+
+        
 }
 
 async function fetchWithUserHelp() {
