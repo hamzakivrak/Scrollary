@@ -639,7 +639,7 @@ async function openModal(art) {
         return Promise.any(fetchPromises);
     }
 
-    // 🌟 MANUEL YAPIŞTIRMA VE ÇEKME ARAYÜZÜ (B PLANI YARDIMCISI) 🌟
+    // 🌟 MANUEL YAPIŞTIRMA VE ÇEKME ARAYÜZÜ (TAMAMI) 🌟
     function renderManualFetchUI(gercekLink) {
         const targetLink = gercekLink || art.link;
         
@@ -769,11 +769,18 @@ async function openModal(art) {
         }
     }
 
-    try {
-        if(art.link.includes('news.google.com')) {
-            throw new Error("GoogleNewsLink");
+    // 🔥 YENİ EKLENEN: GOOGLE NEWS HIZLI BYPASS 🔥
+    if (art.link.includes('news.google.com')) {
+        renderManualFetchUI(art.link);
+        const banner = document.getElementById('iframeBanner');
+        if (banner) {
+            banner.innerHTML = `✅ Yönlendirme Linki`;
+            setTimeout(()=>{ banner.style.display='none'; }, 2000);
         }
+        return; // Fonksiyonu burada kesiyoruz! Proxy veya ajanlar boşuna çalışmayacak.
+    }
 
+    try {
         try { 
             html = await fireProxies(proxyGroup1, 3000);
         } catch (e1) {
