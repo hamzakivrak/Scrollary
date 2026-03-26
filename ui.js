@@ -708,60 +708,27 @@ async function openModal(art) {
         
 
 
-    } catch (err) { 
+
+
+            } catch (err) { 
         // 🛡️ METİN ÇEKİLEMEDİ VEYA GOOGLE NEWS LİNKİ 🛡️
-        textContainer.innerHTML = `<div class="loading-pulse">Haberin asıl kaynağı aranıyor... ⏳</div>`;
+        textContainer.innerHTML = `<div class="loading-pulse">Özel okuyucu ile deneniyor... ⏳</div>`;
         
         (async () => {
             try {
-                let targetUrl = art.link;
-
-                // 🌟 ADIM 1: GOOGLE NEWS LİNK ÇÖZÜCÜ (GERÇEK LİNKİ BUL)
-                if (targetUrl.includes('news.google.com')) {
-                    try {
-                        const decodeRes = await fetchWithTimeout("https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(targetUrl), 5000);
-                        if (decodeRes.ok) {
-                            const html = await decodeRes.text();
-                            // Yönlendirme sayfasındaki asıl hedef linki (Sozcu, Hurriyet vb.) regex ile yakala
-                            const match = html.match(/(?:URL=['"]?|href=["'])(https?:\/\/(?!policies\.google|accounts\.google|support\.google)[^"'>]+)/i);
-                            if (match && match[1]) {
-                                targetUrl = match[1]; // Gerçek linki bulduk!
-                            }
-                        }
-                    } catch (e) { console.log("Link çözülemedi"); }
-                }
-
-                textContainer.innerHTML = `<div class="loading-pulse">Asıl kaynaktan metin çekiliyor... ⏳</div>`;
-
-                // 🌟 ADIM 2: JINA'YI ZIRHLI OLARAK ÇALIŞTIR (CORS Hatalarını Aş)
-                const jinaTarget = "https://r.jina.ai/" + targetUrl;
-                const endpoints = [
-                    jinaTarget, // 1. Önce doğrudan Jina'yı dene
-                    "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(jinaTarget), // 2. Çökerse Proxy üzerinden Jina
-                    "https://api.allorigins.win/raw?url=" + encodeURIComponent(jinaTarget) // 3. O da çökerse alternatif Proxy
-                ];
-
-                let jinaText = "";
-                let success = false;
+                // Jina'yı sadece normal URL'ler için son bir kez dene (Google News olmayan inatçı siteler için)
+                const jinaUrl = "https://r.jina.ai/" + art.link;
+                const jinaRes = await fetchWithTimeout(jinaUrl, 6000);
                 
-                for (let ep of endpoints) {
-                    try {
-                        const res = await fetchWithTimeout(ep, 6000);
-                        if (res.ok) {
-                            const text = await res.text();
-                            // Gelen veri çok kısaysa veya Cloudflare engeli ise atla
-                            if (text && text.length > 150 && !text.includes('security service to protect itself')) {
-                                jinaText = text;
-                                success = true;
-                                break;
-                            }
-                        }
-                    } catch (e) {} // Hata verirse sessizce diğer endpoint'e geç
-                }
-
-                if (!success) throw new Error("Bütün Jina kanalları başarısız oldu.");
+                if (!jinaRes.ok) throw new Error("Jina başarısız oldu.");
                 
-                // 🌟 ADIM 3: JINA'DAN GELEN METNİ TEMİZLE
+                let jinaText = await jinaRes.text();
+                
+                // Cloudflare/DDoS mesajlarını yakala (Google News burada yakalanıp catch'e düşecek)
+                if (jinaText.includes('security service to protect itself') || jinaText.includes('Anonymous access to domain')) {
+                    throw new Error("Güvenlik Duvarı");
+                }
+                
                 jinaText = jinaText.replace(/!\[.*?\]\(.*?\)/g, ''); 
                 jinaText = jinaText.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'); 
                 jinaText = jinaText.replace(/^#+\s*/gm, ''); 
@@ -770,27 +737,43 @@ async function openModal(art) {
                 const paragraphs = jinaText.split('\n').map(t => t.trim()).filter(t => t.length > 70);
                 if (paragraphs.length < 1) throw new Error("Okunabilir metin yok.");
 
-                // Metni ekrana çiz ve AI asistanını besle
+                // Metni ekrana çiz
                 if (typeof window.formatTextWithControls === 'function') {
                     window.formatTextWithControls(paragraphs, textContainer);
                 } else {
                     textContainer.innerHTML = paragraphs.map((txt, idx) => `<p>${txt}</p>`).join('');
                 }
                 
+                // AI asistanını besle
                 if (typeof resetArticleChat === 'function') resetArticleChat(paragraphs.join('\n'), art.description);
 
             } catch (jinaErr) {
-                // 🛡️ EN SON ÇARE (Yapay Zeka Fallback veya Özet)
-                if (typeof attemptToFindMissingTextWithAI === 'function') {
-                    attemptToFindMissingTextWithAI(art, textContainer);
-                } else {
-                    textContainer.innerHTML = `<div class="status-msg">⚠️ Asıl haberin sitesi okumaya izin vermiyor.</div><p style="padding:15px;">${art.description}</p>`;
-                    if (typeof resetArticleChat === 'function') resetArticleChat("", art.description);
+                // 🌟 PROFESYONEL DÜŞÜŞ (GRACEFUL DEGRADATION) 🌟
+                // Google duvarı aşılamadığında çirkin hatalar yerine şık bir özet ekranı sunarız.
+                
+                const fallbackHtml = `
+                    <div class="status-msg" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 15px; margin-bottom: 20px; text-align: left;">
+                        <h4 style="color: #ef4444; margin: 0 0 10px 0; display:flex; align-items:center; gap:8px;">
+                            <span>🛡️</span> Yayıncı Koruması
+                        </h4>
+                        <p style="color: #cbd5e1; font-size: 0.9rem; margin: 0; line-height: 1.5;">Bu haber kaynağı (Google News vb.) tam metnin otomatik olarak çekilmesini engelliyor. Aşağıda haberin özetini okuyabilir veya sağ üstteki <b>"Orijinal Site"</b> butonuna tıklayarak tamamına ulaşabilirsiniz.</p>
+                    </div>
+                    <div style="padding: 0 10px; line-height: 1.6; color: #f8fafc; font-size: 1.05rem;">
+                        ${art.description}
+                    </div>
+                `;
+                
+                textContainer.innerHTML = fallbackHtml;
+                
+                // AI'ı sadece "Özet" ile besle, böylece en azından özet üzerinden sohbet edebilir
+                if (typeof resetArticleChat === 'function') {
+                    resetArticleChat("Bu haberin tam metni çekilemedi, sadece özeti mevcut: \n" + art.description, art.description);
                 }
             }
         })();
     }
 }
+
 
 
 
