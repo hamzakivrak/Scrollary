@@ -708,7 +708,7 @@ async function openModal(art) {
         
 
 
-            catch (err) { 
+    }  catch (err) { 
         // 🛡️ METİN ÇEKİLEMEDİ VEYA GOOGLE NEWS LİNKİ 🛡️
         // YENİ: Başarısız olunduğunda veya Google News olduğunda Jina Reader API devreye girer
         
