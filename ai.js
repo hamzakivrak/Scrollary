@@ -1,6 +1,49 @@
-// ai.js (Final Sürüm: Sohbet + Akıllı Metin Bulma + Çeviri ve Ses Özellikleri)
+// ai.js (Final Sürüm: Sohbet + Akıllı Metin Bulma + Çeviri + Ses + Özel Prompt Yönetimi)
 
 const ttsLangMap = { 'EN': 'en-US', 'TR': 'tr-TR', 'DE': 'de-DE', 'ES': 'es-ES', 'FR': 'fr-FR', 'RU': 'ru-RU', 'AR': 'ar-SA', 'HI': 'hi-IN' };
+
+// ==========================================
+// YENİ: YAPAY ZEKA SABİT KOMUTLARI (PROMPTS) YÖNETİCİSİ
+// ==========================================
+const DEFAULT_AI_PROMPTS = {
+    chatAssistant: `Sen çok zeki, genel kültürü yüksek profesyonel bir asistansın.\nKURAL 1: Kullanıcı haberle ilgili bir şey soruyorsa veya "özetle" diyorsa, öncelikle sana sağlanan [HABER METNİ/ÖZETİ] bağlamını kullan.\nKURAL 2: Eğer kullanıcının sorduğu sorunun cevabı haberde YOKSA veya doğrudan dış dünyayla (genel bilgi) ilgili bir şey soruyorsa, KENDİ GENEL KÜLTÜRÜNÜ VE BİLGİ BİRİKİMİNİ kullanarak cevap ver. Ancak bu bilginin haberde geçmediğini açıkça belirt.\nKURAL 3: Eğer "haberi özetle" deniyorsa, kısa bir giriş yap ve detayları <ul><li> formatında madde madde anlat.\nKURAL 4: Önemli kelimeleri <span style="color:#3b82f6"> (mavi) veya <span style="color:#e11d48"> (kırmızı) ile renklendir. Markdown (** vb.) ASLA kullanma, sadece HTML kullan.`,
+    voiceIntent: `Sen akıllı bir haber asistanısın. Kullanıcı komutunu SADECE JSON vererek analiz et.\n\nKURALLAR:\n1. DETAY: Kullanıcı daha önce listelenen spesifik bir haberin detayını, tamamını veya içeriğini istiyorsa (Örn: "3. haberin detayını ver", "ikinciyi oku", "ilk haberi aç") intent: "detail" yap ve "list_index" alanına o haberin numarasını SAYI olarak yaz (Örn: 3).\n2. DEVAM ET: Kullanıcı listeye devam edilmesini istiyorsa (Örn: "devam et", "sonraki haberler", "başka var mı") intent: "continue" yap.\n3. GENEL LİSTE/ÖZET: Kullanıcı genel gündemi soruyorsa (Örn: "gündemi özetle", "haber oku") intent: "general_list" yap.\n4. YENİ ARAMA: Kullanıcı spesifik bir konu/kaynak arıyorsa intent: "search" yap.\n   - ÇOK ÖNEMLİ: "search_query" kısmına SADECE salt anahtar kelimeyi yaz. "haber", "haberleri", "haberler", "var mı", "aç", "göster", "oku" kelimelerini KESİNLİKLE ÇIKAR!\n   - (Örn: "sözcü haberleri aç" -> "sözcü")\n   - (Örn: "iş kazası haberleri var mı" -> "iş kazası")\n5. ui_message: Ekranda belirecek çok kısa bilgi mesajı.\n\nJSON FORMATI: {"intent":"search|detail|continue|general_list", "list_index": 1, "search_query":"", "ui_message":""}`,
+    voiceSummary: `Sen bir spikersin. Aşağıdaki haberleri incele. BİREBİR AYNI konuyu anlatan kopya haberler varsa sadece birini tut, kopyaları yoksay.\nKalan benzersiz haberlerin her birini sadece 1 cümleyle özetle.\nSADECE JSON formatında bir dizi dön. Format şu şekilde olmalı:\n[{"id": 0, "summary": "Özet metni..."}, {"id": 2, "summary": "Özet metni..."}]`,
+    voiceDetail: `Sen profesyonel bir haber spikerisin. Aşağıdaki metinden yararlanarak olayın ana detaylarını 3-4 cümleyle akıcı Türkçe ile özetle.`,
+    textFinder: `Sana bir haberin özetini ve başlığını veriyorum. Bana internetteki eğitim verinden yararlanarak bu haberin GERÇEK TAM METNİNİ BUL VE VER.\nKURAL 1: Kesinlikle uydurma (Halüsinasyon yok). Eğer haberin tam metnini net hatırlamıyorsan veya güncel (Eğitim verinden sonraki) bir haber ise, kesinlikle açıkça "Bu haberin tam metnine internet hafızamdan erişemedim" de.\nKURAL 2: Yanıtını paragraflar halinde ver. Markdown KULLANMA.\nKURAL 3: Sadece haber metnini ver, yorum yapma.`,
+    rssFinder: `Kullanıcı "{topic}" konularında haber okumak istiyor. Bana bu alanla ilgili popüler, güvenilir ve gerçekten çalışan 4 adet RSS akışı URL'si bul. Öncelikle Türkçe kaynaklar olsun, bulamazsan İngilizce ver. YANITINI SADECE VE SADECE JSON FORMATINDA DİZİ (ARRAY) OLARAK VER. Başka tek bir kelime bile yazma. Örnek Çıktı Formatı: [{"name": "DonanımHaber", "url": "https://www.donanimhaber.com/rss/tum"}, {"name": "Webtekno", "url": "https://www.webtekno.com/rss.xml"}]`
+};
+
+function getAIPrompt(key) {
+    const savedPrompts = JSON.parse(localStorage.getItem('customAIPrompts')) || {};
+    return savedPrompts[key] || DEFAULT_AI_PROMPTS[key];
+}
+
+function initAIPromptsUI() {
+    Object.keys(DEFAULT_AI_PROMPTS).forEach(key => {
+        const el = document.getElementById('prompt_' + key);
+        if(el) el.value = getAIPrompt(key);
+    });
+}
+
+function saveAIPrompts() {
+    const newPrompts = {};
+    Object.keys(DEFAULT_AI_PROMPTS).forEach(key => {
+        const el = document.getElementById('prompt_' + key);
+        if(el) newPrompts[key] = el.value.trim();
+    });
+    localStorage.setItem('customAIPrompts', JSON.stringify(newPrompts));
+    if(typeof showToastGlobal === 'function') showToastGlobal("✅ Yapay Zeka Komutları Kaydedildi!", 3000);
+}
+
+function resetAIPrompts() {
+    if(!confirm("Tüm Yapay Zeka komutlarını fabrika ayarlarına döndürmek istediğinize emin misiniz? Kendi yazdığınız komutlar silinecek.")) return;
+    localStorage.removeItem('customAIPrompts');
+    initAIPromptsUI();
+    if(typeof showToastGlobal === 'function') showToastGlobal("🔄 Varsayılan komutlara dönüldü!", 3000);
+}
+
+document.addEventListener('DOMContentLoaded', initAIPromptsUI);
 
 // ==========================================
 // 1. YAPAY ZEKA SOHBET & ÖZET (BİRLEŞTİRİLMİŞ)
@@ -9,7 +52,6 @@ const ttsLangMap = { 'EN': 'en-US', 'TR': 'tr-TR', 'DE': 'de-DE', 'ES': 'es-ES',
 let currentArticleChatHistory = []; 
 let currentArticleContext = "";   
 
-// Haber ilk açıldığında bağlamı ayarlar
 function resetArticleChat(fullText, description) {
     currentArticleChatHistory = []; 
     if (fullText.length > 100) {
@@ -20,29 +62,24 @@ function resetArticleChat(fullText, description) {
     
     const historyDiv = document.getElementById('aiChatHistory');
     if (historyDiv) {
-        historyDiv.innerHTML = ''; // ESKİ MERHABA YAZISINI SİLDİK, TERTEMİZ BAŞLIYOR!
+        historyDiv.innerHTML = ''; 
     }
 }
 
-// "Yapay Zeka" logolu sihirli butona basıldığında çalışır (Otomatik Özet)
 async function handleAIRequest() {
     const resultModal = document.getElementById('aiInlineResult');
     if (resultModal) resultModal.classList.add('show');
     
-    // Eğer daha önce özetlendiyse tekrar özetleme, sadece pencereyi aç
     if (currentArticleChatHistory.length > 0) return; 
 
-    // Özetleme isteğini sohbete ilk mesaj olarak gönder
     await getAIResponseWithHistory("Bu haberi benim için özetle ve en önemli detayları maddeler halinde listele.");
 }
 
-// Hangi kutudan gönderildiğini anlayıp işlemi yapar
 async function handleNewChatMessage(inputId = 'aiChatInput') {
     const inputEl = document.getElementById(inputId);
     const userInput = inputEl.value.trim();
     if (!userInput) return;
 
-    // Pencereyi göster ve CSS yapısını flex olarak ayarla (içinin kayabilmesi için)
     const resultModal = document.getElementById('aiInlineResult');
     if (resultModal) {
         resultModal.classList.add('show');
@@ -52,12 +89,11 @@ async function handleNewChatMessage(inputId = 'aiChatInput') {
     const historyDiv = document.getElementById('aiChatHistory');
     historyDiv.innerHTML += `<div class="ai-msg user">${userInput}</div>`;
     
-    // Alttaki kutudan gönderildiyse içini temizle, üsttense elleme ("Bu haberi özetle" kalsın)
     if (inputId === 'aiChatInputInner') {
         inputEl.value = ''; 
     } else {
         const innerInput = document.getElementById('aiChatInputInner');
-        if(innerInput) innerInput.value = ''; // İç kutuyu her ihtimale karşı temizle
+        if(innerInput) innerInput.value = ''; 
     }
     
     historyDiv.scrollTop = historyDiv.scrollHeight; 
@@ -65,7 +101,6 @@ async function handleNewChatMessage(inputId = 'aiChatInput') {
     await getAIResponseWithHistory(userInput);
 }
 
-// Hem özet hem sohbet için API'ye giden ana motor
 async function getAIResponseWithHistory(query) {
     const historyDiv = document.getElementById('aiChatHistory');
     const sendBtn = document.getElementById('aiChatSendBtn');
@@ -87,12 +122,7 @@ async function getAIResponseWithHistory(query) {
     historyDiv.appendChild(loadingDiv);
     historyDiv.scrollTop = historyDiv.scrollHeight;
 
-    // YENİ SİSTEM KOMUTU: Dış dünya bilgisine izin verildi!
-    const systemPrompt = `Sen çok zeki, genel kültürü yüksek profesyonel bir asistansın.
-KURAL 1: Kullanıcı haberle ilgili bir şey soruyorsa veya "özetle" diyorsa, öncelikle sana sağlanan [HABER METNİ/ÖZETİ] bağlamını kullan.
-KURAL 2: Eğer kullanıcının sorduğu sorunun cevabı haberde YOKSA veya doğrudan dış dünyayla (genel bilgi) ilgili bir şey soruyorsa, KENDİ GENEL KÜLTÜRÜNÜ VE BİLGİ BİRİKİMİNİ kullanarak cevap ver. Ancak bu bilginin haberde geçmediğini açıkça belirt.
-KURAL 3: Eğer "haberi özetle" deniyorsa, kısa bir giriş yap ve detayları <ul><li> formatında madde madde anlat.
-KURAL 4: Önemli kelimeleri <span style="color:#3b82f6"> (mavi) veya <span style="color:#e11d48"> (kırmızı) ile renklendir. Markdown (** vb.) ASLA kullanma, sadece HTML kullan.`;
+    const systemPrompt = getAIPrompt('chatAssistant');
 
     let messagesPayload = [
         { role: "system", content: systemPrompt },
@@ -141,7 +171,6 @@ KURAL 4: Önemli kelimeleri <span style="color:#3b82f6"> (mavi) veya <span style
     historyDiv.scrollTop = historyDiv.scrollHeight;
 }
 
-// Pencereyi tamamen gizle
 function closeAIResult() {
     const modal = document.getElementById('aiInlineResult');
     if(modal) {
@@ -155,7 +184,7 @@ function closeAIResult() {
 // ==========================================
 
 async function attemptToFindMissingTextWithAI(art, textContainer) {
-    textContainer.innerHTML = `<div class="loading-pulse" style="padding: 20px; text-align: center; color: var(--accent);">⚠️ Sitenin güvenlik duvarı aşılamadı.<br><br>🤖 Yapay zeka bu haberin tam metnini internet hafızasından bulmaya çalışıyor... (Halüsinasyon engeli aktif)</div>`;
+    textContainer.innerHTML = `<div class="loading-pulse" style="padding: 20px; text-align: center; color: var(--accent);">⚠️ Sitenin güvenlik duvarı aşılamadı.<br><br>🤖 Yapay zeka bu haberin tam metnini internet hafızasından bulmaya çalışıyor...</div>`;
     
     const apiKeys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
     if (apiKeys.length === 0) {
@@ -163,13 +192,7 @@ async function attemptToFindMissingTextWithAI(art, textContainer) {
         return;
     }
 
-    const prompt = `Sana bir haberin özetini ve başlığını veriyorum. Bana internetteki eğitim verinden yararlanarak bu haberin GERÇEK TAM METNİNİ BUL VE VER. 
-KURAL 1: Kesinlikle uydurma (Halüsinasyon yok). Eğer haberin tam metnini net hatırlamıyorsan veya güncel (Eğitim verinden sonraki) bir haber ise, kesinlikle açıkça "Bu haberin tam metnine internet hafızamdan erişemedim" de.
-KURAL 2: Yanıtını paragraflar halinde ver. Markdown KULLANMA.
-KURAL 3: Sadece haber metnini ver, yorum yapma.
-
-Haber Başlığı: ${art.title}
-Haber Özeti: ${art.description}`;
+    const prompt = getAIPrompt('textFinder') + `\n\nHaber Başlığı: ${art.title}\nHaber Özeti: ${art.description}`;
 
     async function tryFetchFallback(keyIndex) {
         if (keyIndex >= apiKeys.length) {
@@ -295,7 +318,8 @@ async function findRssWithAI() {
     }
 
     resultsDiv.innerHTML = '<div style="text-align:center; padding: 10px; color: var(--accent); animation: pulse 1s infinite;">⏳ Yapay zeka interneti tarıyor...</div>';
-    const prompt = `Kullanıcı "${topic}" konularında haber okumak istiyor. Bana bu alanla ilgili popüler, güvenilir ve gerçekten çalışan 4 adet RSS akışı URL'si bul. Öncelikle Türkçe kaynaklar olsun, bulamazsan İngilizce ver. YANITINI SADECE VE SADECE JSON FORMATINDA DİZİ (ARRAY) OLARAK VER. Başka tek bir kelime bile yazma. Örnek Çıktı Formatı: [{"name": "DonanımHaber", "url": "https://www.donanimhaber.com/rss/tum"}, {"name": "Webtekno", "url": "https://www.webtekno.com/rss.xml"}]`;
+    
+    const prompt = getAIPrompt('rssFinder').replace(/{topic}/g, topic);
     
     async function tryFetchRss(keyIndex) {
         if (keyIndex >= apiKeys.length) {
