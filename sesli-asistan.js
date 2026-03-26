@@ -11,7 +11,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const micBtn = document.querySelector('.mic-fab');
     if (!micBtn) return;
 
-    // SUSTUR BUTONU
     if (!document.getElementById('voiceStopBtn')) {
         let stopBtn = document.createElement('button');
         stopBtn.id = 'voiceStopBtn';
@@ -29,7 +28,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // EKRANA DOKUNUNCA/KAYDIRINCA ALTYAZIYI GİZLE
     const hideOnInteraction = () => {
         const subBox = document.getElementById('voiceSubtitleBox');
         if (subBox && subBox.style.opacity === '1') {
@@ -174,17 +172,13 @@ function sesliOkuAsync(metin, myCmdId, appendSubtitle = false) {
     });
 }
 
-
-
-
-
 // --- ANA İŞLEM DÖNGÜSÜ ---
 async function processVoiceCommand(komut) {
     let myCmdId = currentVoiceCmdId;
     if (!isVoiceActive) return;
     
-    // ZEKİ BAĞLAM PROMPTU (Katı Kurallarla Güncellendi)
-    const intentSystemPrompt = `Sen akıllı bir haber asistanısın. Kullanıcı komutunu SADECE JSON vererek analiz et.
+    // AYARLARDAN PROMPT ÇEKİLİYOR
+    const intentSystemPrompt = typeof getAIPrompt === 'function' ? getAIPrompt('voiceIntent') : `Sen akıllı bir haber asistanısın. Kullanıcı komutunu SADECE JSON vererek analiz et.
     
     KURALLAR:
     1. DETAY: Kullanıcı daha önce listelenen spesifik bir haberin detayını, tamamını veya içeriğini istiyorsa (Örn: "3. haberin detayını ver", "ikinciyi oku", "ilk haberi aç") intent: "detail" yap ve "list_index" alanına o haberin numarasını SAYI olarak yaz (Örn: 3).
@@ -230,22 +224,12 @@ async function processVoiceCommand(komut) {
     // EYLEM 3: YENİ ARAMA
     else if (aiData.intent === "search") {
         let cleanQuery = aiData.search_query || "";
-        
-        // 🔥 JS GÜVENLİK DUVARI: Yapay zeka unutursa diye gereksiz kelimeleri KESİNLİKLE biz siliyoruz!
         cleanQuery = cleanQuery.replace(/\b(haber|haberler|haberleri|haberlerini|var mı|aç|göster|oku|bul|hakkında)\b/gi, '').replace(/\s+/g, ' ').trim();
         
         if (searchInput) searchInput.value = cleanQuery;
         if(typeof handleSearch === 'function') handleSearch(true);
         await sesliOkuAsync(`"${cleanQuery}" için haberleri arıyorum...`, myCmdId, false);
     }
-    // "continue" (Devam et) durumunda filtreye dokunmuyoruz.
-
-
-
-
-
-
-
 
     // Haberlerin Ağdan Çekilmesini Bekleme (Polling)
     let waitCount = 0;
@@ -268,14 +252,12 @@ async function processVoiceCommand(komut) {
         return sesliOkuAsync("Bu kriterlere uygun listelenecek yeni haber bulamadım.", myCmdId, false);
     }
 
-    // KOPYA HABER FİLTRESİ (DEDUPLICATION)
+    // KOPYA HABER FİLTRESİ VE ÖZETLEME
     let haberlerMetni = unread.map((h, i) => `[ID: ${i}] ${h.title}`).join("\n");
     
-    const summaryPrompt = `Sen bir spikersin. Aşağıdaki haberleri incele. BİREBİR AYNI konuyu anlatan kopya haberler varsa sadece birini tut, kopyaları yoksay. 
-    Kalan benzersiz haberlerin her birini sadece 1 cümleyle özetle.
-    SADECE JSON formatında bir dizi dön. Format şu şekilde olmalı:
-    [{"id": 0, "summary": "Özet metni..."}, {"id": 2, "summary": "Özet metni..."}]
-    HABERLER:\n${haberlerMetni}`;
+    // AYARLARDAN PROMPT ÇEKİLİYOR
+    const summaryBasePrompt = typeof getAIPrompt === 'function' ? getAIPrompt('voiceSummary') : `Sen bir spikersin. Aşağıdaki haberleri incele. BİREBİR AYNI konuyu anlatan kopya haberler varsa sadece birini tut, kopyaları yoksay. \nKalan benzersiz haberlerin her birini sadece 1 cümleyle özetle.\nSADECE JSON formatında bir dizi dön. Format şu şekilde olmalı:\n[{"id": 0, "summary": "Özet metni..."}, {"id": 2, "summary": "Özet metni..."}]`;
+    const summaryPrompt = summaryBasePrompt + `\nHABERLER:\n${haberlerMetni}`;
 
     try {
         const summaryResult = await fetchFromGroq(summaryPrompt, "Özetle", false);
@@ -291,7 +273,6 @@ async function processVoiceCommand(komut) {
         currentListedArticles = [];
         let validSummaries = [];
 
-        // Yeni ve temizlenmiş listeyi hafızaya al
         parsedArray.forEach((item) => {
             if (unread[item.id]) {
                 currentListedArticles.push(unread[item.id]);
@@ -306,7 +287,6 @@ async function processVoiceCommand(komut) {
             
             voiceReadLinks.add(currentListedArticles[i].link); 
             
-            // GARANTİLİ NUMARALANDIRMA (Yapay zekanın hatalarını düzeltir)
             let cleanSummary = validSummaries[i].replace(/^\d+[\.\-\)]?\s*(Haber|Haber:|Sıra:)?\s*/i, '').trim();
             let finalSpokenText = `${i + 1}. Haber: ${cleanSummary}`;
 
@@ -337,7 +317,6 @@ async function handleDeepResearch(article, listIndex, myCmdId) {
     let isDone = false;
     let seconds = 0;
 
-    // Ekrandaki DOM'a haberin yansımasını bekle
     while (seconds < 12 && myCmdId === currentVoiceCmdId && isVoiceActive) {
         await new Promise(r => setTimeout(r, 1000));
         seconds++;
@@ -379,9 +358,9 @@ async function handleDeepResearch(article, listIndex, myCmdId) {
         return;
     }
 
-    const detailPrompt = `Sen profesyonel bir haber spikerisin. Aşağıdaki metinden yararlanarak olayın ana detaylarını 3-4 cümleyle akıcı Türkçe ile özetle.
-    Haber: ${article.title}
-    Metin: ${fullText}`;
+    // AYARLARDAN PROMPT ÇEKİLİYOR
+    const detailBasePrompt = typeof getAIPrompt === 'function' ? getAIPrompt('voiceDetail') : `Sen profesyonel bir haber spikerisin. Aşağıdaki metinden yararlanarak olayın ana detaylarını 3-4 cümleyle akıcı Türkçe ile özetle.`;
+    const detailPrompt = detailBasePrompt + `\n    Haber: ${article.title}\n    Metin: ${fullText}`;
 
     try {
         const res = await fetchFromGroq(detailPrompt, "Özetle", false);
@@ -390,7 +369,6 @@ async function handleDeepResearch(article, listIndex, myCmdId) {
         
         await sesliOkuAsync(res, myCmdId, false);
 
-        // Detay okuması bitince okuma modunu kapatıp listeye dön
         if (myCmdId === currentVoiceCmdId && typeof closeModalSafe === 'function') {
             setTimeout(() => { if (myCmdId === currentVoiceCmdId && isVoiceActive) closeModalSafe('newsModal'); }, 1000);
         }
