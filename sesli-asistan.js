@@ -174,20 +174,27 @@ function sesliOkuAsync(metin, myCmdId, appendSubtitle = false) {
     });
 }
 
+
+
+
+
 // --- ANA İŞLEM DÖNGÜSÜ ---
 async function processVoiceCommand(komut) {
     let myCmdId = currentVoiceCmdId;
     if (!isVoiceActive) return;
     
-    // ZEKİ BAĞLAM PROMPTU
+    // ZEKİ BAĞLAM PROMPTU (Katı Kurallarla Güncellendi)
     const intentSystemPrompt = `Sen akıllı bir haber asistanısın. Kullanıcı komutunu SADECE JSON vererek analiz et.
     
     KURALLAR:
-    1. DETAY: Daha önce listelenen bir haberi (Örn: "2. haber", "ilk haberi aç") detaylandırmak istiyorsa intent: "detail", "list_index": [sayı] ver.
-    2. DEVAM ET: Kullanıcı "devam et", "sonraki haberler", "başka var mı" diyorsa intent: "continue". (Önceki aramayı bozmaz).
-    3. GENEL LİSTE/ÖZET: Kullanıcı "özet ver", "haberleri özetle", "neler var", "liste", "tüm haberler" diyorsa intent: "general_list" yap. (Bu, arama kutusunu temizler).
-    4. YENİ ARAMA: Kullanıcı BELİRLİ bir konu veya kaynak adı söyleyerek arama istiyorsa (Örn: "soma haberleri", "iş kazası", "sözcü") intent: "search" yap. "search_query" alanına aranan konuyu yaz. ("haber, var mı" kelimelerini sil!)
-    5. ui_message: Ekranda belirecek kısa bilgi.
+    1. DETAY: Kullanıcı daha önce listelenen spesifik bir haberin detayını, tamamını veya içeriğini istiyorsa (Örn: "3. haberin detayını ver", "ikinciyi oku", "ilk haberi aç") intent: "detail" yap ve "list_index" alanına o haberin numarasını SAYI olarak yaz (Örn: 3).
+    2. DEVAM ET: Kullanıcı listeye devam edilmesini istiyorsa (Örn: "devam et", "sonraki haberler", "başka var mı") intent: "continue" yap.
+    3. GENEL LİSTE/ÖZET: Kullanıcı genel gündemi soruyorsa (Örn: "gündemi özetle", "haber oku") intent: "general_list" yap.
+    4. YENİ ARAMA: Kullanıcı spesifik bir konu/kaynak arıyorsa intent: "search" yap.
+       - ÇOK ÖNEMLİ: "search_query" kısmına SADECE salt anahtar kelimeyi yaz. "haber", "haberleri", "haberler", "var mı", "aç", "göster", "oku" kelimelerini KESİNLİKLE ÇIKAR!
+       - (Örn: "sözcü haberleri aç" -> "sözcü")
+       - (Örn: "iş kazası haberleri var mı" -> "iş kazası")
+    5. ui_message: Ekranda belirecek çok kısa bilgi mesajı.
     
     JSON FORMATI: {"intent":"search|detail|continue|general_list", "list_index": 1, "search_query":"", "ui_message":""}`;
 
@@ -222,11 +229,23 @@ async function processVoiceCommand(komut) {
     }
     // EYLEM 3: YENİ ARAMA
     else if (aiData.intent === "search") {
-        if (searchInput) searchInput.value = aiData.search_query || "";
+        let cleanQuery = aiData.search_query || "";
+        
+        // 🔥 JS GÜVENLİK DUVARI: Yapay zeka unutursa diye gereksiz kelimeleri KESİNLİKLE biz siliyoruz!
+        cleanQuery = cleanQuery.replace(/\b(haber|haberler|haberleri|haberlerini|var mı|aç|göster|oku|bul|hakkında)\b/gi, '').replace(/\s+/g, ' ').trim();
+        
+        if (searchInput) searchInput.value = cleanQuery;
         if(typeof handleSearch === 'function') handleSearch(true);
-        await sesliOkuAsync("İstediğiniz haberleri arıyorum...", myCmdId, false);
+        await sesliOkuAsync(`"${cleanQuery}" için haberleri arıyorum...`, myCmdId, false);
     }
     // "continue" (Devam et) durumunda filtreye dokunmuyoruz.
+
+
+
+
+
+
+
 
     // Haberlerin Ağdan Çekilmesini Bekleme (Polling)
     let waitCount = 0;
