@@ -708,56 +708,89 @@ async function openModal(art) {
         
 
 
-    }  catch (err) { 
+    } catch (err) { 
         // 🛡️ METİN ÇEKİLEMEDİ VEYA GOOGLE NEWS LİNKİ 🛡️
-        // YENİ: Başarısız olunduğunda veya Google News olduğunda Jina Reader API devreye girer
+        textContainer.innerHTML = `<div class="loading-pulse">Haberin asıl kaynağı aranıyor... ⏳</div>`;
         
-        textContainer.innerHTML = `<div class="loading-pulse">Güvenlik duvarı aşılamadı. Özel okuyucu ile deneniyor ⏳</div>`;
-        
-        // Asenkron (await) işlemleri yapabilmek için kendi içinde küçük bir async fonksiyon oluşturup çağırıyoruz
         (async () => {
             try {
-                // Jina Reader API'ye istek atıyoruz (Kayıtsız, şartsız, limitsiz)
-                const jinaUrl = "https://r.jina.ai/" + art.link;
-                const jinaRes = await fetchWithTimeout(jinaUrl, 8000);
-                
-                if (!jinaRes.ok) throw new Error("Jina API de başarısız oldu.");
-                
-                // Jina bize sayfayı tertemiz Markdown veya düz metin olarak döndürür
-                let jinaText = await jinaRes.text();
-                
-                // Jina'dan gelen gereksiz resim ve link kodlarını (Markdown) temizle
-                jinaText = jinaText.replace(/!\[.*?\]\(.*?\)/g, ''); // Resimleri sil
-                jinaText = jinaText.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'); // Linkleri temizle metni bırak
-                jinaText = jinaText.replace(/^#+\s*/gm, ''); // Başlık işaretlerini (#) sil
-                jinaText = jinaText.replace(/[*_]{1,2}/g, ''); // Kalın/İtalik işaretlerini sil
-                
-                // Metni paragraflara böl ve çok kısa olanları (menü vs) ele
-                const paragraphs = jinaText.split('\n').map(t => t.trim()).filter(t => t.length > 70);
-                
-                if (paragraphs.length < 1) throw new Error("Jina okunabilir bir metin bulamadı.");
+                let targetUrl = art.link;
 
-                // Jina başarılı olduysa, metni ekrana senin formatınla çizdir
+                // 🌟 ADIM 1: GOOGLE NEWS LİNK ÇÖZÜCÜ (GERÇEK LİNKİ BUL)
+                if (targetUrl.includes('news.google.com')) {
+                    try {
+                        const decodeRes = await fetchWithTimeout("https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(targetUrl), 5000);
+                        if (decodeRes.ok) {
+                            const html = await decodeRes.text();
+                            // Yönlendirme sayfasındaki asıl hedef linki (Sozcu, Hurriyet vb.) regex ile yakala
+                            const match = html.match(/(?:URL=['"]?|href=["'])(https?:\/\/(?!policies\.google|accounts\.google|support\.google)[^"'>]+)/i);
+                            if (match && match[1]) {
+                                targetUrl = match[1]; // Gerçek linki bulduk!
+                            }
+                        }
+                    } catch (e) { console.log("Link çözülemedi"); }
+                }
+
+                textContainer.innerHTML = `<div class="loading-pulse">Asıl kaynaktan metin çekiliyor... ⏳</div>`;
+
+                // 🌟 ADIM 2: JINA'YI ZIRHLI OLARAK ÇALIŞTIR (CORS Hatalarını Aş)
+                const jinaTarget = "https://r.jina.ai/" + targetUrl;
+                const endpoints = [
+                    jinaTarget, // 1. Önce doğrudan Jina'yı dene
+                    "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(jinaTarget), // 2. Çökerse Proxy üzerinden Jina
+                    "https://api.allorigins.win/raw?url=" + encodeURIComponent(jinaTarget) // 3. O da çökerse alternatif Proxy
+                ];
+
+                let jinaText = "";
+                let success = false;
+                
+                for (let ep of endpoints) {
+                    try {
+                        const res = await fetchWithTimeout(ep, 6000);
+                        if (res.ok) {
+                            const text = await res.text();
+                            // Gelen veri çok kısaysa veya Cloudflare engeli ise atla
+                            if (text && text.length > 150 && !text.includes('security service to protect itself')) {
+                                jinaText = text;
+                                success = true;
+                                break;
+                            }
+                        }
+                    } catch (e) {} // Hata verirse sessizce diğer endpoint'e geç
+                }
+
+                if (!success) throw new Error("Bütün Jina kanalları başarısız oldu.");
+                
+                // 🌟 ADIM 3: JINA'DAN GELEN METNİ TEMİZLE
+                jinaText = jinaText.replace(/!\[.*?\]\(.*?\)/g, ''); 
+                jinaText = jinaText.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'); 
+                jinaText = jinaText.replace(/^#+\s*/gm, ''); 
+                jinaText = jinaText.replace(/[*_]{1,2}/g, ''); 
+                
+                const paragraphs = jinaText.split('\n').map(t => t.trim()).filter(t => t.length > 70);
+                if (paragraphs.length < 1) throw new Error("Okunabilir metin yok.");
+
+                // Metni ekrana çiz ve AI asistanını besle
                 if (typeof window.formatTextWithControls === 'function') {
                     window.formatTextWithControls(paragraphs, textContainer);
                 } else {
                     textContainer.innerHTML = paragraphs.map((txt, idx) => `<p>${txt}</p>`).join('');
                 }
                 
-                // Yapay zeka asistanını bu metinle sıfırla
                 if (typeof resetArticleChat === 'function') resetArticleChat(paragraphs.join('\n'), art.description);
 
             } catch (jinaErr) {
-                // Jina da başarısız olursa (Çok nadir), en son çare özeti gösterip bırak
+                // 🛡️ EN SON ÇARE (Yapay Zeka Fallback veya Özet)
                 if (typeof attemptToFindMissingTextWithAI === 'function') {
                     attemptToFindMissingTextWithAI(art, textContainer);
                 } else {
-                    textContainer.innerHTML = `<div class="status-msg">⚠️ Metin çekilemedi. Site okumaya izin vermiyor.</div><p style="padding:15px;">${art.description}</p>`;
+                    textContainer.innerHTML = `<div class="status-msg">⚠️ Asıl haberin sitesi okumaya izin vermiyor.</div><p style="padding:15px;">${art.description}</p>`;
                     if (typeof resetArticleChat === 'function') resetArticleChat("", art.description);
                 }
             }
         })();
     }
+}
 
 
 
