@@ -711,66 +711,153 @@ async function openModal(art) {
 
 
             } catch (err) { 
-        // 🛡️ METİN ÇEKİLEMEDİ VEYA GOOGLE NEWS LİNKİ 🛡️
-        textContainer.innerHTML = `<div class="loading-pulse">Özel okuyucu ile deneniyor... ⏳</div>`;
-        
-        (async () => {
+        // 🛡️ GOOGLE ARAMA AJANI DEVREYE GİRİYOR (SON VURGUN) 🛡️
+        textContainer.innerHTML = `<div class="loading-pulse">Haber kilitli. Ajanımız asıl linki bulmak için sızıyor... ⏳</div>`;
+
+        // Arama sırasında sorun çıkarmaması için başlıktaki tırnak işaretlerini temizliyoruz
+        const temizBaslik = (art.title + " " + art.source).replace(/['"]/g, ' ');
+
+        // Ajan için görünmez bir iframe sayfası hazırlıyoruz
+        const googleAramaSayfasi = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <style>
+                    body { background-color: #0f172a; color: #94a3b8; font-family: sans-serif; padding: 20px; text-align: center; }
+                    /* Google arama kutusunu sayfa içinde gizliyoruz ki kullanıcı görmesin */
+                    .gizli-arama { opacity: 0; pointer-events: none; height: 1px; overflow: hidden; }
+                </style>
+            </head>
+            <body>
+                <div style="font-size: 1.1rem; margin-bottom: 10px;">🕵️‍♂️ Ajan Devrede...</div>
+                <div style="font-size: 0.85rem;">Hedef: ${temizBaslik}</div>
+
+                <div class="gizli-arama">
+                    <script>
+                      window.__gcse = {
+                        initializationCallback: function() {
+                            if (google && google.search && google.search.cse) {
+                                // Arama motoru yüklendiği an otomatik aramayı başlatır
+                                google.search.cse.element.getElement('otomatikArama').execute('${temizBaslik}');
+                            }
+                        }
+                      };
+                    </script>
+                    <script async src="https://cse.google.com/cse.js?cx=e72c5be649c8d42f8"></script>
+                    <div class="gcse-search" gname="otomatikArama"></div>
+                </div>
+            </body>
+            </html>
+        `;
+
+        // Iframe'i yarat ve modalın içine yerleştir
+        const searchIframe = document.createElement('iframe');
+        searchIframe.style.width = '100%';
+        searchIframe.style.height = '150px';
+        searchIframe.style.border = 'none';
+        searchIframe.srcdoc = googleAramaSayfasi;
+
+        textContainer.innerHTML = '';
+        textContainer.appendChild(searchIframe);
+
+        searchIframe.onload = () => {
             try {
-                // Jina'yı sadece normal URL'ler için son bir kez dene (Google News olmayan inatçı siteler için)
-                const jinaUrl = "https://r.jina.ai/" + art.link;
-                const jinaRes = await fetchWithTimeout(jinaUrl, 6000);
-                
-                if (!jinaRes.ok) throw new Error("Jina başarısız oldu.");
-                
-                let jinaText = await jinaRes.text();
-                
-                // Cloudflare/DDoS mesajlarını yakala (Google News burada yakalanıp catch'e düşecek)
-                if (jinaText.includes('security service to protect itself') || jinaText.includes('Anonymous access to domain')) {
-                    throw new Error("Güvenlik Duvarı");
-                }
-                
-                jinaText = jinaText.replace(/!\[.*?\]\(.*?\)/g, ''); 
-                jinaText = jinaText.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'); 
-                jinaText = jinaText.replace(/^#+\s*/gm, ''); 
-                jinaText = jinaText.replace(/[*_]{1,2}/g, ''); 
-                
-                const paragraphs = jinaText.split('\n').map(t => t.trim()).filter(t => t.length > 70);
-                if (paragraphs.length < 1) throw new Error("Okunabilir metin yok.");
+                const iframeDoc = searchIframe.contentDocument || searchIframe.contentWindow.document;
 
-                // Metni ekrana çiz
-                if (typeof window.formatTextWithControls === 'function') {
-                    window.formatTextWithControls(paragraphs, textContainer);
-                } else {
-                    textContainer.innerHTML = paragraphs.map((txt, idx) => `<p>${txt}</p>`).join('');
-                }
-                
-                // AI asistanını besle
-                if (typeof resetArticleChat === 'function') resetArticleChat(paragraphs.join('\n'), art.description);
+                // 🌟 PUSUDAKİ AJAN: DOM GÖZLEMCİSİ
+                const ajanGozlemci = new MutationObserver((mutations, obs) => {
+                    // Google'ın ekrana çizdiği arama sonucu linklerini yakala
+                    const linkler = iframeDoc.querySelectorAll('a.gs-title');
+                    
+                    for (let a of linkler) {
+                        // Google, gerçek linki genellikle data-ctorig parametresine saklar
+                        let gercekLink = a.getAttribute('data-ctorig') || a.href;
 
-            } catch (jinaErr) {
-                // 🌟 PROFESYONEL DÜŞÜŞ (GRACEFUL DEGRADATION) 🌟
-                // Google duvarı aşılamadığında çirkin hatalar yerine şık bir özet ekranı sunarız.
-                
-                const fallbackHtml = `
-                    <div class="status-msg" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 15px; margin-bottom: 20px; text-align: left;">
-                        <h4 style="color: #ef4444; margin: 0 0 10px 0; display:flex; align-items:center; gap:8px;">
-                            <span>🛡️</span> Yayıncı Koruması
-                        </h4>
-                        <p style="color: #cbd5e1; font-size: 0.9rem; margin: 0; line-height: 1.5;">Bu haber kaynağı (Google News vb.) tam metnin otomatik olarak çekilmesini engelliyor. Aşağıda haberin özetini okuyabilir veya sağ üstteki <b>"Orijinal Site"</b> butonuna tıklayarak tamamına ulaşabilirsiniz.</p>
-                    </div>
-                    <div style="padding: 0 10px; line-height: 1.6; color: #f8fafc; font-size: 1.05rem;">
-                        ${art.description}
-                    </div>
-                `;
-                
-                textContainer.innerHTML = fallbackHtml;
-                
-                // AI'ı sadece "Özet" ile besle, böylece en azından özet üzerinden sohbet edebilir
-                if (typeof resetArticleChat === 'function') {
-                    resetArticleChat("Bu haberin tam metni çekilemedi, sadece özeti mevcut: \n" + art.description, art.description);
-                }
-            }
-        })();
+                        if (gercekLink && gercekLink.startsWith('http') && !gercekLink.includes('google.com')) {
+                            obs.disconnect(); // Ajan görevini tamamladı, dinlemeyi bırak!
+                            console.log("Ajan linki başarıyla çaldı:", gercekLink);
+                            
+                            // 🌟 MUAZZAM DETAY: Sağ üstteki "Orijinal Site" butonunu bu gerçek linkle güncelle!
+                            const modalLinkExt = document.getElementById('modalLinkExt');
+                            if(modalLinkExt) modalLinkExt.href = gercekLink;
+
+                            textContainer.innerHTML = `<div class="loading-pulse">✅ Asıl Link Bulundu: ${new URL(gercekLink).hostname}<br>Okuma moduna çekiliyor... ⏳</div>`;
+
+                            // Çalınan linki AllOrigins kalkanı üzerinden Jina'ya fırlat!
+                            (async () => {
+                                try {
+                                    const jinaUrl = "https://r.jina.ai/" + gercekLink;
+                                    const res = await window.fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent(jinaUrl));
+                                    if (!res.ok) throw new Error("Jina başarısız");
+
+                                    let jinaText = await res.text();
+                                    if (jinaText.includes('security service to protect itself')) throw new Error("Cloudflare Koruması");
+
+                                    // Jina temizliği
+                                    jinaText = jinaText.replace(/!\[.*?\]\(.*?\)/g, ''); 
+                                    jinaText = jinaText.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'); 
+                                    jinaText = jinaText.replace(/^#+\s*/gm, ''); 
+                                    jinaText = jinaText.replace(/[*_]{1,2}/g, ''); 
+
+                                    const paragraphs = jinaText.split('\n').map(t => t.trim()).filter(t => t.length > 70);
+                                    if (paragraphs.length < 1) throw new Error("Metin yok");
+
+                                    // Temiz metni ekrana çiz
+                                    if (typeof window.formatTextWithControls === 'function') {
+                                        window.formatTextWithControls(paragraphs, textContainer);
+                                    } else {
+                                        textContainer.innerHTML = paragraphs.map(txt => `<p>${txt}</p>`).join('');
+                                    }
+
+                                    // Yapay zekayı tam metinle besle
+                                    if (typeof resetArticleChat === 'function') resetArticleChat(paragraphs.join('\n'), art.description);
+
+                                } catch (e) {
+                                    // 🌟 JİNA YİNE ENGELLENİRSE B B PLANI (ZARİF DÜŞÜŞ)
+                                    textContainer.innerHTML = `
+                                        <div class="status-msg" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 15px; margin-bottom: 20px; text-align: left;">
+                                            <h4 style="color: #ef4444; margin: 0 0 10px 0; display:flex; align-items:center; gap:8px;">
+                                                <span>🛡️</span> Yayıncı Koruması
+                                            </h4>
+                                            <p style="color: #cbd5e1; font-size: 0.9rem; margin: 0; line-height: 1.5;">Orijinal haberin adresini (<strong>${new URL(gercekLink).hostname}</strong>) arka kapıdan bulduk ancak site metni okuma moduna aktarmamızı katı bir şekilde engelliyor. Sağ üstteki butondan asıl siteye gidebilirsiniz.</p>
+                                        </div>
+                                        <div style="padding: 0 10px; line-height: 1.6; color: #f8fafc; font-size: 1.05rem;">
+                                            ${art.description}
+                                        </div>
+                                    `;
+                                    if (typeof resetArticleChat === 'function') resetArticleChat("Bu haberin sadece özeti mevcut: \n" + art.description, art.description);
+                                }
+                            })();
+                            return; // İlk doğru linkte döngüyü kır
+                        }
+                    }
+                });
+
+                // Ajan gözlemciyi başlat
+                ajanGozlemci.observe(iframeDoc.body, { childList: true, subtree: true });
+
+                // HATA PAYI: Ajan 8 saniye boyunca bulamazsa pes etsin ve özet göstersin
+                setTimeout(() => {
+                    if (textContainer.contains(searchIframe)) {
+                        ajanGozlemci.disconnect();
+                        textContainer.innerHTML = `
+                            <div class="status-msg" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 15px; margin-bottom: 20px; text-align: left;">
+                                <h4 style="color: #ef4444; margin: 0 0 10px 0; display:flex; align-items:center; gap:8px;">
+                                    <span>🛡️</span> Yayıncı Koruması
+                                </h4>
+                                <p style="color: #cbd5e1; font-size: 0.9rem; margin: 0; line-height: 1.5;">Bu haber kaynağı tam metnin çekilmesini tamamen engelliyor. Aşağıda özetini okuyabilirsiniz.</p>
+                            </div>
+                            <div style="padding: 0 10px; line-height: 1.6; color: #f8fafc; font-size: 1.05rem;">
+                                ${art.description}
+                            </div>
+                        `;
+                        if (typeof resetArticleChat === 'function') resetArticleChat("Bu haberin sadece özeti mevcut: \n" + art.description, art.description);
+                    }
+                }, 8000);
+
+            } catch(e) { console.log("Iframe güvenlik engeli", e); }
+        };
     }
 }
 
