@@ -709,3 +709,42 @@ border: 1px solid var(--accent); padding: 12px; border-radius: 8px; font-weight:
     height: 100% !important;
     max-height: 100vh !important;
 }
+
+
+/* Sadece Yapay Zeka kartlarının (summary-card) içindeki 
+   listenin kaydırılabilir olmasını sağlar.
+*/
+
+.summary-card {
+    display: flex;
+    flex-direction: column;
+    max-height: 450px; /* Kartın maksimum yüksekliği */
+    overflow: hidden;
+}
+
+.card-list {
+    overflow-y: auto !important; /* Listenin kendi içinde kaymasını sağlar */
+    max-height: 300px; /* Liste alanı sınırı */
+    padding-right: 10px !important;
+    margin-bottom: 5px !important;
+}
+
+/* Şık ve ince kaydırma çubuğu (Scrollbar) tasarımı */
+.card-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.card-list::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 10px;
+}
+
+.card-list::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Mobilde dokunmatik kaydırmayı iyileştirir */
+.card-list {
+    -webkit-overflow-scrolling: touch;
+}
+
