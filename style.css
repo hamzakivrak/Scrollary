@@ -639,3 +639,44 @@ border: 1px solid var(--accent); padding: 12px; border-radius: 8px; font-weight:
     font-weight: bold;
     cursor: pointer;
 }
+
+
+
+/* --- AI PROFESYONEL KART TASARIMI --- */
+
+/* Asistan mesaj kutusunu bir kart kabına dönüştür */
+.ai-msg.assistant {
+    background: rgba(30, 41, 59, 0.5) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-left: 4px solid var(--primary);
+    padding: 0 !important; 
+    max-width: 98% !important;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+
+.summary-card {
+    padding: 18px;
+    font-family: inherit;
+}
+
+.card-header {
+    font-size: 0.75rem;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    color: var(--primary);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.card-intro {
+    font-size: 1.05rem;
+    line-height: 1.6;
+    color: #f8fafc;
+    margin-bottom: 15px;
+    font-weight: 500;
+}
