@@ -357,9 +357,6 @@ font-size: 0.75rem; padding: 4px 12px; border-radius: 20px; pointer-events: none
 overflow-y: auto; background: rgba(0,0,0,0.2); display: flex; flex-direction: column; cursor: default;
 }
 
-/* ----------------------------------------------------- */
-/* YENİ AI ÇUBUK VE İÇ İÇE (INLINE) YANIT STİLLERİ       */
-/* ----------------------------------------------------- */
 .ai-sticky-bar { position: sticky;
 top: 0; z-index: 100; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); padding: 12px 15px; display: flex; gap: 10px;
 border-bottom: 1px solid rgba(255,255,255,0.1); box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
@@ -379,19 +376,14 @@ display: flex; align-items: center; gap: 5px; white-space: nowrap; transition: 0
     position: fixed;
     top: 0; 
     left: 0; 
-    
-    /* DEĞİŞEN KISIM: 100vw ve 100vh yerine 100% kullanıyoruz */
     width: 100%;
     height: 100%;
-    
     z-index: 3500;
     background: rgba(15, 23, 42, 0.95);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border-bottom: none; 
     box-shadow: none; 
-    
-    /* DEĞİŞEN KISIM: Sadece dikey kaydırmaya izin veriyoruz, yatayı kilitliyoruz */
     overflow-y: auto;
     overflow-x: hidden;
     margin: 0;
@@ -412,8 +404,6 @@ background: linear-gradient(45deg, #8b5cf6, #d946ef); -webkit-background-clip: t
     font-size: 1rem; 
     user-select: text;
     -webkit-user-select: text; 
-    
-    /* EKLENEN KISIM: Uzun metinlerin sağdan taşmasını kesin olarak engeller */
     width: 100%;
     box-sizing: border-box;
     word-wrap: break-word;
@@ -425,7 +415,6 @@ background: linear-gradient(45deg, #8b5cf6, #d946ef); -webkit-background-clip: t
 .ai-result-content b, .ai-result-content strong { color: white; }
 .ai-result-content i, .ai-result-content em { color: #cbd5e1;
 }
-/* ----------------------------------------------------- */
 
 #readerView { padding: 30px 25px; max-width: 800px; margin: 0 auto; width: 100%; }
 .reader-title { font-size: clamp(1.5rem, 4vw, 2.2rem);
@@ -580,41 +569,6 @@ border: 1px solid var(--accent); padding: 12px; border-radius: 8px; font-weight:
     padding: 15px;
 }
 
-.ai-chat-history {
-    max-height: 250px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-bottom: 15px;
-    padding-right: 5px;
-}
-
-.ai-msg {
-    padding: 10px 15px;
-    border-radius: 10px;
-    font-size: 0.9rem;
-    line-height: 1.4;
-    max-width: 80%;
-}
-
-.ai-msg.user {
-    background: var(--accent);
-    color: white;
-    align-self: flex-end;
-    border-bottom-right-radius: 2px;
-}
-
-.ai-msg.assistant {
-    background: var(--surface-light);
-    color: white;
-    align-self: flex-start;
-    border-bottom-left-radius: 2px;
-}
-
-.ai-msg span.renk-ozet { color: #e11d48; } /* Kırmızı vurgu */
-.ai-msg span.renk-bilgi { color: #3b82f6; } /* Mavi vurgu */
-
 .ai-chat-bar {
     display: flex;
     gap: 10px;
@@ -640,153 +594,138 @@ border: 1px solid var(--accent); padding: 12px; border-radius: 8px; font-weight:
     cursor: pointer;
 }
 
+/* --- PROFESYONEL ÖZET KARTI TASARIMI --- */
 
-
-/* --- AI PROFESYONEL KART TASARIMI --- */
-
-/* Asistan mesaj kutusunu bir kart kabına dönüştür */
+/* AI Mesaj Kabı Düzenlemesi */
 .ai-msg.assistant {
-    background: rgba(30, 41, 59, 0.5) !important;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-left: 4px solid var(--primary);
-    padding: 0 !important; 
-    max-width: 98% !important;
-    border-radius: 12px;
+    background: rgba(30, 41, 59, 0.4) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-left: 5px solid var(--primary) !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    border-radius: 16px;
+    margin-bottom: 25px !important;
     overflow: hidden;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
 }
 
+/* Kart İçeriği */
 .summary-card {
-    padding: 18px;
-    font-family: inherit;
+    padding: 24px;
+    color: #e2e8f0;
+    font-size: 1rem;
+    line-height: 1.7;
+    animation: fadeIn 0.5s ease;
 }
 
+/* Üst Başlık (Küçük ve Vurgulu) */
 .card-header {
     font-size: 0.75rem;
     font-weight: 900;
-    letter-spacing: 1.5px;
     color: var(--primary);
-    margin-bottom: 12px;
     text-transform: uppercase;
+    letter-spacing: 2.5px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    opacity: 0.9;
+}
+
+/* Giriş Cümlesi (Daha Büyük ve Beyaz) */
+.card-intro {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 25px;
+    line-height: 1.45;
+}
+
+/* Bölümler Arası Boşluk */
+.card-section {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Alt Başlıklar */
+.card-section h4 {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--accent);
+    margin-bottom: 12px;
     display: flex;
     align-items: center;
     gap: 8px;
 }
 
-.card-intro {
-    font-size: 1.05rem;
+/* Liste Tasarımı */
+.card-list {
+    list-style: none !important;
+    padding-left: 0 !important;
+    margin: 15px 0 !important;
+}
+
+.card-list li {
+    position: relative;
+    padding-left: 28px;
+    margin-bottom: 14px;
+    color: #cbd5e1;
+    font-size: 0.98rem;
     line-height: 1.6;
-    color: #f8fafc;
-    margin-bottom: 15px;
-    font-weight: 500;
 }
 
-/* --- SOHBET ALANI KAYDIRMA DÜZELTMESİ --- */
-
-/* 1. Sohbet geçmişi alanını esnet ve alt boşluk ekle */
-#aiChatHistory.ai-chat-history {
-    max-height: none !important; /* Yükseklik sınırını kaldır */
-    flex: 1 !important; /* Mevcut boşluğu tamamen doldur */
-    padding-bottom: 80px !important; /* En alttaki mesajın input bar altında kalmasını engelle */
-    overflow-y: auto !important; /* Kaydırmayı zorunlu kıl */
-    display: flex !important;
-    flex-direction: column !important;
-}
-
-/* 2. Kartın içindeki listenin tam görünmesini sağla */
-.summary-card {
-    display: block;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-.card-list {
-    margin-bottom: 10px !important;
-}
-
-/* 3. Ana konteynırın ekranı tam kaplamasını sağla */
-#aiInlineResult {
-    height: 100% !important;
-    max-height: 100vh !important;
-}
-
-
-/* Sadece Yapay Zeka kartlarının (summary-card) içindeki 
-   listenin kaydırılabilir olmasını sağlar.
-*/
-
-.summary-card {
-    display: flex;
-    flex-direction: column;
-    max-height: 450px; /* Kartın maksimum yüksekliği */
-    overflow: hidden;
-}
-
-.card-list {
-    overflow-y: auto !important; /* Listenin kendi içinde kaymasını sağlar */
-    max-height: 300px; /* Liste alanı sınırı */
-    padding-right: 10px !important;
-    margin-bottom: 5px !important;
-}
-
-/* Şık ve ince kaydırma çubuğu (Scrollbar) tasarımı */
-.card-list::-webkit-scrollbar {
-    width: 4px;
-}
-
-.card-list::-webkit-scrollbar-thumb {
+/* Özel Liste İşareti (Bullet) */
+.card-list li::before {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 10px;
+    width: 6px;
+    height: 6px;
     background: var(--primary);
-    border-radius: 10px;
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--primary);
 }
 
-.card-list::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.05);
+/* Badge (Rozet) Vurguları */
+.badge-blue, .badge-red {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    margin: 0 4px;
+    vertical-align: middle;
 }
 
-/* Mobilde dokunmatik kaydırmayı iyileştirir */
-.card-list {
-    -webkit-overflow-scrolling: touch;
+.badge-blue {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
+.badge-red {
+    background: rgba(225, 29, 72, 0.15);
+    color: #fb7185;
+    border: 1px solid rgba(225, 29, 72, 0.3);
+}
 
-/* 1. Sohbet Geçmişi Alanı: Tam esneklik ve kaydırma */
+/* Kaydırma alanını optimize et */
 #aiChatHistory.ai-chat-history {
     display: flex !important;
     flex-direction: column !important;
     gap: 15px !important;
     padding: 20px !important;
-    height: calc(100% - 70px) !important; /* Input barına yer bırak */
+    height: calc(100% - 70px) !important;
     max-height: none !important;
     overflow-y: auto !important;
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
-}
-
-/* 2. Asistan Mesajı (Kartın Dış Kabı) */
-.ai-msg.assistant {
-    align-self: flex-start !important;
-    width: 95% !important;
-    max-width: 600px !important;
-    margin-bottom: 10px !important;
-    background: rgba(30, 41, 59, 0.6) !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    border-radius: 16px !important;
-    flex-shrink: 0 !important; /* Kartın küçülmesini engeller */
-}
-
-/* 3. Kart İçeriği: Sabitlik ve İç Kaydırma */
-.summary-card {
-    display: flex !important;
-    flex-direction: column !important;
-    min-height: 200px !important; /* Çok küçük görünmesini engeller */
-    max-height: 450px !important; /* Ekranı tamamen kapatmasın, içten kaysın */
-    padding: 15px !important;
-}
-
-.card-list {
-    flex: 1 !important;
-    overflow-y: auto !important; /* Kart içi kaydırma burada */
-    padding-right: 8px !important;
+    padding-bottom: 80px !important;
 }
 
 /* Şık Scrollbar */
@@ -799,4 +738,13 @@ border: 1px solid var(--accent); padding: 12px; border-radius: 8px; font-weight:
     background: var(--primary);
     border-radius: 10px;
 }
+.card-list::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+}
 
+/* Mobilde Optimize Görünüm */
+@media (max-width: 600px) {
+    .summary-card { padding: 18px; }
+    .card-intro { font-size: 1.05rem; }
+    .card-section h4 { font-size: 0.9rem; }
+}
