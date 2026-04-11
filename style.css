@@ -680,3 +680,32 @@ border: 1px solid var(--accent); padding: 12px; border-radius: 8px; font-weight:
     margin-bottom: 15px;
     font-weight: 500;
 }
+
+/* --- SOHBET ALANI KAYDIRMA DÜZELTMESİ --- */
+
+/* 1. Sohbet geçmişi alanını esnet ve alt boşluk ekle */
+#aiChatHistory.ai-chat-history {
+    max-height: none !important; /* Yükseklik sınırını kaldır */
+    flex: 1 !important; /* Mevcut boşluğu tamamen doldur */
+    padding-bottom: 80px !important; /* En alttaki mesajın input bar altında kalmasını engelle */
+    overflow-y: auto !important; /* Kaydırmayı zorunlu kıl */
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* 2. Kartın içindeki listenin tam görünmesini sağla */
+.summary-card {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.card-list {
+    margin-bottom: 10px !important;
+}
+
+/* 3. Ana konteynırın ekranı tam kaplamasını sağla */
+#aiInlineResult {
+    height: 100% !important;
+    max-height: 100vh !important;
+}
