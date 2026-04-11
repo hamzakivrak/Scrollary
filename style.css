@@ -605,7 +605,7 @@ border: 1px solid var(--accent); padding: 12px; border-radius: 8px; font-weight:
     height: calc(100% - 70px) !important;
     max-height: none !important;
     overflow-y: auto !important;
-    scroll-snap-type: y mandatory; /* Her mesajın tam ekran oturması için */
+    /* scroll-snap-type kuralı geri sekmeyi önlemek için silindi */
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
 }
@@ -618,7 +618,7 @@ border: 1px solid var(--accent); padding: 12px; border-radius: 8px; font-weight:
     font-size: 0.95rem;
     font-weight: 600;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    scroll-snap-align: start; /* Soru en tepeye oturur */
+    /* scroll-snap-align kuralı silindi */
     margin-top: 20px;
 }
 
@@ -631,7 +631,7 @@ border: 1px solid var(--accent); padding: 12px; border-radius: 8px; font-weight:
     max-width: 100% !important;
     display: flex !important;
     flex-direction: column !important;
-    flex: 1 0 auto !important; /* Dikeyde alanı doldurmaya zorlar */
+    flex: 1 1 auto !important; /* İçeriğe göre rahatça genişleyebilmesi için güncellendi */
     margin-bottom: 0 !important;
 }
 
