@@ -596,28 +596,49 @@ border: 1px solid var(--accent); padding: 12px; border-radius: 8px; font-weight:
 
 /* --- PROFESYONEL ÖZET KARTI TASARIMI --- */
 
-/* AI Mesaj Kabı Düzenlemesi */
+/* Kullanıcının kendi sorusu (Şık bir mesaj balonu) */
+.ai-msg.user {
+    background: var(--accent);
+    color: white;
+    align-self: flex-end;
+    padding: 12px 18px;
+    border-radius: 16px 16px 2px 16px;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    max-width: 85%;
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+    margin-bottom: 15px;
+}
+
+/* AI Mesaj Kabı Düzenlemesi (Ekranı Tam Kaplayan Model) */
 .ai-msg.assistant {
     background: rgba(30, 41, 59, 0.4) !important;
     border: 1px solid rgba(255, 255, 255, 0.08) !important;
     border-left: 5px solid var(--primary) !important;
     padding: 0 !important;
+    width: 100% !important; /* Ekranı tam kaplamasını sağlayan kısım */
     max-width: 100% !important;
     border-radius: 16px;
-    margin-bottom: 25px !important;
+    margin-bottom: 30px !important;
     overflow: hidden;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
 }
 
-/* Kart İçeriği */
+/* Kart İçeriği ve Kart İçi Kaydırma Sistemi */
 .summary-card {
     padding: 24px;
     color: #e2e8f0;
     font-size: 1rem;
     line-height: 1.7;
     animation: fadeIn 0.5s ease;
+    
+    /* Yeni: Kart İçi Kaydırma ve Boyutlandırma */
+    width: 100%;
+    max-height: 60vh; /* Ekranın %60'ı kadar büyüyebilir */
+    overflow-y: auto; /* İçerik taşarsa kaydırma çubuğu çıkar */
+    box-sizing: border-box;
 }
 
 /* Üst Başlık (Küçük ve Vurgulu) */
@@ -714,7 +735,7 @@ border: 1px solid var(--accent); padding: 12px; border-radius: 8px; font-weight:
     border: 1px solid rgba(225, 29, 72, 0.3);
 }
 
-/* Kaydırma alanını optimize et */
+/* Genel Sohbet Kaydırma Alanını Optimize Et */
 #aiChatHistory.ai-chat-history {
     display: flex !important;
     flex-direction: column !important;
@@ -728,23 +749,34 @@ border: 1px solid var(--accent); padding: 12px; border-radius: 8px; font-weight:
     padding-bottom: 80px !important;
 }
 
-/* Şık Scrollbar */
-.card-list::-webkit-scrollbar,
+/* Kartın İçine Özel Şık Scrollbar */
+.summary-card::-webkit-scrollbar {
+    width: 6px;
+}
+.summary-card::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 10px;
+}
+.summary-card::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* Sohbetin Genel Scrollbar'ı */
 #aiChatHistory::-webkit-scrollbar {
     width: 4px;
 }
-.card-list::-webkit-scrollbar-thumb,
 #aiChatHistory::-webkit-scrollbar-thumb {
     background: var(--primary);
     border-radius: 10px;
 }
-.card-list::-webkit-scrollbar-track {
+#aiChatHistory::-webkit-scrollbar-track {
     background: rgba(255, 255, 255, 0.05);
 }
 
 /* Mobilde Optimize Görünüm */
 @media (max-width: 600px) {
-    .summary-card { padding: 18px; }
+    .summary-card { padding: 18px; max-height: 55vh; }
     .card-intro { font-size: 1.05rem; }
     .card-section h4 { font-size: 0.9rem; }
+    .ai-msg.user { max-width: 90%; }
 }
