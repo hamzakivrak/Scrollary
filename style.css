@@ -748,3 +748,55 @@ border: 1px solid var(--accent); padding: 12px; border-radius: 8px; font-weight:
     -webkit-overflow-scrolling: touch;
 }
 
+
+/* 1. Sohbet Geçmişi Alanı: Tam esneklik ve kaydırma */
+#aiChatHistory.ai-chat-history {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 15px !important;
+    padding: 20px !important;
+    height: calc(100% - 70px) !important; /* Input barına yer bırak */
+    max-height: none !important;
+    overflow-y: auto !important;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* 2. Asistan Mesajı (Kartın Dış Kabı) */
+.ai-msg.assistant {
+    align-self: flex-start !important;
+    width: 95% !important;
+    max-width: 600px !important;
+    margin-bottom: 10px !important;
+    background: rgba(30, 41, 59, 0.6) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 16px !important;
+    flex-shrink: 0 !important; /* Kartın küçülmesini engeller */
+}
+
+/* 3. Kart İçeriği: Sabitlik ve İç Kaydırma */
+.summary-card {
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 200px !important; /* Çok küçük görünmesini engeller */
+    max-height: 450px !important; /* Ekranı tamamen kapatmasın, içten kaysın */
+    padding: 15px !important;
+}
+
+.card-list {
+    flex: 1 !important;
+    overflow-y: auto !important; /* Kart içi kaydırma burada */
+    padding-right: 8px !important;
+}
+
+/* Şık Scrollbar */
+.card-list::-webkit-scrollbar,
+#aiChatHistory::-webkit-scrollbar {
+    width: 4px;
+}
+.card-list::-webkit-scrollbar-thumb,
+#aiChatHistory::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 10px;
+}
+
