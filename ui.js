@@ -495,19 +495,9 @@ function renderNextBatch(forceClear = false) {
     }
     const nextBatch = filteredArticles.slice(displayedCount, displayedCount + ITEMS_PER_PAGE); 
     const t = TRANSLATIONS[currentRegion];
+    
     nextBatch.forEach((art, i) => {
-        if ((displayedCount + i) % 10 === 0 && (displayedCount + i) !== 0) {
-            const adWrapper = document.createElement('div'); 
-            adWrapper.className = 'swipe-wrapper ad-slot-wrapper';
-            adWrapper.innerHTML = `
-                <div class="news-card ad-slot-card">
-                    <div class="ad-slot-label">${t.adSlotText}</div>
-                    <img src="splash.png" class="default-splash-thumb">
-                    <div style="font-size:0.8rem; color:#888; margin-top:10px;">(AdMob Ready Area)</div>
-                </div>
-            `;
-            grid.appendChild(adWrapper);
-        }
+        // REKLAM KODU BURADAN SİLİNDİ! Artık araya SCROLLARY AdMob kartı girmeyecek.
 
         const wrapper = document.createElement('div'); 
         wrapper.className = 'swipe-wrapper'; 
