@@ -1,7 +1,7 @@
 // ui.js
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js')
+      navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
         .then(registration => { console.log('ServiceWorker başarıyla kaydedildi:', registration.scope); })
         .catch(err => { console.log('ServiceWorker kaydı başarısız oldu:', err); });
     });
@@ -30,7 +30,7 @@ window.onload = () => {
     if(cached.length > 0) {
         allArticles = interlaceArticles(cached);
         handleSearch(true); 
-        setTimeout(() => { fetchAllRSS(true); }, 1500); 
+        fetchAllRSS(true, true); 
     } else {
         fetchAllRSS(false);
     }
@@ -61,6 +61,7 @@ window.addEventListener('popstate', (e) => {
         const newIframe = document.createElement('iframe');
         newIframe.id = 'modalIframe';
         newIframe.className = 'modal-iframe';
+        newIframe.setAttribute('sandbox', 'allow-scripts allow-forms allow-popups');
         oldIframe.parentNode.replaceChild(newIframe, oldIframe);
     }
 
@@ -89,6 +90,7 @@ function closeModalSafe(modalId) {
             const newIframe = document.createElement('iframe');
             newIframe.id = 'modalIframe';
             newIframe.className = 'modal-iframe';
+        newIframe.setAttribute('sandbox', 'allow-scripts allow-forms allow-popups');
             oldIframe.parentNode.replaceChild(newIframe, oldIframe);
         }
     }
@@ -262,30 +264,19 @@ function saveActiveSources() {
 }
 
 function interlaceArticles(articles) {
-    const grouped = {};
-    articles.forEach(art => {
-        const src = art.source || 'Bilinmeyen';
-        if(!grouped[src]) grouped[src] = [];
-        grouped[src].push(art);
-    });
-    for(let src in grouped) {
-        grouped[src].sort((a,b) => b.timestamp - a.timestamp);
-    }
-    const result = [];
-    let hasMore = true;
-    while(hasMore) {
-        hasMore = false;
-        let currentRound = [];
-        for(let src in grouped) {
-            if(grouped[src].length > 0) {
-                currentRound.push(grouped[src].shift());
-                hasMore = true;
-            }
+    const rest = [...articles].sort((x, y) => y.timestamp - x.timestamp);
+    const out = [];
+    while (rest.length) {
+        const s1 = out.length > 0 ? out[out.length - 1].source : null;
+        const s2 = out.length > 1 ? out[out.length - 2].source : null;
+        let idx = 0;
+        if (s1 && s1 === s2) {
+            const alt = rest.findIndex((x, k) => k < 15 && x.source !== s1);
+            if (alt > 0) idx = alt;
         }
-        currentRound.sort((a,b) => b.timestamp - a.timestamp);
-        result.push(...currentRound);
+        out.push(rest.splice(idx, 1)[0]);
     }
-    return result;
+    return out;
 }
 
 async function addDiscoveredRss(name, url) { 
@@ -458,8 +449,9 @@ function handleSearch(isSilentRefresh = false) {
     const searchText = (document.getElementById('searchInput').value.trim()).toLowerCase();
     const searchTerms = searchText.split(' ').filter(t => t.length > 0);
     let sourceArray = isArchiveView ? archivedArticles : allArticles;
+    const readSet = new Set(readArticles);
     filteredArticles = sourceArray.filter(art => {
-        if (!isArchiveView && !showReadArticles && readArticles.includes(art.link)) return false;
+        if (!isArchiveView && !showReadArticles && readSet.has(art.link)) return false;
         const sourceMatch = isArchiveView ? true : activeSources.includes(art.source); 
         if(!sourceMatch) return false;
         if (currentCategory && currentCategory !== 'Arşiv' && currentCategory !== 'Archive') { 
@@ -521,10 +513,10 @@ function renderNextBatch(forceClear = false) {
             <div class="swipe-bg swipe-bg-left">${isArchived ? t.swipeArchived : t.swipeArchive}</div><div class="swipe-bg swipe-bg-right">${t.swipeHide}</div>
             <div class="news-card ${isRead && !isArchiveView ? 'read-article' : ''}">
                 <div class="card-img-wrapper ${isDefault ? '' : 'img-skeleton'}" ${isDefault ? 'data-default-img="true"' : ''}>
-                    <div class="source-badge" onclick="openSourceFilterModal(event)">${art.source} ${catText ? '• '+catText : ''}</div>
+                    <div class="source-badge" onclick="openSourceFilterModal(event)">${escapeHtml(art.source)} ${catText ? '• '+escapeHtml(catText) : ''}</div>
                     ${imgHtml}
                 </div>
-                <div class="news-content"><h3>${art.title}</h3><div class="meta"><span>🕒 ${dateStr}</span><span class="read-more">${t.readMore || 'Oku →'}</span></div></div>
+                <div class="news-content"><h3>${escapeHtml(art.title)}</h3><div class="meta"><span>🕒 ${dateStr}</span><span class="read-more">${t.readMore || 'Oku →'}</span></div></div>
             </div>
         `;
 
@@ -558,6 +550,7 @@ function switchTab(tab) {
         document.getElementById('readerView').style.display = 'none'; 
         document.getElementById('iframeView').style.display = 'flex'; 
         if (aiStickyBar) aiStickyBar.style.display = 'none';
+        if (window.loadOriginalFrame) window.loadOriginalFrame();
     } 
 }
 
@@ -565,494 +558,7 @@ function switchTab(tab) {
 
 
 
-// ui.js (Eski openModal fonksiyonunu komple sil, bunu yapıştır)
-
-async function openModal(art) {
-    const t = TRANSLATIONS[currentRegion];
-    document.getElementById('modalSource').innerText = art.source; 
-    document.getElementById('modalLinkExt').href = art.link; 
-    document.getElementById('modalTitle').innerText = art.title;
-    document.getElementById('modalDesc').innerText = art.description;
-    
-    // Chat Input'unu ve AI Modalını temizle
-    const chatInput = document.getElementById('aiChatInput');
-    if (chatInput) chatInput.value = "Bu haberi özetle";
-    
-    const aiModal = document.getElementById('aiInlineResult');
-    if (aiModal) {
-        aiModal.classList.remove('show');
-        aiModal.style.display = 'none';
-    }
-
-    const imgEl = document.getElementById('modalImg');
-    const modalBody = document.getElementById('modalBodyArea');
-    
-    if(!art.image) { 
-        modalBody.setAttribute('data-default-img', 'true'); 
-        imgEl.style.display = 'none';
-    } else { 
-        modalBody.removeAttribute('data-default-img'); 
-        imgEl.src = art.image; 
-        imgEl.style.display = 'block';
-        imgEl.className = 'reader-image';
-    }
-
-    switchTab('reader'); 
-    openModalSafe('newsModal'); 
-    
-    const textContainer = document.getElementById('fullTextContainer'); 
-    textContainer.innerHTML = `<div class="loading-pulse">${t.extracting}</div>`;
-    
-    const oldIframe = document.getElementById('modalIframe'); 
-    const iframe = document.createElement('iframe'); 
-    iframe.id = 'modalIframe'; 
-    iframe.className = 'modal-iframe'; 
-    iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups');
-    oldIframe.parentNode.replaceChild(iframe, oldIframe); 
-    
-    const banner = document.getElementById('iframeBanner'); 
-    banner.innerHTML = `<span style="animation: pulse 1.5s infinite;">⏳</span> ${t.loadingSite}`;
-
-    let html = null;
-    const encodedUrl = encodeURIComponent(art.link);
-
-    const proxyGroup1 = [ `https://corsproxy.io/?${encodedUrl}`, `https://api.allorigins.win/raw?url=${encodedUrl}`, `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}` ];
-    const proxyGroup2 = [ `https://thingproxy.freeboard.io/fetch/${art.link}`, `https://cors.eu.org/${art.link}`, `https://api.codetabs.com/v1/proxy?quest=${encodedUrl}` ];
-    
-    async function fireProxies(proxies, timeoutMs) {
-        const fetchPromises = proxies.map(proxy =>
-            fetchWithTimeout(proxy, timeoutMs).then(async res => {
-                if (!res.ok) throw new Error("Sunucu hatasi");
-                const text = await res.text();
-                if (!text || text.includes('security service to protect itself') || text.length < 500) throw new Error("Engellendi");
-                return text;
-            })
-        );
-        return Promise.any(fetchPromises);
-    }
-
-    // 🌟 MANUEL YAPIŞTIRMA VE ÇEKME ARAYÜZÜ (OTOMATİK ALGILAMA EKLENDİ) 🌟
-    function renderManualFetchUI(gercekLink) {
-        const targetLink = gercekLink || art.link;
-        
-        textContainer.innerHTML = `
-            <div class="status-msg" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 20px; margin-bottom: 20px; text-align: left;">
-                <h3 style="color: #ef4444; margin: 0 0 10px 0; font-size:1.1rem; display:flex; align-items:center; gap:8px;">
-                    <span>🛡️</span> Ağır Güvenlik Duvarı Saptandı
-                </h3>
-                <p style="color: #cbd5e1; font-size: 0.95rem; margin-bottom: 15px; line-height: 1.5;">
-                    Yayıncı sitenin güvenliği otomatik sistemlerimizi engelledi. Ancak okumaya devam edebiliriz!<br><br>
-                    <strong>1.</strong> Aşağıdaki butona tıklayıp orijinal haberi açın.<br>
-                    <strong>2.</strong> Açılan sitenin adresini (URL) kopyalayıp buraya geri dönün.
-                </p>
-                
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <a href="${targetLink}" target="_blank" style="display: inline-block; background: var(--surface-light); color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; border: 1px solid var(--text-muted); transition: 0.3s; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
-                        🌐 Orijinal Siteye Git
-                    </a>
-                </div>
-
-                <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border: 1px dashed rgba(255,255,255,0.2);">
-                    <p style="color: var(--accent); font-weight: bold; margin: 0 0 10px 0; font-size: 0.9rem;">Geri Döndüğünde Kopyaladığın Linki Buraya Gir:</p>
-                    <div style="display: flex; gap: 10px;">
-                        <input type="text" id="manualPastedUrl" placeholder="Linki yapıştırın (Otomatik çekilir)..." style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid var(--accent); background: #0f172a; color: white; outline: none; font-size: 0.9rem;">
-                        <button id="fireManualProxyBtn" style="background: var(--primary); color: white; border: none; padding: 0 20px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; display:none;">🚀 Çek</button>
-                    </div>
-                    <button id="autoPasteBtn" style="background: transparent; color: #10b981; border: none; margin-top: 10px; font-size: 0.85rem; cursor: pointer; text-decoration: underline; padding: 0;">
-                        📋 Panodan otomatik yapıştır
-                    </button>
-                </div>
-            </div>
-            <div style="padding: 0 10px; line-height: 1.6; color: #f8fafc; font-size: 1.05rem; opacity: 0.8;">
-                <strong style="color:var(--accent);">Haber Özeti:</strong><br>
-                ${art.description}
-            </div>
-        `;
-
-        if (typeof resetArticleChat === 'function') resetArticleChat("Bu haberin sadece özeti mevcut: \n" + art.description, art.description);
-
-        const fireBtn = document.getElementById('fireManualProxyBtn');
-        const urlInputEl = document.getElementById('manualPastedUrl');
-
-        // YENİ: Elle yapıştırıldığı (Ctrl+V veya sağ tık) anomatik algıla
-        if (urlInputEl) {
-            urlInputEl.addEventListener('input', (e) => {
-                if (e.target.value.trim().startsWith('http') && fireBtn) {
-                    fireBtn.click(); // Kullanıcı yapıştırdığı an gizli Çek butonuna basar
-                }
-            });
-        }
-
-        // Pano Okuma İzni
-        const autoPasteBtn = document.getElementById('autoPasteBtn');
-        if (autoPasteBtn) {
-            autoPasteBtn.onclick = async () => {
-                try {
-                    const text = await navigator.clipboard.readText();
-                    if (text && text.startsWith('http')) {
-                        urlInputEl.value = text;
-                        if(fireBtn) fireBtn.click(); // Panodan alındığı an çek butonuna bas
-                    } else {
-                        if(typeof showToastGlobal === 'function') showToastGlobal("⚠️ Panonuzda geçerli bir link bulunamadı.", 3000);
-                        else alert("Panonuzda geçerli bir link bulunamadı.");
-                    }
-                } catch (err) {
-                    alert("Tarayıcı panoya erişime izin vermedi. Lütfen linki kutuya elinizle yapıştırın.");
-                }
-            };
-        }
-
-        // Manuel Çekme İşlemi Başlıyor
-        if (fireBtn) {
-            fireBtn.onclick = async () => {
-                const manualUrl = urlInputEl.value.trim();
-                if (!manualUrl || !manualUrl.startsWith('http')) return;
-
-                textContainer.innerHTML = `<div class="loading-pulse">Link algılandı! Sistem arkaplanda kırıyor... ⏳</div>`;
-
-                try {
-                    const fetchJina = async (url) => {
-                        const res = await fetch("https://r.jina.ai/" + url, { headers: { "Accept": "application/json" } });
-                        if (!res.ok) throw new Error("Jina failed");
-                        const data = await res.json();
-                        if (!data || !data.data || !data.data.content) throw new Error("Jina no content");
-                        
-                        let text = data.data.content;
-                        // YENİ: Çöp Markdown Link Temizleyici
-                        text = text.replace(/!\[.*?\]\(.*?\)/g, ''); // Resimleri temizle
-                        text = text.replace(/\[\s*\]\([^)]+\)/g, ''); // GÖRSELDEKİ BOŞ LİNKLERİ TEMİZLE: [](https...)
-                        text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'); // Normal linklerin sadece adını bırak
-                        text = text.replace(/^#+\s*/gm, ''); 
-                        text = text.replace(/[*_]{1,2}/g, ''); 
-                        text = text.replace(/<[^>]*>/g, '');
-                        
-                        const paragraphs = text.split('\n').map(t => t.trim()).filter(t => {
-                            if (t.length < 70) return false; 
-                            if (t.includes('redirect=')) return false; 
-                            // YENİ: Sadece çıplak URL barındıran satırları çöpe at
-                            if (t.startsWith('http') && !t.includes(' ')) return false;
-                            return true;
-                        });
-                        
-                        if (paragraphs.length < 1) throw new Error("Jina text too short");
-                        return paragraphs;
-                    };
-
-                    const fetchProxy = async (proxyBase, url) => {
-                        const res = await fetch(proxyBase + encodeURIComponent(url));
-                        if (!res.ok) throw new Error("Proxy failed");
-                        const html = await res.text();
-                        if (html.includes('security service to protect itself') || html.length < 1000) throw new Error("Blocked by Firewall");
-                        
-                        const parser = new DOMParser();
-                        const doc = parser.parseFromString(html, 'text/html'); 
-                        const pTags = Array.from(doc.querySelectorAll('p, .content p, .news-text p, article p'));
-                        const uniqueText = [...new Set(pTags.map(p => p.textContent.trim()).filter(txt => txt.length > 70))];
-                        if (uniqueText.length < 1) throw new Error("Proxy text too short");
-                        return uniqueText;
-                    };
-
-                    const paragraphs = await Promise.any([
-                        fetchProxy("https://corsproxy.io/?", manualUrl),
-                        fetchProxy("https://api.allorigins.win/raw?url=", manualUrl),
-                        fetchProxy("https://api.codetabs.com/v1/proxy?quest=", manualUrl),
-                        fetchJina(manualUrl) 
-                    ]);
-
-                    if (typeof window.formatTextWithControls === 'function') {
-                        window.formatTextWithControls(paragraphs, textContainer);
-                    } else {
-                        textContainer.innerHTML = paragraphs.map(txt => `<p>${txt}</p>`).join('');
-                    }
-                    if (typeof resetArticleChat === 'function') resetArticleChat(paragraphs.join('\n'), art.description);
-
-                } catch (err) {
-                    textContainer.innerHTML = `
-                        <div class="status-msg" style="color: #ef4444; background: rgba(239, 68, 68, 0.1); padding: 15px; border-radius: 8px;">
-                            ❌ Maalesef bu sitenin güvenlik duvarı manuel proxy isteklerini de kesin olarak engelliyor. Orijinal sekmede okumaya devam edebilirsiniz.
-                        </div>
-                        <div style="padding: 15px 10px; line-height: 1.6; color: #f8fafc; font-size: 1.05rem;">
-                            ${art.description}
-                        </div>`;
-                }
-            };
-        }
-    }
-
-    if (art.link.includes('news.google.com')) {
-        renderManualFetchUI(art.link);
-        const banner = document.getElementById('iframeBanner');
-        if (banner) {
-            banner.innerHTML = `✅ Yönlendirme Linki`;
-            setTimeout(()=>{ banner.style.display='none'; }, 2000);
-        }
-        return; 
-    }
-
-    try {
-        try { 
-            html = await fireProxies(proxyGroup1, 3000);
-        } catch (e1) {
-            try { 
-                html = await fireProxies(proxyGroup2, 4000);
-            } catch (e2) { 
-                html = null;
-            }
-        }
-
-        if (!html) throw new Error("Bütün proxy denemeleri başarısız oldu.");
-        
-        const parser = new DOMParser(); 
-        const doc = parser.parseFromString(html, 'text/html'); 
-        const paragraphs = Array.from(doc.querySelectorAll('p, .content p, .news-text p, article p'));
-        const validText = paragraphs.map(p => p.textContent.trim()).filter(txt => txt.length > 70); 
-        const uniqueText = [...new Set(validText)];
-        
-        if (uniqueText.length > 0) { 
-            if (typeof window.formatTextWithControls === 'function') {
-                window.formatTextWithControls(uniqueText, textContainer);
-            } else {
-                textContainer.innerHTML = uniqueText.map((txt, idx) => {
-                    const clickableWords = txt.split(' ').map(w => `<span class="t-word" onclick="translateSingleWord(this, event)">${w}</span>`).join(' ');
-                    return `<div class="p-container">
-                                <p id="p_${idx}">${clickableWords}</p>
-                                <div class="p-actions-row">
-                                    <button class="btn-action-p" onclick="listenParagraph(${idx}, this)" title="Dinle">🔊</button>
-                                    <button class="btn-action-p" onclick="translateParagraph(${idx}, this)" title="Çevir">🌐</button>
-                                </div>
-                                <div class="translated-text" id="trans_${idx}"></div>
-                            </div>`;
-                }).join('');
-            }
-            if (typeof resetArticleChat === 'function') resetArticleChat(uniqueText.join('\n'), art.description);
-        } else { 
-            throw new Error("Okunabilir metin bulunamadı"); 
-        }
-        
-        html = html.replace(/<meta[^>]+http-equiv=['"]?refresh['"]?[^>]*>/gi, '');
-        html = html.replace(/window\.location\.replace/gi, 'console.log'); 
-        html = html.replace(/window\.location\.href\s*=/gi, 'console.log=');
-        
-        const urlObj = new URL(art.link);
-        const baseUrl = urlObj.protocol + "//" + urlObj.host + "/";
-        if (html.toLowerCase().includes('<head>')) { 
-            html = html.replace(/<head>/i, `<head><base href="${baseUrl}">`);
-        } else { 
-            html = `<base href="${baseUrl}">` + html;
-        }
-        
-        const scriptFix = `<script> window.onload = function() { const links = document.querySelectorAll('a'); links.forEach(l => l.setAttribute('target', '_blank')); }; <\/script>`;
-        html = html.replace(/<\/body>/i, scriptFix + '</body>'); 
-        
-        iframe.srcdoc = html;
-        iframe.onload = () => { 
-            banner.innerHTML = `✅`;
-            setTimeout(()=>{ banner.style.display='none'; }, 2000); 
-        };
-        
-    } catch (err) { 
-        textContainer.innerHTML = `<div class="loading-pulse">Haber kilitli. Ajanımız asıl linki bulmak için sızıyor... ⏳</div>`;
-
-        const temizBaslik = (art.title + " " + art.source).replace(/['"]/g, ' ');
-
-        const googleAramaSayfasi = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="utf-8">
-                <style>
-                    body { background-color: #0f172a; color: #94a3b8; font-family: sans-serif; padding: 20px; text-align: center; }
-                    .gizli-arama { opacity: 0; pointer-events: none; height: 1px; overflow: hidden; }
-                </style>
-            </head>
-            <body>
-                <div style="font-size: 1.1rem; margin-bottom: 10px;">🕵️‍♂️ Ajan Devrede...</div>
-                <div style="font-size: 0.85rem;">Hedef: ${temizBaslik}</div>
-
-                <div class="gizli-arama">
-                    <script>
-                      window.__gcse = {
-                        initializationCallback: function() {
-                            if (google && google.search && google.search.cse) {
-                                google.search.cse.element.getElement('otomatikArama').execute('${temizBaslik}');
-                            }
-                        }
-                      };
-                    </script>
-                    <script async src="https://cse.google.com/cse.js?cx=e72c5be649c8d42f8"></script>
-                    <div class="gcse-search" gname="otomatikArama"></div>
-                </div>
-            </body>
-            </html>
-        `;
-
-        const searchIframe = document.createElement('iframe');
-        searchIframe.style.width = '100%';
-        searchIframe.style.height = '150px';
-        searchIframe.style.border = 'none';
-        searchIframe.srcdoc = googleAramaSayfasi;
-
-        textContainer.innerHTML = '';
-        textContainer.appendChild(searchIframe);
-
-        searchIframe.onload = () => {
-            try {
-                const iframeDoc = searchIframe.contentDocument || searchIframe.contentWindow.document;
-
-                const ajanGozlemci = new MutationObserver((mutations, obs) => {
-                    const linkler = iframeDoc.querySelectorAll('a.gs-title');
-                    
-                    for (let a of linkler) {
-                        let gercekLink = a.getAttribute('data-ctorig') || a.href;
-
-                        if (gercekLink && gercekLink.startsWith('http') && !gercekLink.includes('google.com')) {
-                            obs.disconnect(); 
-                            
-                            const modalLinkExt = document.getElementById('modalLinkExt');
-                            if(modalLinkExt) modalLinkExt.href = gercekLink;
-
-                            textContainer.innerHTML = `<div class="loading-pulse">✅ Asıl Link Bulundu: ${new URL(gercekLink).hostname}<br>Okuma moduna çekiliyor... ⏳</div>`;
-
-                            (async () => {
-                                try {
-                                    const jinaUrl = "https://r.jina.ai/" + gercekLink;
-                                    const res = await window.fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent(jinaUrl));
-                                    if (!res.ok) throw new Error("Jina başarısız");
-
-                                    let jinaText = await res.text();
-                                    if (jinaText.includes('security service to protect itself')) throw new Error("Cloudflare Koruması");
-
-                                    // YENİ: Çöp Markdown Link Temizleyici (Ajan tarafı için)
-                                    jinaText = jinaText.replace(/!\[.*?\]\(.*?\)/g, ''); 
-                                    jinaText = jinaText.replace(/\[\s*\]\([^)]+\)/g, ''); // BOŞ LİNKLERİ SİL
-                                    jinaText = jinaText.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'); 
-                                    jinaText = jinaText.replace(/^#+\s*/gm, ''); 
-                                    jinaText = jinaText.replace(/[*_]{1,2}/g, ''); 
-
-                                    const paragraphs = jinaText.split('\n').map(t => t.trim()).filter(t => {
-                                        if (t.length < 70) return false;
-                                        // YENİ: Sadece tek satır URL ise çöpe at
-                                        if (t.startsWith('http') && !t.includes(' ')) return false;
-                                        return true;
-                                    });
-                                    
-                                    if (paragraphs.length < 1) throw new Error("Metin yok");
-
-                                    if (typeof window.formatTextWithControls === 'function') {
-                                        window.formatTextWithControls(paragraphs, textContainer);
-                                    } else {
-                                        textContainer.innerHTML = paragraphs.map(txt => `<p>${txt}</p>`).join('');
-                                    }
-
-                                    if (typeof resetArticleChat === 'function') resetArticleChat(paragraphs.join('\n'), art.description);
-
-                                } catch (e) {
-                                    renderManualFetchUI(gercekLink);
-                                }
-                            })();
-                            return; 
-                        }
-                    }
-                });
-
-                ajanGozlemci.observe(iframeDoc.body, { childList: true, subtree: true });
-
-                setTimeout(() => {
-                    if (textContainer.contains(searchIframe)) {
-                        ajanGozlemci.disconnect();
-                        renderManualFetchUI(null);
-                    }
-                }, 8000);
-
-            } catch(e) { console.log("Iframe güvenlik engeli", e); }
-        };
-    }
-}
-
-
-
-
-
-
-        
-
-
-async function fetchWithUserHelp() {
-    const manualUrl = document.getElementById('manualLinkInput').value.trim();
-    const textContainer = document.getElementById('fullTextContainer');
-    if(!manualUrl || !manualUrl.startsWith('http')) {
-        alert("Lütfen geçerli bir http/https linki yapıştırın.");
-        return;
-    }
-
-    textContainer.innerHTML = `<div class="loading-pulse">Farklı sunucularla kilit kırılıyor... Lütfen bekleyin ⏳</div>`;
-    const fetchJina = async (url) => {
-        const res = await fetch("https://r.jina.ai/" + url, { headers: { "Accept": "application/json" } });
-        if (!res.ok) throw new Error("Jina failed");
-        const data = await res.json();
-        if (!data || !data.data || !data.data.content) throw new Error("Jina no content");
-        
-        let text = data.data.content;
-        
-        // YENİ: Çöp Markdown Link Temizleyici (Ana Menü Kullanıcı Aracı için)
-        text = text.replace(/!\[.*?\]\(.*?\)/g, '');
-        text = text.replace(/\[\s*\]\([^)]+\)/g, ''); // BOŞ LİNKLERİ SİL
-        text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'); 
-        text = text.replace(/^#+\s*/gm, ''); 
-        text = text.replace(/[*_]{1,2}/g, ''); 
-        text = text.replace(/<[^>]*>/g, '');
-        
-        const paragraphs = text.split('\n').map(t => t.trim()).filter(t => {
-            if (t.length < 70) return false; 
-            if (t.includes('redirect=')) return false; 
-            // YENİ: Sadece tek satır URL ise çöpe at
-            if (t.startsWith('http') && !t.includes(' ')) return false;
-            return true;
-        });
-        if (paragraphs.length < 1) throw new Error("Jina text too short");
-        return paragraphs;
-    };
-    const fetchProxy = async (proxyBase, url) => {
-        const res = await fetch(proxyBase + encodeURIComponent(url));
-        if (!res.ok) throw new Error("Proxy failed");
-        const html = await res.text();
-        if (html.includes('security service to protect itself') || html.length < 1000) throw new Error("Blocked by Firewall");
-        
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html'); 
-        const pTags = Array.from(doc.querySelectorAll('p, .content p, .news-text p, article p'));
-        const validText = pTags.map(p => p.textContent.trim()).filter(txt => txt.length > 70); 
-        const uniqueText = [...new Set(validText)];
-        if (uniqueText.length < 1) throw new Error("Proxy text too short");
-        return uniqueText;
-    };
-    try {
-        const paragraphs = await Promise.any([
-            fetchProxy("https://corsproxy.io/?", manualUrl),
-            fetchProxy("https://api.allorigins.win/raw?url=", manualUrl),
-            fetchProxy("https://api.codetabs.com/v1/proxy?quest=", manualUrl),
-            fetchJina(manualUrl) 
-        ]);
-        
-        if (typeof window.formatTextWithControls === 'function') {
-            window.formatTextWithControls(paragraphs, textContainer);
-        } else {
-            textContainer.innerHTML = paragraphs.map((txt, idx) => {
-                const clickableWords = txt.split(' ').map(w => `<span class="t-word" onclick="translateSingleWord(this, event)">${w}</span>`).join(' ');
-                return `<div class="p-container">
-                            <p id="p_${idx}">${clickableWords}</p>
-                            <div class="p-actions-row">
-                                <button class="btn-action-p" onclick="listenParagraph(${idx}, this)" title="Dinle">🔊</button>
-                                <button class="btn-action-p" onclick="translateParagraph(${idx}, this)" title="Çevir">🌐</button>
-                            </div>
-                            <div class="translated-text" id="trans_${idx}"></div>
-                        </div>`;
-            }).join('');
-        }
-    } catch (err) {
-        textContainer.innerHTML = `<div class="status-msg" style="color: #ef4444;">❌ Maalesef bu sitenin duvarı tüm sunucularımızı engelledi. Lütfen orijinal sekmede okuyun.</div>`;
-    }
-}
+// openModal ve haber metni çıkarma artık reader.js içinde
 
 let tapCount = 0; 
 let tapTimeout;
@@ -1191,7 +697,7 @@ window.addEventListener('scroll', () => {
             const spinner = document.getElementById('scrollSpinner'); 
             spinner.style.display = 'block'; 
             setTimeout(() => { renderNextBatch(); spinner.style.display = 'none'; }, 100); 
-        } else if (filteredArticles.length > 0 && !isFetchingRefresh) { 
+        } else if (filteredArticles.length > 0 && !isFetchingRefresh && Date.now() - lastFetchAt > 60000) { 
             fetchAllRSS(true); 
         } 
     } 
@@ -1277,7 +783,7 @@ function hardRefreshApp() {
 // Hem extracted metin için hem de AI'ın bulduğu metin için kullanılır.
 window.formatTextWithControls = function(paragraphsArray, containerElement) {
     containerElement.innerHTML = paragraphsArray.map((txt, idx) => {
-        const clickableWords = txt.split(' ').map(w => `<span class="t-word" onclick="translateSingleWord(this, event)">${w}</span>`).join(' ');
+        const clickableWords = txt.split(' ').map(w => `<span class="t-word" onclick="translateSingleWord(this, event)">${escapeHtml(w)}</span>`).join(' ');
         return `<div class="p-container">
                     <p id="p_${idx}">${clickableWords}</p>
                     <div class="p-actions-row">

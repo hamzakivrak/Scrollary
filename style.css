@@ -735,3 +735,23 @@ border: 1px solid var(--accent); padding: 12px; border-radius: 8px; font-weight:
     .summary-card { padding: 20px; min-height: 65vh; max-height: 70vh; }
     .card-intro { font-size: 1.1rem; }
 }
+
+
+/* ===== v3.1: okuma modu iyileştirmeleri ===== */
+#fullTextContainer .p-container p { font-size: var(--reader-font, 17px) !important; line-height: 1.75; }
+.reader-meta { color: var(--text-muted); font-size: .8rem; margin: 0 0 12px; }
+.font-ctl { display: flex; gap: 6px; margin-left: auto; }
+.font-ctl button { background: var(--surface-light); color: var(--text-main); border: 0; border-radius: 8px; min-width: 40px; height: 36px; font-weight: 700; cursor: pointer; }
+.skel-line { height: 14px; border-radius: 7px; margin: 12px 0; background: linear-gradient(90deg, var(--surface) 25%, var(--surface-light) 50%, var(--surface) 75%); background-size: 200% 100%; animation: skel 1.2s infinite linear; }
+.skel-line.short { width: 60%; }
+@keyframes skel { to { background-position: -200% 0; } }
+.reader-fail { background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.3); border-radius: 12px; padding: 18px; margin-bottom: 18px; }
+.reader-fail h3 { margin: 0 0 8px; color: #ef4444; font-size: 1.05rem; }
+.reader-fail p { margin: 0 0 14px; color: #cbd5e1; font-size: .92rem; }
+.fail-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.fail-actions button, .fail-actions a, .fail-paste button { background: var(--surface-light); color: #fff; border: 0; border-radius: 10px; padding: 12px 16px; font-weight: 700; text-decoration: none; cursor: pointer; min-height: 44px; display: inline-flex; align-items: center; }
+.fail-actions button { background: var(--primary); }
+.reader-fail summary { color: var(--accent); cursor: pointer; padding: 6px 0; font-size: .9rem; }
+.fail-paste { display: flex; gap: 8px; margin-top: 8px; }
+.fail-paste input { flex: 1; min-width: 0; padding: 12px; border-radius: 10px; border: 1px solid var(--accent); background: #0f172a; color: #fff; }
+.reader-fallback-desc { line-height: 1.65; color: var(--text-main); opacity: .85; }

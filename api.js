@@ -1,163 +1,202 @@
-// api.js
-async function fetchWithTimeout(resource, timeout = 10000) {
+// api.js v3 — paralel + yarışmalı haber çekme (eski sürüm: sıralı, 3'erli, backend uyanana kadar bekliyordu)
+const FEED_CONCURRENCY = 6;      // aynı anda kaç kaynak çekilsin
+const AUTO_REFRESH_MS = 180000;  // sekme açıkken otomatik yenileme (3 dk)
+const MAX_ARTICLES = 600;        // bellekte tutulacak en yeni haber sayısı
+let lastFetchAt = 0;
+
+async function fetchWithTimeout(resource, timeout = 10000, options = {}) {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeout);
-    try {
-        const response = await fetch(resource, { signal: controller.signal });
-        clearTimeout(id); 
-        return response;
-    } catch (error) {
-        clearTimeout(id);
-        throw error;
-    }
+    try { return await fetch(resource, { ...options, signal: controller.signal }); }
+    finally { clearTimeout(id); }
 }
 
-async function fetchFeedData(feed) {
-    const apiUrl = `https://scrollary-api.onrender.com/api/fetch-news?url=${encodeURIComponent(feed.url)}`;
-    try {
-        const res = await fetchWithTimeout(apiUrl, 25000);
-        if (res.ok) {
-            const data = await res.json();
-            if (data && data.articles && data.articles.length > 0) {
-                return data.articles.map(item => {
-                    let pubDate = new Date(item.date);
-                    if (isNaN(pubDate.getTime())) pubDate = new Date();
-                    return { title: item.title || "İsimsiz Haber", description: item.description || "", link: item.link || "#", image: item.image || "", source: feed.name, date: pubDate, timestamp: pubDate.getTime(), categories: feed.cat ? [feed.cat] : [] };
-                });
-            }
-        }
-    } catch(e) {}
-    
-    const fallbackProxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(feed.url)}`;
-    try {
-        const fallbackRes = await fetchWithTimeout(fallbackProxy, 8000);
-        if (fallbackRes.ok) {
-            const text = await fallbackRes.text();
-            return parseXMLToArticles(text, feed);
-        }
-    } catch(err) {} 
+// Görevleri gecikmeli başlatır, İLK başarılı olanı döndürür (hepsi başarısızsa reddeder)
+function raceStaggered(tasks) {
+    return Promise.any(tasks.map(({ delay = 0, run }) =>
+        new Promise((resolve, reject) => setTimeout(() => run().then(resolve, reject), delay))));
+}
 
-    return [];
+function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function normLink(l) {
+    try {
+        const u = new URL(l);
+        [...u.searchParams.keys()].forEach(k => { if (/^(utm_|fbclid|gclid|ref$)/i.test(k)) u.searchParams.delete(k); });
+        u.hash = '';
+        return u.href.replace(/\/$/, '');
+    } catch (e) { return l; }
+}
+
+function htmlToText(html) {
+    if (!html) return '';
+    return (new DOMParser().parseFromString(html, 'text/html').body.textContent || '').replace(/\s+/g, ' ').trim();
+}
+
+// ---------- Kaynak çekme ----------
+const FEED_ROUTES = [
+    { delay: 0,    url: u => u, direct: true },
+    { delay: 0,    url: u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}&disableCache=true` },
+    { delay: 1200, url: u => `https://corsproxy.io/?url=${encodeURIComponent(u)}` },
+    { delay: 2500, url: u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}` }
+];
+
+async function fetchFeedData(feed) {
+    const xmlTasks = FEED_ROUTES.map(r => ({
+        delay: r.delay,
+        run: async () => {
+            const res = await fetchWithTimeout(r.url(feed.url), 9000, { cache: 'no-store' });
+            if (!res.ok) throw new Error('http ' + res.status);
+            const text = await res.text();
+            if (!/<(item|entry)[\s>]/i.test(text)) throw new Error('rss değil');
+            const arts = parseXMLToArticles(text, feed);
+            if (!arts.length) throw new Error('boş');
+            return arts;
+        }
+    }));
+    // Kendi backend'in (Render) uyuyor olabilir; yarışa katılır ama kimseyi bekletmez
+    const backendTask = {
+        delay: 0,
+        run: async () => {
+            const res = await fetchWithTimeout(`https://scrollary-api.onrender.com/api/fetch-news?url=${encodeURIComponent(feed.url)}`, 20000);
+            if (!res.ok) throw new Error('backend');
+            const data = await res.json();
+            if (!data || !data.articles || !data.articles.length) throw new Error('boş');
+            return data.articles.map(item => {
+                let d = new Date(item.date);
+                if (isNaN(d.getTime())) d = new Date();
+                return { title: item.title || 'İsimsiz Haber', description: htmlToText(item.description).substring(0, 220), link: item.link || '#', image: item.image || '', content: item.content || '', source: feed.name, date: d, timestamp: d.getTime(), categories: feed.cat ? [feed.cat] : [] };
+            });
+        }
+    };
+    try { return await raceStaggered([...xmlTasks, backendTask]); } catch (e) { return []; }
 }
 
 function parseXMLToArticles(textData, feed) {
-    const parser = new DOMParser(); 
-    const xmlDoc = parser.parseFromString(textData, "text/xml");
-    const items = [...Array.from(xmlDoc.getElementsByTagName("item")), ...Array.from(xmlDoc.getElementsByTagName("entry"))];
-    let result = []; 
-    let baseUrl = ""; 
-    try { baseUrl = new URL(feed.url).origin; } catch(e){}
-    
+    const xmlDoc = new DOMParser().parseFromString(textData, 'text/xml');
+    const items = [...xmlDoc.getElementsByTagName('item'), ...xmlDoc.getElementsByTagName('entry')];
+    const result = [];
+    let baseUrl = '';
+    try { baseUrl = new URL(feed.url).origin; } catch (e) {}
+    const first = (el, ...names) => { for (const n of names) { const x = el.getElementsByTagName(n)[0] || el.getElementsByTagNameNS('*', n.split(':').pop())[0]; if (x) return x; } return null; };
+
     items.forEach(item => {
         try {
-            let title = "Haber Başlığı"; 
-            const titleNode = item.getElementsByTagName("title")[0];
-            if (titleNode) title = titleNode.textContent.trim() || "Haber Başlığı";
+            const titleNode = item.getElementsByTagName('title')[0];
+            const title = titleNode ? htmlToText(titleNode.textContent) : '';
+            if (!title) return;
 
-            let link = "#"; 
-            const linkNode = item.getElementsByTagName("link")[0];
-            if (linkNode) { 
-                link = linkNode.textContent ? linkNode.textContent.trim() : ""; 
-                if(!link) link = linkNode.getAttribute("href") || "#"; 
-            }
+            // Atom'da birden çok <link> olabilir: rel=alternate'i tercih et
+            let link = '';
+            const links = Array.from(item.getElementsByTagName('link'));
+            const alt = links.find(l => l.getAttribute('rel') === 'alternate') || links[0];
+            if (alt) link = (alt.textContent || '').trim() || alt.getAttribute('href') || '';
+            if (!link) { const g = item.getElementsByTagName('guid')[0]; if (g && /^http/.test(g.textContent)) link = g.textContent.trim(); }
+            if (!link) return;
 
-            let desc = ""; 
-            const descNode = item.getElementsByTagName("description")[0] || item.getElementsByTagName("summary")[0] || item.getElementsByTagName("content")[0];
-            if (descNode) desc = descNode.textContent || "";
-            
-            const contentEnc = item.getElementsByTagName("content:encoded")[0] || item.getElementsByTagNameNS("*", "encoded")[0];
-            if (!desc && contentEnc) desc = contentEnc.textContent || "";
+            const descNode = first(item, 'description', 'summary', 'content');
+            const encNode = first(item, 'content:encoded', 'encoded');
+            const rawDesc = descNode ? descNode.textContent : '';
+            const rawFull = encNode ? encNode.textContent : '';
+            const fullHtml = rawFull || rawDesc;
 
-            let fullText = desc + " " + (contentEnc ? (contentEnc.textContent || "") : "");
             let pubDate = new Date();
-            const pubNodes = item.getElementsByTagName("pubDate")[0] || item.getElementsByTagName("published")[0] || item.getElementsByTagName("updated")[0] || item.getElementsByTagName("date")[0];
-            if (pubNodes && pubNodes.textContent) { 
-                const parsed = new Date(pubNodes.textContent);
-                if (!isNaN(parsed.getTime())) pubDate = parsed; 
+            const pn = first(item, 'pubDate', 'published', 'updated', 'date');
+            if (pn && pn.textContent) { const p = new Date(pn.textContent.trim()); if (!isNaN(p.getTime())) pubDate = p; }
+            if (pubDate.getTime() > Date.now() + 3600000) pubDate = new Date();
+
+            let image = '';
+            const enc = item.getElementsByTagName('enclosure')[0];
+            const mc = first(item, 'media:content');
+            const mt = first(item, 'media:thumbnail');
+            if (enc && /image/.test(enc.getAttribute('type') || 'image') && enc.getAttribute('url')) image = enc.getAttribute('url');
+            else if (mc && mc.getAttribute('url')) image = mc.getAttribute('url');
+            else if (mt && mt.getAttribute('url')) image = mt.getAttribute('url');
+            else { const m = fullHtml.match(/<img[^>]+src=["']([^"']+)["']/i); if (m) image = m[1]; }
+            if (image.startsWith('//')) image = 'https:' + image;
+            else if (image.startsWith('/')) image = baseUrl + image;
+            image = image.replace(/^http:/, 'https:');
+
+            // Feed tam metin veriyorsa okuma modu ağa hiç ihtiyaç duymaz
+            let content = '';
+            if (fullHtml.length > 600) {
+                const d = new DOMParser().parseFromString(fullHtml, 'text/html');
+                const ps = Array.from(d.querySelectorAll('p')).map(p => p.textContent.trim()).filter(t => t.length > 40);
+                if (ps.join('').length > 500) content = ps.join('\n\n').substring(0, 8000);
             }
-            if (pubDate.getTime() > Date.now() + 3600000) { pubDate = new Date(); }
-
-            let image = "";
-            const enclosure = item.getElementsByTagName("enclosure")[0];
-            const mediaContent = item.getElementsByTagName("media:content")[0] || item.getElementsByTagNameNS("*", "content")[0];
-            const mediaThumb = item.getElementsByTagName("media:thumbnail")[0] || item.getElementsByTagNameNS("*", "thumbnail")[0];
-            if (enclosure && enclosure.getAttribute("url")) image = enclosure.getAttribute("url");
-            else if (mediaContent && mediaContent.getAttribute("url")) image = mediaContent.getAttribute("url");
-            else if (mediaThumb && mediaThumb.getAttribute("url")) image = mediaThumb.getAttribute("url");
-            else { 
-                const imgMatch = fullText.match(/<img[^>]+src=["']([^"']+)["']/i); 
-                if (imgMatch && imgMatch[1]) image = imgMatch[1]; 
-            }
-
-            if (image && image.startsWith('/')) image = baseUrl + image; 
-            if (image && image.startsWith('http:')) image = image.replace('http:', 'https:');
-
-            let resultItem = { 
-                title, 
-                description: desc.replace(/<[^>]*>?/gm, '').trim().substring(0, 180) + '...', 
-                link, 
-                image: image || '', 
-                source: feed.name, 
-                date: pubDate, 
-                timestamp: pubDate.getTime(), 
-                categories: feed.cat ? [feed.cat] : [] 
-            };
-            result.push(resultItem);
-        } catch(err) {} 
-    }); 
+            const plain = htmlToText(rawDesc);
+            result.push({
+                title, link, image, content,
+                description: plain.length > 220 ? plain.substring(0, 220) + '…' : plain,
+                source: feed.name, date: pubDate, timestamp: pubDate.getTime(),
+                categories: feed.cat ? [feed.cat] : []
+            });
+        } catch (err) {}
+    });
     return result;
 }
 
-async function fetchAllRSS(isSilent = false) {
-    if(isFetchingRefresh) return;
+// ---------- Hepsini çek ----------
+async function fetchAllRSS(isSilent = false, isAuto = false) {
+    if (isFetchingRefresh) return;
+    if (!navigator.onLine) { if (!isAuto) showToastGlobal('📴 İnternet bağlantısı yok', 3000); if (isSilent) resetPullToRefresh(); return; }
     isFetchingRefresh = true;
+    lastFetchAt = Date.now();
+
+    const t = TRANSLATIONS[currentRegion];
     const fetchBtn = document.getElementById('fetchBtn');
     const endSpinner = document.getElementById('endRefreshSpinner');
-    
-    fetchBtn.innerText = "🔄 " + TRANSLATIONS[currentRegion].scanning;
-    fetchBtn.style.opacity = "0.7";
-    if(!isSilent) endSpinner.style.display = 'block';
+    if (fetchBtn) { fetchBtn.innerText = '🔄 ' + t.scanning; fetchBtn.style.opacity = '0.7'; }
+    if (!isSilent && endSpinner) endSpinner.style.display = 'block';
 
-    let newCount = 0;
-    const CHUNK_SIZE = 3;
-    for (let i = 0; i < RSS_FEEDS.length; i += CHUNK_SIZE) {
-        const chunk = RSS_FEEDS.slice(i, i + CHUNK_SIZE);
-        await new Promise(r => setTimeout(r, 200)); 
-        
-        const promises = chunk.map(feed => fetchFeedData(feed));
-        const results = await Promise.allSettled(promises);
-        let chunkHasNew = false;
-        results.forEach(res => {
-            if (res.status === 'fulfilled' && res.value) {
-                res.value.forEach(art => { 
-                    if(!allArticles.find(a => a.link === art.link)) { 
-                        allArticles.push(art); 
-                        newCount++; 
-                        chunkHasNew = true;
-                    } 
-                });
+    const seen = new Set(allArticles.map(a => normLink(a.link)));
+    // Aktif kaynaklar önce çekilir: kullanıcı en çok onlara bakıyor
+    const queue = [...RSS_FEEDS].sort((a, b) => activeSources.includes(b.name) - activeSources.includes(a.name));
+    const total = queue.length;
+    let newCount = 0, done = 0, failed = 0, renderTimer = null;
+
+    const renderNow = () => {
+        renderTimer = null;
+        allArticles = interlaceArticles(allArticles).slice(0, MAX_ARTICLES);
+        saveToLocalMemory();
+        if (window.scrollY < 100) handleSearch(true);
+    };
+
+    const worker = async () => {
+        while (queue.length) {
+            const feed = queue.shift();
+            const arts = await fetchFeedData(feed);
+            done++;
+            if (!arts.length) failed++;
+            let added = false;
+            for (const art of arts) {
+                const k = normLink(art.link);
+                if (!seen.has(k)) { seen.add(k); allArticles.push(art); newCount++; added = true; }
             }
-        });
-
-        if(chunkHasNew) {
-            allArticles = interlaceArticles(allArticles);
-            saveToLocalMemory();
-            if(window.scrollY < 100) handleSearch(true); 
+            if (added && !renderTimer) renderTimer = setTimeout(renderNow, 250); // her kaynakta değil, toplu çiz
+            if (fetchBtn) fetchBtn.innerText = `🔄 ${t.scanning} ${done}/${total}`;
         }
-    }
+    };
+    await Promise.all(Array.from({ length: Math.min(FEED_CONCURRENCY, total) }, worker));
 
-    if (newCount > 0 && window.scrollY >= 100) { 
-        showToastGlobal(`⬆️ ${newCount} Yeni Haber Düştü!`);
-    } else if (isSilent && newCount === 0) { 
-        showToastGlobal(`✔️ En günceldesiniz`, 3000);
-    }
-    
-    if (isSilent) { resetPullToRefresh(); } 
-    
-    endSpinner.style.display = 'none';
-    fetchBtn.innerText = TRANSLATIONS[currentRegion].fetchBtnText;
-    fetchBtn.style.opacity = "1";
+    if (renderTimer) clearTimeout(renderTimer);
+    if (newCount > 0) renderNow();
+
+    if (newCount > 0 && window.scrollY >= 100) showToastGlobal(`⬆️ ${newCount} Yeni Haber Düştü!`);
+    else if (total > 0 && failed === total) showToastGlobal('⚠️ Kaynaklara ulaşılamadı, biraz sonra tekrar denenecek', 4000);
+    else if (isSilent && !isAuto && newCount === 0) showToastGlobal('✔️ En günceldesiniz', 3000);
+    else if (!isAuto && failed > 0 && newCount > 0) showToastGlobal(`${newCount} yeni haber • ${failed} kaynak yanıt vermedi`, 3500);
+
+    if (isSilent) resetPullToRefresh();
+    if (endSpinner) endSpinner.style.display = 'none';
+    if (fetchBtn) { fetchBtn.innerText = t.fetchBtnText; fetchBtn.style.opacity = '1'; }
     isFetchingRefresh = false;
-    
-    if(!isSilent) handleSearch(true);
+    if (!isSilent) handleSearch(true);
 }
+
+// ---------- Otomatik yenileme: haberler kullanıcı beklemeden düşsün ----------
+setInterval(() => { if (!document.hidden && !isFetchingRefresh && Date.now() - lastFetchAt > AUTO_REFRESH_MS) fetchAllRSS(true, true); }, 30000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && !isFetchingRefresh && Date.now() - lastFetchAt > 120000) fetchAllRSS(true, true); });
+window.addEventListener('online', () => { if (!isFetchingRefresh) fetchAllRSS(true, true); });
