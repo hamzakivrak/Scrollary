@@ -245,16 +245,13 @@ function popupRefresh() {
 }
 
 function loadCustomFeeds() {
-    RSS_FEEDS = [...(GLOBAL_RSS_DB[currentRegion] || GLOBAL_RSS_DB['EN'])];
-    const savedFeeds = JSON.parse(localStorage.getItem('customRSSFeeds')) || [];
-    const regionFeeds = savedFeeds.filter(f => (f.lang || 'EN') === currentRegion);
-    RSS_FEEDS.push(...regionFeeds);
+    const builtin = GLOBAL_RSS_DB[currentRegion] || GLOBAL_RSS_DB['EN'];
+    const saved = JSON.parse(localStorage.getItem('customRSSFeeds')) || [];
+    const builtinUrls = new Set(builtin.map(f => normFeedUrl(f.url)));
+    // Kullanıcının eklediği kaynaklar dil/bölge değişse de kaybolmaz
+    RSS_FEEDS = [...builtin, ...saved.filter(f => f && f.url && !builtinUrls.has(normFeedUrl(f.url)))];
     const savedActive = JSON.parse(localStorage.getItem('activeSourcesList'));
-    if (savedActive && savedActive.length > 0) { 
-        activeSources = savedActive;
-    } else { 
-        activeSources = RSS_FEEDS.map(f => f.name);
-    }
+    activeSources = (savedActive && savedActive.length > 0) ? savedActive : RSS_FEEDS.map(f => f.name);
     renderChips();
 }
 
@@ -279,105 +276,177 @@ function interlaceArticles(articles) {
     return out;
 }
 
-async function addDiscoveredRss(name, url) { 
-    const newFeed = { id: 'custom_' + Date.now(), name: name.substring(0, 30), url: url, isCustom: true, lang: currentRegion, cat: 'News' };
-    const savedFeeds = JSON.parse(localStorage.getItem('customRSSFeeds')) || []; 
-    if(!savedFeeds.find(f => f.url === url)) { 
-        savedFeeds.push(newFeed);
-        localStorage.setItem('customRSSFeeds', JSON.stringify(savedFeeds)); 
-    }
-    if(!activeSources.includes(newFeed.name)) { 
-        activeSources.push(newFeed.name); 
-        saveActiveSources();
-    }
-    
-    document.getElementById('rssSearchResults').innerHTML = `<span style="color:#10b981; font-weight:bold; margin-top:10px; display:block;">⏳ Haberler listene düşüyor...</span>`;
-    currentCategory = '';
-    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
-    const catBtns = document.querySelectorAll('.cat-btn');
-    if(catBtns.length > 0) catBtns[0].classList.add('active');
+// ===== Kaynak ekleme / silme (v3.2) =====
+function normFeedUrl(u) {
+    u = (u || '').trim();
+    if (!u) return '';
+    if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
+    try { return new URL(u).href.replace(/\/$/, ''); } catch (e) { return ''; }
+}
 
-    loadCustomFeeds(); 
-    syncToCloud(); 
-    document.getElementById('controlsWrapper').classList.add('collapsed'); 
-    document.getElementById('toggleIcon').innerText = '▼';
-    const arts = await fetchFeedData(newFeed);
-    if(arts && arts.length > 0) {
-        arts.forEach(a => { if(!allArticles.find(x => x.link === a.link)) allArticles.push(a); });
-        allArticles = interlaceArticles(allArticles);
-        saveToLocalMemory();
-        handleSearch(true); 
+function uniqueFeedName(name) {
+    const base = ((name || '').trim().substring(0, 30)) || 'Yeni Kaynak';
+    const taken = new Set(RSS_FEEDS.map(f => f.name));
+    let n = base, i = 2;
+    while (taken.has(n)) n = `${base} (${i++})`;
+    return n;
+}
+
+function googleNewsFeedUrl(q) {
+    let hl = currentRegion.toLowerCase(), gl = currentRegion.toUpperCase();
+    if (currentRegion === 'EN') { hl = 'en-US'; gl = 'US'; }
+    else if (currentRegion === 'ES') { hl = 'es'; gl = 'ES'; }
+    return `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=${hl}&gl=${gl}&ceid=${gl}:${hl.split('-')[0]}`;
+}
+
+function highlightFeedChip(name) {
+    const fl = document.getElementById('filterList');
+    if (fl) fl.classList.add('show');
+    requestAnimationFrame(() => {
+        document.querySelectorAll('.chip').forEach(c => {
+            if (c.dataset.name !== name) return;
+            c.classList.add('chip-new');
+            c.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            setTimeout(() => c.classList.remove('chip-new'), 4000);
+        });
+    });
+}
+
+async function addDiscoveredRss(name, url) {
+    const feedUrl = normFeedUrl(url);
+    const result = document.getElementById('rssSearchResults');
+    if (!feedUrl) { showToastGlobal('⚠️ Geçerli bir adres girin', 3000); return; }
+
+    loadCustomFeeds(); // RSS_FEEDS güncel olsun
+    const saved = JSON.parse(localStorage.getItem('customRSSFeeds')) || [];
+    const exists = saved.find(f => normFeedUrl(f.url) === feedUrl) || RSS_FEEDS.find(f => normFeedUrl(f.url) === feedUrl);
+    if (exists) {
+        if (!activeSources.includes(exists.name)) { activeSources.push(exists.name); saveActiveSources(); }
+        renderChips(); highlightFeedChip(exists.name); handleSearch(true);
+        showToastGlobal('ℹ️ Bu kaynak zaten ekli, filtrede aktif edildi', 3000);
+        return;
     }
-    document.getElementById('rssSearchResults').innerHTML = `<span style="color:#10b981; font-weight:bold; margin-top:10px; display:block;">${TRANSLATIONS[currentRegion].addedSuccess}</span>`;
+
+    const feed = { id: 'custom_' + Date.now(), name: uniqueFeedName(name), url: feedUrl, isCustom: true, lang: currentRegion, cat: 'News' };
+    saved.push(feed);
+    localStorage.setItem('customRSSFeeds', JSON.stringify(saved));
+    if (!activeSources.includes(feed.name)) activeSources.push(feed.name);
+    saveActiveSources();          // yerel kayıt + bulut senkronu
+    loadCustomFeeds();            // RSS_FEEDS ve filtre çipleri hemen yenilenir
+    highlightFeedChip(feed.name);
+
+    // Kategori filtresi yeni kaynağı gizlemesin
+    currentCategory = '';
+    document.querySelectorAll('.cat-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
+
+    if (result) result.innerHTML = '<span style="color:#10b981;font-weight:bold;margin-top:10px;display:block;">⏳ Haberler çekiliyor...</span>';
+    const arts = await fetchFeedData(feed);
+    if (arts.length) {
+        const seen = new Set(allArticles.map(a => normLink(a.link)));
+        let added = 0;
+        arts.forEach(a => { const k = normLink(a.link); if (!seen.has(k)) { seen.add(k); allArticles.push(a); added++; } });
+        allArticles = interlaceArticles(allArticles).slice(0, MAX_ARTICLES);
+        saveToLocalMemory();
+        handleSearch(true);
+        if (result) result.innerHTML = '';
+        showToastGlobal(`✅ ${feed.name} eklendi • ${added} haber`, 3500);
+    } else {
+        if (result) result.innerHTML = '<span style="color:#f59e0b;display:block;margin-top:10px;">⚠️ Kaynak kaydedildi ama şu an haber alınamadı. Adres bir RSS/Atom akışı olmayabilir; filtredeki ✕ ile silebilirsiniz.</span>';
+        showToastGlobal(`⚠️ ${feed.name} eklendi, haber alınamadı`, 4500);
+    }
 }
 
 async function findRssFromUrl() {
-    const urlInput = document.getElementById('searchRssUrl').value.trim(); 
-    if (!urlInput) return;
-    const resultsDiv = document.getElementById('rssSearchResults');
-    resultsDiv.innerHTML = '⏳ Aranıyor...';
-    const isUrl = urlInput.includes('.') && !urlInput.includes(' ');
-    
-    let hl = currentRegion.toLowerCase(); 
-    let gl = currentRegion.toUpperCase();
-    if (currentRegion === 'EN') { hl = 'en-US'; gl = 'US'; }
-    else if (currentRegion === 'ES') { hl = 'es'; gl = 'ES'; }
-    
-    const gNewsUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(urlInput)}&hl=${hl}&gl=${gl}&ceid=${gl}:${hl.split('-')[0]}`;
-    let cleanTitle = urlInput.replace(/'/g, "\\'");
-    if (!isUrl) {
-        resultsDiv.innerHTML = `<span style="color:#10b981; font-weight:bold;">✅ Konu bulundu:</span><br><button style="background:var(--surface-light); text-align:left; font-size:0.85rem; color:white; padding:10px; border-radius:5px; width:100%; margin-top:8px; cursor:pointer;" onclick="addDiscoveredRss('${cleanTitle}', '${gNewsUrl}')">➕ Google Haberler: ${urlInput}</button>`;
+    const raw = document.getElementById('searchRssUrl').value.trim();
+    if (!raw) return;
+    const out = document.getElementById('rssSearchResults');
+    out.innerHTML = '';
+    const note = (txt, color) => { const d = document.createElement('div'); d.textContent = txt; d.style.cssText = `font-size:.85rem;margin-top:6px;color:${color || 'var(--text-muted)'};`; out.appendChild(d); return d; };
+    const addBtn = (label, name, url) => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'rss-result-btn'; b.textContent = '➕ ' + label;
+        b.addEventListener('click', () => { b.disabled = true; addDiscoveredRss(name, url); });
+        out.appendChild(b);
+    };
+
+    // Konu araması -> Google Haberler
+    if (!(raw.includes('.') && !/\s/.test(raw))) {
+        note('✅ Konu bulundu:', '#10b981');
+        addBtn('Google Haberler: ' + raw, raw, googleNewsFeedUrl(raw));
         return;
     }
-    
-    let targetUrl = urlInput.startsWith('http') ? urlInput : 'https://' + urlInput;
-    try {
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
-        const resH = await fetchWithTimeout(proxyUrl, 8000); 
-        const dataH = await resH.json();
-        if (dataH.contents) {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(dataH.contents, 'text/html');
-            const rssLinks = doc.querySelectorAll('link[type="application/rss+xml"], link[type="application/atom+xml"]');
-            if (rssLinks.length > 0) {
-                resultsDiv.innerHTML = '<span style="color:#10b981; font-weight:bold;">✅ Site kaynakları bulundu:</span>';
-                rssLinks.forEach((link) => {
-                    let href = link.getAttribute('href'); let title = link.getAttribute('title') || 'Ana RSS';
-                    if(href.startsWith('/')) { href = new URL(targetUrl).origin + href; } 
-                    else if (!href.startsWith('http')) { href = targetUrl.replace(/\/$/, '') + '/' + href; }
-                    let linkTitle = title.replace(/'/g, "\\'");
-                    resultsDiv.innerHTML += `<button style="background:var(--surface-light); text-align:left; font-size:0.85rem; color:white; padding:10px; border-radius:5px; width:100%; margin-top:8px; cursor:pointer;" onclick="addDiscoveredRss('${linkTitle}', '${href}')">➕ ${title}</button>`;
-                });
-                return;
-            }
-        }
-        throw new Error("No RSS found on site");
-    } catch (err) { 
-        resultsDiv.innerHTML = `⚠️ Sitede açık RSS bulunamadı.<br><span style="color:#10b981; font-weight:bold;">✅ Alternatif (Google Haberler):</span><br><button style="background:var(--surface-light); text-align:left; font-size:0.85rem; color:white; padding:10px; border-radius:5px; width:100%; margin-top:8px; cursor:pointer;" onclick="addDiscoveredRss('${cleanTitle}', '${gNewsUrl}')">➕ Haber Taraması: ${urlInput}</button>`;
+
+    const target = normFeedUrl(raw);
+    if (!target) { note('⚠️ Geçerli bir adres girin', '#f59e0b'); return; }
+    const host = new URL(target).hostname.replace(/^www\./, '');
+    const status = note('⏳ Aranıyor...');
+
+    const probe = async (u) => { const a = await fetchFeedData({ name: host, url: u, cat: '' }, { fast: true }); return a.length ? a.length : 0; };
+    const found = new Map(); // url -> {label, count}
+
+    // 1) Yapıştırılan adres zaten RSS mi?  2) Sayfadaki <link rel=alternate> akışları  (paralel)
+    const directP = probe(target).then(n => { if (n) found.set(target, { label: `${host} (RSS doğrulandı • ${n} haber)`, n }); }).catch(() => {});
+    const discoverP = (async () => {
+        try {
+            const html = await fetchHtmlRace(target);
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const links = [...doc.querySelectorAll('link[type*="rss"], link[type*="atom"]')];
+            await Promise.all(links.slice(0, 5).map(async l => {
+                let href = l.getAttribute('href'); if (!href) return;
+                try { href = new URL(href, target).href; } catch (e) { return; }
+                const n = await probe(href);
+                if (n && !found.has(href)) found.set(href, { label: `${(l.getAttribute('title') || host).substring(0, 40)} (${n} haber)`, n });
+            }));
+        } catch (e) {}
+    })();
+    await Promise.all([directP, discoverP]);
+
+    // 3) Hâlâ yoksa yaygın yolları dene
+    if (!found.size) {
+        const origin = new URL(target).origin;
+        await Promise.all(['/feed', '/rss', '/rss.xml', '/feed.xml'].map(async p => {
+            try { const n = await probe(origin + p); if (n) found.set(origin + p, { label: `${host}${p} (${n} haber)`, n }); } catch (e) {}
+        }));
+    }
+
+    status.remove();
+    if (found.size) {
+        note('✅ Kaynak bulundu:', '#10b981');
+        [...found.entries()].forEach(([u, v]) => addBtn(v.label, host, u));
+    } else {
+        note('⚠️ Sitede açık RSS bulunamadı.', '#f59e0b');
+        note('✅ Alternatif:', '#10b981');
+        addBtn('Haber Taraması (Google Haberler): ' + host, host, googleNewsFeedUrl('site:' + host));
     }
 }
 
 function addCustomRSSManual() {
-    const nameInput = document.getElementById('newRssName'); 
+    const nameInput = document.getElementById('newRssName');
     const urlInput = document.getElementById('newRssUrl');
-    const name = nameInput.value.trim(); 
+    const name = nameInput.value.trim();
     const url = urlInput.value.trim();
-    if(!name || !url) return;
+    if (!name || !url) { showToastGlobal('⚠️ Ad ve adres gerekli', 2500); return; }
+    if (!normFeedUrl(url)) { showToastGlobal('⚠️ Geçerli bir adres girin', 2500); return; }
     addDiscoveredRss(name, url);
-    nameInput.value = ''; 
+    nameInput.value = '';
     urlInput.value = '';
-    document.getElementById('manualAddSection').classList.remove('show'); 
+    document.getElementById('manualAddSection').classList.remove('show');
 }
 
-function deleteCustomRSS(id, event) { 
-    event.stopPropagation(); 
-    if(!confirm("Delete?")) return; 
-    let savedFeeds = JSON.parse(localStorage.getItem('customRSSFeeds')) || [];
-    savedFeeds = savedFeeds.filter(f => f.id !== id); 
-    localStorage.setItem('customRSSFeeds', JSON.stringify(savedFeeds)); 
-    syncToCloud(); 
-    loadCustomFeeds(); 
-    handleSearch();
+function deleteCustomRSS(id, event) {
+    if (event) { event.preventDefault(); event.stopPropagation(); }
+    let saved = JSON.parse(localStorage.getItem('customRSSFeeds')) || [];
+    const feed = saved.find(f => f.id === id);
+    if (!feed) return;
+    if (!confirm(`"${feed.name}" kaynağı silinsin mi?`)) return;
+    saved = saved.filter(f => f.id !== id);
+    localStorage.setItem('customRSSFeeds', JSON.stringify(saved));
+    activeSources = activeSources.filter(s => s !== feed.name);
+    saveActiveSources();
+    allArticles = allArticles.filter(a => a.source !== feed.name);
+    saveToLocalMemory();
+    loadCustomFeeds();
+    handleSearch(true);
 }
 
 function toggleSourceState(sourceName) { 
@@ -404,24 +473,30 @@ function toggleAllSourcesState(event) {
 }
 
 function renderChips() {
-    const listMain = document.getElementById('filterList');
-    const listPopup = document.getElementById('popupFilterList');
-    if(listMain) listMain.innerHTML = '';
-    if(listPopup) listPopup.innerHTML = '';
-    RSS_FEEDS.forEach(feed => {
-        const isActive = activeSources.includes(feed.name); 
-        let deleteBtn = feed.isCustom ? `<span class="chip-delete" onclick="deleteCustomRSS('${feed.id}', event)">✕</span>` : '';
-        const htmlStr = `<input type="checkbox" style="display:none;" value="${feed.name}" ${isActive ? 'checked' : ''} onchange="toggleSourceState('${feed.name}')"> ${feed.name} ${deleteBtn}`;
-        
-        const labelMain = document.createElement('label'); 
-        labelMain.className = `chip ${isActive ? 'active' : ''}`; 
-        labelMain.innerHTML = htmlStr; 
-        if(listMain) listMain.appendChild(labelMain);
-        
-        const labelPopup = document.createElement('label'); 
-        labelPopup.className = `chip ${isActive ? 'active' : ''}`; 
-        labelPopup.innerHTML = htmlStr; 
-        if(listPopup) listPopup.appendChild(labelPopup);
+    const ordered = [...RSS_FEEDS].sort((a, b) => (b.isCustom ? 1 : 0) - (a.isCustom ? 1 : 0)); // eklediklerin başta görünsün
+    ['filterList', 'popupFilterList'].forEach(id => {
+        const list = document.getElementById(id);
+        if (!list) return;
+        const frag = document.createDocumentFragment();
+        ordered.forEach(feed => {
+            const active = activeSources.includes(feed.name);
+            const chip = document.createElement('label');
+            chip.className = 'chip' + (active ? ' active' : '');
+            chip.dataset.name = feed.name;
+            const cb = document.createElement('input');
+            cb.type = 'checkbox'; cb.style.display = 'none'; cb.checked = active;
+            cb.addEventListener('change', () => toggleSourceState(feed.name));
+            chip.appendChild(cb);
+            chip.appendChild(document.createTextNode(' ' + feed.name + ' '));
+            if (feed.isCustom) {
+                const del = document.createElement('span');
+                del.className = 'chip-delete'; del.textContent = '✕';
+                del.addEventListener('click', e => deleteCustomRSS(feed.id, e));
+                chip.appendChild(del);
+            }
+            frag.appendChild(chip);
+        });
+        list.replaceChildren(frag);
     });
 }
 
@@ -521,19 +596,42 @@ function renderNextBatch(forceClear = false) {
         `;
 
         const card = wrapper.querySelector('.news-card'); 
-        let clickTimer = null;
-        card.onclick = (e) => { 
-            if(e.target.tagName === 'A' || e.target.closest('.source-badge')) return; 
-            if(e.detail === 1) { 
-                clickTimer = setTimeout(() => { markAsRead(art.link); openModal(art); }, 250); 
-            } else if(e.detail === 2) { 
-                clearTimeout(clickTimer); markAsRead(art.link); window.open(art.link, '_blank'); 
-            } 
+        let lastTap = 0, tapTimer = null;
+        card.onclick = (e) => {
+            if (e.target.tagName === 'A' || e.target.closest('.source-badge')) return;
+            const single = getTapAction('single'), dbl = getTapAction('double');
+            if (dbl === 'off') { runTapAction(art, single); return; }   // çift dokunuş kapalıysa bekleme yok
+            const now = Date.now();
+            if (now - lastTap < 350) { clearTimeout(tapTimer); lastTap = 0; runTapAction(art, dbl); return; }
+            lastTap = now;
+            tapTimer = setTimeout(() => { lastTap = 0; runTapAction(art, single); }, 300);
         };
         grid.appendChild(wrapper);
     }); 
     displayedCount += nextBatch.length;
 }
+
+// ===== Kart dokunuş ayarları =====
+// reader   = okuma modu + yapay zeka cümle inceleme
+// embedded = uygulama içinde (gömülü pencerede) orijinal site
+// browser  = tarayıcıda orijinal site
+// off      = (sadece çift dokunuş için) kapalı
+const TAP_DEFAULTS = { single: 'reader', double: 'browser' };
+function getTapAction(kind) {
+    const v = localStorage.getItem('tapAction_' + kind);
+    return ['reader', 'embedded', 'browser', 'off'].includes(v) && !(kind === 'single' && v === 'off') ? v : TAP_DEFAULTS[kind];
+}
+window.setTapAction = function (kind, value) {
+    localStorage.setItem('tapAction_' + kind, value);
+    showToastGlobal('✔️ Kaydedildi', 1500);
+};
+function runTapAction(art, mode) {
+    markAsRead(art.link);
+    if (mode === 'browser') { window.open(realLinkOf(art), '_blank', 'noopener'); return; }
+    openModal(art);                         // openModal ilk await'e kadar senkron: sekme hemen değiştirilebilir
+    if (mode === 'embedded') switchTab('web');
+}
+['single', 'double'].forEach(k => { const el = document.getElementById('tapPref_' + k); if (el) el.value = getTapAction(k); });
 
 function switchTab(tab) { 
     document.getElementById('tabReader').classList.remove('active');
@@ -783,14 +881,7 @@ function hardRefreshApp() {
 // Hem extracted metin için hem de AI'ın bulduğu metin için kullanılır.
 window.formatTextWithControls = function(paragraphsArray, containerElement) {
     containerElement.innerHTML = paragraphsArray.map((txt, idx) => {
-        const clickableWords = txt.split(' ').map(w => `<span class="t-word" onclick="translateSingleWord(this, event)">${escapeHtml(w)}</span>`).join(' ');
-        return `<div class="p-container">
-                    <p id="p_${idx}">${clickableWords}</p>
-                    <div class="p-actions-row">
-                        <button class="btn-action-p" onclick="listenParagraph(${idx}, this)" title="Dinle">🔊</button>
-                        <button class="btn-action-p" onclick="translateParagraph(${idx}, this)" title="Çevir">🌐</button>
-                    </div>
-                    <div class="translated-text" id="trans_${idx}"></div>
-                </div>`;
+        const words = txt.split(' ').map(w => `<span class="t-word" onclick="translateSingleWord(this, event)">${escapeHtml(w)}</span>`).join(' ');
+        return `<div class="p-container"><p><span class="p-text" id="p_${idx}">${words}</span><span class="p-tools"><button type="button" class="btn-action-p" onclick="listenParagraph(${idx}, this)" title="Dinle" aria-label="Dinle">🔊</button><button type="button" class="btn-action-p" onclick="translateParagraph(${idx}, this)" title="Çevir" aria-label="Çevir">🌐</button></span></p><div class="translated-text" id="trans_${idx}"></div></div>`;
     }).join('');
-}
+};

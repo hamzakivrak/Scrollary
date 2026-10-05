@@ -43,11 +43,12 @@ const FEED_ROUTES = [
     { delay: 2500, url: u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}` }
 ];
 
-async function fetchFeedData(feed) {
+async function fetchFeedData(feed, opts = {}) {
+    const T = opts.fast ? 7000 : 9000;
     const xmlTasks = FEED_ROUTES.map(r => ({
         delay: r.delay,
         run: async () => {
-            const res = await fetchWithTimeout(r.url(feed.url), 9000, { cache: 'no-store' });
+            const res = await fetchWithTimeout(r.url(feed.url), T, { cache: 'no-store' });
             if (!res.ok) throw new Error('http ' + res.status);
             const text = await res.text();
             if (!/<(item|entry)[\s>]/i.test(text)) throw new Error('rss değil');
@@ -71,7 +72,7 @@ async function fetchFeedData(feed) {
             });
         }
     };
-    try { return await raceStaggered([...xmlTasks, backendTask]); } catch (e) { return []; }
+    try { return await raceStaggered(opts.fast ? xmlTasks : [...xmlTasks, backendTask]); } catch (e) { return []; }
 }
 
 function parseXMLToArticles(textData, feed) {

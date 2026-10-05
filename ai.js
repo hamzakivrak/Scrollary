@@ -78,6 +78,59 @@ function resetAIPrompts() {
 
 document.addEventListener('DOMContentLoaded', initAIPromptsUI);
 
+
+// ==========================================
+// GROQ ORTAK İSTEMCİ (v3.2)
+// llama-3.3-70b-versatile Groq'ta 16 Ağu 2026'da kaldırıldı -> tüm istekler hata veriyordu.
+// Model değişirse sadece bu listeyi güncelle. Sırayla denenir.
+// ==========================================
+const GROQ_MODELS = ['openai/gpt-oss-120b', 'qwen/qwen3.6-27b'];
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+
+// Döndürür: metin. Hata olursa Türkçe, GERÇEK sebebi söyleyen bir Error fırlatır.
+async function groqChat(messages, { temperature = 0.5, maxTokens = 2048 } = {}) {
+    const keys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
+    if (!keys.length) throw new Error('API anahtarı eksik. Ayarlardan Groq anahtarı ekleyin.');
+    let lastReason = 'Bilinmeyen hata';
+    let allRateLimited = true;
+
+    for (const model of GROQ_MODELS) {
+        let modelGone = false;
+        for (const key of keys) {
+            try {
+                const body = { model, messages, temperature, max_tokens: maxTokens };
+                if (model.startsWith('openai/gpt-oss')) body.reasoning_effort = 'low';
+                const res = await fetchWithTimeout(GROQ_URL, 30000, {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    let text = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+                    text = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+                    if (text) return text;
+                    lastReason = 'Model boş yanıt döndürdü'; allRateLimited = false; continue;
+                }
+                let detail = '';
+                try { detail = ((await res.json()).error || {}).message || ''; } catch (e) {}
+                console.warn('[Groq]', model, res.status, detail);
+                if (res.status === 429) { lastReason = 'Kota/limit doldu (429). Birkaç dakika sonra deneyin.'; continue; }
+                allRateLimited = false;
+                if (res.status === 401) { lastReason = 'API anahtarı geçersiz (401).'; continue; }
+                if (res.status === 404 || (res.status === 400 && /model/i.test(detail))) { lastReason = `Model kullanılamıyor: ${model}`; modelGone = true; break; }
+                if (res.status === 413) { lastReason = 'Haber çok uzun (413).'; continue; }
+                lastReason = `Sunucu hatası (${res.status}) ${detail}`.trim();
+            } catch (e) {
+                allRateLimited = false;
+                lastReason = e.name === 'AbortError' ? 'Zaman aşımı, tekrar deneyin.' : 'Bağlantı hatası (internet/engelleyici?).';
+            }
+        }
+        if (!modelGone && allRateLimited === false && lastReason.startsWith('API anahtarı')) break; // anahtar sorunu model değiştirmekle düzelmez
+    }
+    throw new Error(lastReason);
+}
+
 // ==========================================
 // 1. YAPAY ZEKA SOHBET & ÖZET (BİRLEŞTİRİLMİŞ)
 // ==========================================
@@ -120,7 +173,7 @@ async function handleNewChatMessage(inputId = 'aiChatInput') {
     }
 
     const historyDiv = document.getElementById('aiChatHistory');
-    historyDiv.innerHTML += `<div class="ai-msg user">${userInput}</div>`;
+    historyDiv.insertAdjacentHTML('beforeend', `<div class="ai-msg user">${escapeHtml(userInput)}</div>`);
     
     if (inputId === 'aiChatInputInner') {
         inputEl.value = ''; 
@@ -140,7 +193,7 @@ async function getAIResponseWithHistory(query) {
     
     const apiKeys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
     if (apiKeys.length === 0) {
-        historyDiv.innerHTML += `<div class="ai-msg assistant" style="background: var(--danger);">⚠️ API anahtarı eksik. Ayarlardan Groq API anahtarı ekleyin.</div>`;
+        historyDiv.insertAdjacentHTML('beforeend', `<div class="ai-msg assistant" style="background: var(--danger);">⚠️ API anahtarı eksik. Ayarlardan Groq API anahtarı ekleyin.</div>`);
         return;
     }
 
@@ -165,41 +218,16 @@ async function getAIResponseWithHistory(query) {
     messagesPayload.push(...currentArticleChatHistory);
     messagesPayload.push({ role: "user", content: query });
 
-    async function tryFetchChat(keyIndex) {
-        if (keyIndex >= apiKeys.length) {
-            loadingDiv.innerText = "⚠️ Kotanız doldu veya bağlantı hatası.";
-            if(sendBtn) { sendBtn.disabled = false; sendBtn.innerText = "Gönder"; }
-            return;
-        }
-
-        try {
-            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${apiKeys[keyIndex]}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    model: "llama-3.3-70b-versatile",
-                    messages: messagesPayload,
-                    temperature: 0.5,
-                    max_tokens: 1024
-                })
-            });
-            if (!response.ok) throw new Error("KeyFailed");
-
-            const data = await response.json();
-            let cleanHtml = data.choices[0].message.content.replace(/```html/g, '').replace(/```/g, '').trim();
-
-            historyDiv.removeChild(loadingDiv);
-            historyDiv.innerHTML += `<div class="ai-msg assistant">${cleanHtml}</div>`;
-            
-            currentArticleChatHistory.push({ role: "user", content: query });
-            currentArticleChatHistory.push({ role: "assistant", content: cleanHtml });
-
-        } catch (err) {
-            await tryFetchChat(keyIndex + 1);
-        }
+    try {
+        const text = await groqChat(messagesPayload, { temperature: 0.5, maxTokens: 2048 });
+        const cleanHtml = text.replace(/```html/g, '').replace(/```/g, '').trim();
+        loadingDiv.remove();
+        historyDiv.insertAdjacentHTML('beforeend', `<div class="ai-msg assistant">${cleanHtml}</div>`);
+        currentArticleChatHistory.push({ role: "user", content: query });
+        currentArticleChatHistory.push({ role: "assistant", content: cleanHtml });
+    } catch (err) {
+        loadingDiv.innerText = "⚠️ " + err.message;
     }
-
-    await tryFetchChat(0);
     if(sendBtn) { sendBtn.disabled = false; sendBtn.innerText = "Gönder"; }
     historyDiv.scrollTop = historyDiv.scrollHeight;
 }
@@ -227,55 +255,25 @@ async function attemptToFindMissingTextWithAI(art, textContainer) {
 
     const prompt = getAIPrompt('textFinder') + `\n\nHaber Başlığı: ${art.title}\nHaber Özeti: ${art.description}`;
 
-    async function tryFetchFallback(keyIndex) {
-        if (keyIndex >= apiKeys.length) {
-            textContainer.innerHTML = `<div class="status-msg">❌ Metin ne proxy ile ne de AI ile bulunamadı. Aşağıda haberin özeti yer almaktadır.</div><p style="padding:15px;">${art.description}</p>`;
-            resetArticleChat(art.description); 
-            return;
+    const showSummaryOnly = (msg) => {
+        textContainer.innerHTML = `<div class="status-msg" style="padding:15px; border-radius:8px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3);">${escapeHtml(msg)}</div><p style="padding:15px; font-size:1.1rem; line-height:1.6;">${escapeHtml(art.description)}</p>`;
+        resetArticleChat(art.description, art.description);
+    };
+    try {
+        const aiFoundText = (await groqChat([{ role: "user", content: prompt }], { temperature: 0.1, maxTokens: 2500 })).trim();
+        if (aiFoundText.includes("internet hafızamdan erişemedim") || aiFoundText.length <= art.description.length + 50) {
+            showSummaryOnly("🤖 Yapay zeka bu haberin tam metnini bulamadı. Özet aşağıdadır:");
+        } else {
+            const paragraphs = aiFoundText.split('\n').filter(p => p.trim().length > 30);
+            textContainer.innerHTML = `<div style="padding:10px; text-align:center; color:#10b981; font-weight:bold; font-size:0.9rem; border-bottom:1px solid #10b981; margin-bottom:15px;">✨ Bu metin yapay zeka hafızasından üretildi, doğruluğunu kontrol edin.</div>`;
+            const tempDiv = document.createElement('div');
+            window.formatTextWithControls(paragraphs, tempDiv);
+            textContainer.appendChild(tempDiv);
+            resetArticleChat(aiFoundText, art.description);
         }
-
-        try {
-            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${apiKeys[keyIndex]}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    model: "llama-3.3-70b-versatile",
-                    messages: [{ role: "user", content: prompt }],
-                    temperature: 0.1, 
-                    max_tokens: 2000
-                })
-            });
-            if (!response.ok) throw new Error("KeyFailed");
-
-            const data = await response.json();
-            let aiFoundText = data.choices[0].message.content.trim();
-
-            if (aiFoundText.includes("internet hafızamdan erişemedim") || aiFoundText.length <= art.description.length + 50) {
-                textContainer.innerHTML = `<div class="status-msg" style="padding:15px; border-radius:8px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3);">🤖 Yapay zeka bu haberin tam metnini internet hafızasında bulamadı.<br>Haberin mevcut özeti aşağıdadır:</div>
-                                          <p style="padding: 15px; font-size:1.1rem; line-height:1.6;">${art.description}</p>`;
-                resetArticleChat(art.description); 
-            } else {
-                const paragraphs = aiFoundText.split('\n').filter(p => p.trim().length > 30);
-                if (typeof window.formatTextWithControls === 'function') {
-                    textContainer.innerHTML = `<div style="padding:10px; text-align:center; color:#10b981; font-weight:bold; font-size:0.9rem; border-bottom:1px solid #10b981; margin-bottom:15px;">✨ Bu metin Yapay Zeka tarafından internet hafızasından kurtarılmıştır.</div>`;
-                    
-                    const tempDiv = document.createElement('div');
-                    window.formatTextWithControls(paragraphs, tempDiv);
-                    textContainer.appendChild(tempDiv);
-                    
-                    resetArticleChat(aiFoundText); 
-                } else {
-                    textContainer.innerHTML = `<div class="ai-msg assistant">🤖 Yapay zeka metni kurtardı:</div><br>` + paragraphs.map(p => `<p>${p}</p>`).join('');
-                    resetArticleChat(aiFoundText);
-                }
-            }
-
-        } catch (err) {
-            await tryFetchFallback(keyIndex + 1);
-        }
+    } catch (err) {
+        showSummaryOnly("❌ " + err.message);
     }
-
-    await tryFetchFallback(0);
 }
 
 
@@ -354,71 +352,50 @@ async function findRssWithAI() {
     
     const prompt = getAIPrompt('rssFinder').replace(/{topic}/g, topic);
     
-    async function tryFetchRss(keyIndex) {
-        if (keyIndex >= apiKeys.length) {
-            resultsDiv.innerHTML = `<div style="color:var(--danger); font-size:0.85rem;">⚠️ API anahtarı hatası veya kota doldu.</div>`;
+    try {
+        let content = (await groqChat([{ role: "user", content: prompt }], { temperature: 0.3, maxTokens: 1200 })).trim();
+        content = content.replace(/```json/g, '').replace(/```/g, '').trim();
+        const jsonMatch = content.match(/\[[\s\S]*\]/);
+        const rssList = JSON.parse(jsonMatch ? jsonMatch[0] : content);
+        resultsDiv.innerHTML = '';
+
+        if(rssList.length === 0) {
+            resultsDiv.innerHTML = '<div style="color:#fca5a5; font-size:0.85rem;">Sonuç bulunamadı.</div>';
             return;
         }
 
-        try {
-            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${apiKeys[keyIndex]}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    model: "llama-3.3-70b-versatile",
-                    messages: [{ role: "user", content: prompt }],
-                    temperature: 0.3,
-                    max_tokens: 500
-                })
-            });
-            if (!response.ok) throw new Error("KeyFailed");
+        rssList.forEach(rss => {
+            const btn = document.createElement('div');
+            btn.style.cssText = "text-align: left; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; transition: 0.3s;";
+            btn.onmouseover = () => { if(btn.style.pointerEvents !== "none") btn.style.borderColor = "var(--primary)"; };
+            btn.onmouseout = () => { if(btn.style.pointerEvents !== "none") btn.style.borderColor = "rgba(255,255,255,0.1)"; };
+            
+            btn.innerHTML = `
+                <div style="font-weight: bold; color: white; display:flex; justify-content:space-between; align-items:center;">
+                    <span>${rss.name}</span>
+                    <span class="ai-add-badge" style="font-size:0.75rem; background:var(--primary); padding:4px 10px; border-radius:6px; transition:0.3s; font-weight:bold;">Ekle</span>
+                </div>
+                <span style="font-size:0.75rem; color:var(--text-muted); margin-top:5px; word-break:break-all;">${rss.url}</span>
+            `;
+            
+            btn.onclick = function() {
+                autoFillAndAddRss(rss.name, rss.url);
+                const badge = this.querySelector('.ai-add-badge');
+                if(badge) {
+                    badge.innerText = "Eklendi ✅";
+                    badge.style.background = "var(--success)"; 
+                }
+                this.style.borderColor = "var(--success)";
+                this.style.background = "rgba(16, 185, 129, 0.1)";
+                this.style.pointerEvents = "none"; 
+            };
+            resultsDiv.appendChild(btn);
+        });
 
-            const data = await response.json();
-            let content = data.choices[0].message.content.trim();
-            content = content.replace(/```json/g, '').replace(/```/g, '').trim();
-            const rssList = JSON.parse(content);
-            resultsDiv.innerHTML = '';
-
-            if(rssList.length === 0) {
-                resultsDiv.innerHTML = '<div style="color:#fca5a5; font-size:0.85rem;">Sonuç bulunamadı.</div>';
-                return;
-            }
-
-            rssList.forEach(rss => {
-                const btn = document.createElement('div');
-                btn.style.cssText = "text-align: left; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; transition: 0.3s;";
-                btn.onmouseover = () => { if(btn.style.pointerEvents !== "none") btn.style.borderColor = "var(--primary)"; };
-                btn.onmouseout = () => { if(btn.style.pointerEvents !== "none") btn.style.borderColor = "rgba(255,255,255,0.1)"; };
-                
-                btn.innerHTML = `
-                    <div style="font-weight: bold; color: white; display:flex; justify-content:space-between; align-items:center;">
-                        <span>${rss.name}</span>
-                        <span class="ai-add-badge" style="font-size:0.75rem; background:var(--primary); padding:4px 10px; border-radius:6px; transition:0.3s; font-weight:bold;">Ekle</span>
-                    </div>
-                    <span style="font-size:0.75rem; color:var(--text-muted); margin-top:5px; word-break:break-all;">${rss.url}</span>
-                `;
-                
-                btn.onclick = function() {
-                    autoFillAndAddRss(rss.name, rss.url);
-                    const badge = this.querySelector('.ai-add-badge');
-                    if(badge) {
-                        badge.innerText = "Eklendi ✅";
-                        badge.style.background = "var(--success)"; 
-                    }
-                    this.style.borderColor = "var(--success)";
-                    this.style.background = "rgba(16, 185, 129, 0.1)";
-                    this.style.pointerEvents = "none"; 
-                };
-                resultsDiv.appendChild(btn);
-            });
-
-        } catch (err) {
-            console.error("RSS getirme hatası:", err);
-            await tryFetchRss(keyIndex + 1);
-        }
+    } catch (err) {
+        console.error("RSS getirme hatası:", err);
+        resultsDiv.innerHTML = `<div style="color:var(--danger); font-size:0.85rem;">⚠️ ${escapeHtml(err.message)}</div>`;
     }
-
-    await tryFetchRss(0);
 }
 
 function autoFillAndAddRss(name, url) {
@@ -453,33 +430,42 @@ function autoFillAndAddRss(name, url) {
 // ==========================================
 
 async function getTranslation(text, targetLang) {
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
+    // Uzun paragraflar GET isteğine sığmaz: cümle sınırından parçala
+    const chunks = [];
+    (text.match(/[^.!?…]+[.!?…]+["”')]*\s*|[^.!?…]+$/g) || [text]).forEach(s => {
+        if (chunks.length && (chunks[chunks.length - 1] + s).length < 1200) chunks[chunks.length - 1] += s; else chunks.push(s);
+    });
     try {
-        const res = await fetch(url);
-        const data = await res.json();
-        return data[0].map(x => x[0]).join('');
-    } catch(e) { 
+        const parts = await Promise.all(chunks.map(async c => {
+            const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(c)}`;
+            const res = await fetchWithTimeout(url, 8000);
+            const data = await res.json();
+            return data[0].map(x => x[0]).join('');
+        }));
+        return parts.join(' ').trim();
+    } catch (e) {
         return "⚠️ Çeviri bağlantı hatası.";
     }
 }
 
 async function translateParagraph(idx, btnEl) {
-    const pText = document.getElementById('p_' + idx).innerText;
+    const pEl = document.getElementById('p_' + idx);
     const transDiv = document.getElementById('trans_' + idx);
+    if (!pEl || !transDiv) return;
     const targetLang = document.getElementById('targetLangSelect').value;
-    
-    if(transDiv.style.display === 'block') {
+
+    if (btnEl.classList.contains('on')) {          // ikinci dokunuş: kapat
         transDiv.style.display = 'none';
-        btnEl.style.background = 'rgba(255,255,255,0.05)';
-        btnEl.style.borderColor = 'rgba(255,255,255,0.1)';
-    } else {
-        btnEl.style.background = 'var(--accent)';
-        btnEl.style.borderColor = 'var(--accent)';
-        transDiv.innerText = '⏳ Yapay zeka çeviriyor...';
-        transDiv.style.display = 'block';
-        const translated = await getTranslation(pText, targetLang);
-        transDiv.innerText = translated;
+        btnEl.classList.remove('on');
+        return;
     }
+    btnEl.classList.add('on');
+    transDiv.style.display = 'block';
+    if (transDiv.dataset.lang === targetLang && transDiv.dataset.done) { transDiv.textContent = transDiv.dataset.done; return; }
+    transDiv.textContent = '⏳ …';
+    const translated = await getTranslation(pEl.innerText, targetLang);
+    transDiv.textContent = translated;
+    if (!translated.startsWith('⚠️')) { transDiv.dataset.lang = targetLang; transDiv.dataset.done = translated; }
 }
 
 function translateSingleWord(spanEl, event) {
@@ -531,7 +517,7 @@ async function showTooltip(text, rect) {
         <div onmousedown="listenSingleWord('${safeText}', event)" 
              ontouchstart="listenSingleWord('${safeText}', event)" 
              style="display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; width: 100%; height: 100%;">
-            <span style="font-size: 1.05rem; pointer-events: none;">${translated}</span>
+            <span style="font-size: 1.05rem; pointer-events: none;">${escapeHtml(translated)}</span>
             <span style="background: rgba(255,255,255,0.2); border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; pointer-events: none;">🔊</span>
         </div>
     `;

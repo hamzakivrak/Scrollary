@@ -20,7 +20,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics-compat.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=3.1">
+    <link rel="stylesheet" href="style.css?v=3.3">
 </head>
 <body>
 
@@ -235,6 +235,26 @@
                 
 
                 <details class="setting-item">
+                    <summary>👆 Haber Kartı Dokunuşları</summary>
+                    <div class="setting-detail">
+                        <label class="tap-label" for="tapPref_single">Tek dokunuşta aç</label>
+                        <select id="tapPref_single" class="tap-select" onchange="setTapAction('single', this.value)">
+                            <option value="reader">📖 Okuma modu + yapay zeka (cümle inceleme)</option>
+                            <option value="embedded">🖼️ Uygulama içinde orijinal site</option>
+                            <option value="browser">🌐 Tarayıcıda orijinal site</option>
+                        </select>
+                        <label class="tap-label" for="tapPref_double">Çift dokunuşta aç</label>
+                        <select id="tapPref_double" class="tap-select" onchange="setTapAction('double', this.value)">
+                            <option value="browser">🌐 Tarayıcıda orijinal site</option>
+                            <option value="embedded">🖼️ Uygulama içinde orijinal site</option>
+                            <option value="reader">📖 Okuma modu + yapay zeka (cümle inceleme)</option>
+                            <option value="off">⛔ Kapalı (tek dokunuş daha hızlı açılır)</option>
+                        </select>
+                        <p style="color: var(--text-muted); font-size: 0.8rem; margin: 8px 0 0;">Okuma ekranında "Orijinal Site" sekmesine çift dokunmak da haberi tarayıcıda açar.</p>
+                    </div>
+                </details>
+
+                <details class="setting-item">
                     <summary data-i18n="themeTitle">🎨 Tema Seçimi</summary>
                     <div class="setting-detail">
                         <div class="view-controls" id="themeBtnsWrapper" style="margin-bottom:0;"></div>
@@ -311,7 +331,7 @@
                 </div>
                 <div class="modal-tabs">
                     <button class="tab-btn active" id="tabReader" onclick="switchTab('reader')" data-i18n="readerTab">📖 Reader View</button>
-                    <button class="tab-btn" id="tabWeb" onclick="switchTab('web')" data-i18n="originalTab">🌐 Original Site</button>
+                    <button class="tab-btn" id="tabWeb" onclick="onWebTabTap()" title="Çift dokun: tarayıcıda aç" data-i18n="originalTab">🌐 Original Site</button>
                 </div>
             </div>
             
@@ -320,6 +340,7 @@
                 <div id="aiStickyBar" class="ai-sticky-bar" style="display: flex; gap: 10px; padding: 12px 15px; border-bottom: 1px solid var(--surface-light); background: var(--bg-dark); position: sticky; top: 0; z-index: 5;">
                     <input type="text" id="aiChatInput" value="Bu haberi özetle" onfocus="this.select()" onkeydown="if(event.key === 'Enter') handleNewChatMessage('aiChatInput')" style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid var(--surface-light); background: rgba(0,0,0,0.3); color: white; outline: none; font-size: 0.95rem;">
                     <button id="aiChatSendBtn" onclick="handleNewChatMessage('aiChatInput')" style="background: var(--primary); color: white; border: none; padding: 0 20px; border-radius: 8px; font-weight: bold; cursor: pointer;">✨ Gönder</button>
+                    <a id="stickyOpenLink" class="sticky-link" href="#" target="_blank" rel="noopener" title="Asıl habere git" aria-label="Asıl habere git">↗️</a>
                 </div>
                 
                 <div class="triple-tap-hint" data-i18n="tripleTapHint">Triple tap to close</div>
@@ -365,6 +386,7 @@
                 
                 <div style="flex: 0 0 auto; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding: 15px 20px; background: rgba(0,0,0,0.4); width: 100%; box-sizing: border-box;">
                     <span style="font-weight: bold; color: white; font-size: 1.1rem;">🤖 Yapay Zeka Asistanı</span>
+                    <a id="aiResultLink" class="sticky-link" href="#" target="_blank" rel="noopener" style="margin-left:auto;margin-right:10px;">🔗 Habere git</a>
                     <button onclick="closeAIResult()" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: none; width: 36px; height: 36px; border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">✕</button>
                 </div>
                 
@@ -396,12 +418,12 @@
 
     <div id="toastNotification" class="toast-notification" onclick="handleToastClick()"><span>⬆️</span> <span id="toastText">System Update!</span></div>
     
-<script src="config.js?v=3.1"></script>
-<script src="auth.js?v=3.1"></script>
-<script src="api.js?v=3.1"></script>
-<script src="ai.js?v=3.1"></script>
-<script src="ui.js?v=3.1"></script>
-<script src="reader.js?v=3.1"></script>
-<script src="sesli-asistan.js?v=3.1"></script>
+<script src="config.js?v=3.3"></script>
+<script src="auth.js?v=3.3"></script>
+<script src="api.js?v=3.3"></script>
+<script src="ai.js?v=3.3"></script>
+<script src="ui.js?v=3.3"></script>
+<script src="reader.js?v=3.3"></script>
+<script src="sesli-asistan.js?v=3.3"></script>
 </body>
 </html>
