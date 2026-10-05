@@ -782,3 +782,8 @@ border: 1px solid var(--accent); padding: 12px; border-radius: 8px; font-weight:
 .tap-select { width: 100%; padding: 12px; border-radius: 10px; background: var(--surface-light); color: #fff; border: 1px solid var(--accent); font-size: .92rem; outline: none; }
 .banner-actions { display: inline-flex; gap: 8px; flex-shrink: 0; }
 .banner-link.alt { background: var(--surface-light); border: 0; cursor: pointer; font-family: inherit; }
+
+/* ===== v3.4 ===== */
+.iframe-banner { flex-wrap: wrap; row-gap: 8px; }
+.banner-actions { flex-wrap: wrap; justify-content: flex-end; }
+.banner-link.ai { background: linear-gradient(45deg, #8b5cf6, #d946ef); border: 0; cursor: pointer; font-family: inherit; }

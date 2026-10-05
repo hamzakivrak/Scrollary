@@ -69,7 +69,9 @@ async function resolveGoogleNewsUrl(link) {
     } catch (e) { return null; }
 }
 
-const BLOCK_RE = /security service to protect itself|Just a moment\.\.\.|cf-browser-verification|Attention Required|Enable JavaScript and cookies/i;
+const BLOCK_RE = /security service to protect itself|Just a moment\.\.\.|cf-browser-verification|Attention Required|Enable JavaScript and cookies|Access Denied|Pardon Our Interruption|Request unsuccessful|Incapsula incident|captcha-delivery|Checking your browser|Verify you are human|px-captcha|robot or human/i;
+// Gerçek haber sayfaları büyüktür; küçük + engel ifadesi içeren sayfa bot korumasıdır
+function isBlockedHtml(html) { return !html || html.length < 800 || (html.length < 60000 && BLOCK_RE.test(html.slice(0, 8000))); }
 const JUNK_RE = /(abone ol|tüm hakları saklıdır|çerez|cookie|©|haberi paylaş|follow us|subscribe|newsletter|sign up|advertisement|reklam)/i;
 // Metnin içine/sonuna sıkışan "ilgili haberler, yorumlar, reklam..." bölümleri: görülünce bundan sonrası kesilir
 const END_RE = /^(ilgili haberler|ilgili içerikler|ilgili başlıklar|bunlar da ilginizi|bunları da okuyun|bunu da okuyun|ilginizi çekebilir|çok okunanlar|gündemden|etiketler|yorumlar|yorum yap|yorum yaz|reklam\b|sponsorlu|haberi paylaş|paylaş\b|bizi takip|whatsapp|telegram|google haberler|google news|abone ol|tüm hakları|copyright|©|read more|related|you may also like|recommended|advertisement|sponsored|follow us|share this|editör|kaynak\s*:)/i;
@@ -132,7 +134,7 @@ function findArticleBody(node) {
 }
 
 function extractFromHtml(html, hint) {
-    if (!html || html.length < 800 || BLOCK_RE.test(html.slice(0, 5000))) return [];
+    if (isBlockedHtml(html)) return [];
     const doc = new DOMParser().parseFromString(html, 'text/html');
 
     // 1) JSON-LD articleBody: birçok haber sitesinde tertemiz tam metin
@@ -172,27 +174,29 @@ function cleanMarkdown(text, hint) {
     return finalizeParas(lines.filter(l => l.split(' ').length >= 7 || END_RE.test(l)), hint);
 }
 
+// Tek bir rota üzerinden sayfa HTML'i çeker
 const HTML_ROUTES = [
-    { delay: 0,    via: 'doğrudan',  url: u => u },
+    { delay: 0,    via: 'doğrudan',   url: u => u },
     { delay: 0,    via: 'allorigins', url: u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}&disableCache=true` },
-    { delay: 500,  via: 'corsproxy',  url: u => `https://corsproxy.io/?url=${encodeURIComponent(u)}` },
-    { delay: 1500, via: 'codetabs',   url: u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}` }
+    { delay: 600,  via: 'corsproxy',  url: u => `https://corsproxy.io/?url=${encodeURIComponent(u)}` },
+    { delay: 1200, via: 'jina-html',  url: u => 'https://r.jina.ai/' + u, headers: { 'X-Return-Format': 'html' } },   // gerçek tarayıcıyla çeker: bot korumalı sitelerde işe yarar
+    { delay: 1800, via: 'allorigins2',url: u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`, json: true },
+    { delay: 2600, via: 'codetabs',   url: u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}` }
 ];
 
-async function fetchHtmlRace(url) {
-    return raceStaggered(HTML_ROUTES.map(r => ({
-        delay: r.delay,
-        run: async () => {
-            const res = await fetchWithTimeout(r.url(url), 9000);
-            if (!res.ok) throw new Error('http');
-            const html = await res.text();
-            if (html.length < 800 || BLOCK_RE.test(html.slice(0, 5000))) throw new Error('engel');
-            return html;
-        }
-    })));
+async function fetchViaRoute(route, url, timeout = 11000) {
+    const res = await fetchWithTimeout(route.url(url), timeout, route.headers ? { headers: route.headers } : {});
+    if (!res.ok) throw new Error('http ' + res.status);
+    const html = route.json ? ((await res.json()).contents || '') : await res.text();
+    if (isBlockedHtml(html)) throw new Error('engel');
+    return html;
 }
 
-// Tüm yolları aynı anda dener, yeterli uzunlukta metin veren İLK yol kazanır
+async function fetchHtmlRace(url) {
+    return raceStaggered(HTML_ROUTES.map(r => ({ delay: r.delay, run: () => fetchViaRoute(r, url) })));
+}
+
+// Tüm yolları dener, yeterli uzunlukta metin veren İLK yol kazanır
 async function extractArticle(url, hint) {
     const accept = (paras, via) => {
         if (paras.length < 2 || paras.join(' ').length < 350) throw new Error('kısa');
@@ -200,16 +204,12 @@ async function extractArticle(url, hint) {
     };
     const htmlTasks = HTML_ROUTES.map(r => ({
         delay: r.delay,
-        run: async () => {
-            const res = await fetchWithTimeout(r.url(url), 9000);
-            if (!res.ok) throw new Error('http');
-            return accept(extractFromHtml(await res.text(), hint), r.via);
-        }
+        run: async () => accept(extractFromHtml(await fetchViaRoute(r, url), hint), r.via)
     }));
     const jina = {
         delay: 0,
         run: async () => {
-            const res = await fetchWithTimeout('https://r.jina.ai/' + url, 12000, { headers: { Accept: 'application/json' } });
+            const res = await fetchWithTimeout('https://r.jina.ai/' + url, 14000, { headers: { Accept: 'application/json' } });
             if (!res.ok) throw new Error('jina');
             const j = await res.json();
             if (!j || !j.data || !j.data.content) throw new Error('jina boş');
@@ -336,14 +336,24 @@ window.onWebTabTap = function () {
     switchTab('web');
 };
 
-function setBanner(statusHtml, withInteractive) {
+function setBanner(statusHtml, opts = {}) {
     const b = $id('iframeBanner');
     if (!b) return;
+    if (opts === true) opts = { interactive: true };     // eski çağrılarla uyum
     b.style.display = '';
     b.innerHTML = `<span class="banner-status">${statusHtml}</span><span class="banner-actions">` +
-        (withInteractive ? `<button type="button" class="banner-link alt" onclick="reloadFrameInteractive()" title="Sayfanın kendi scriptlerini çalıştır">⚡ Etkileşimli</button>` : '') +
+        `<button type="button" class="banner-link ai" onclick="askAIFromWeb()">✨ Özetle / Sor</button>` +
+        (opts.interactive ? `<button type="button" class="banner-link alt" onclick="reloadFrameInteractive()" title="Sayfanın kendi scriptlerini çalıştır">⚡ Etkileşimli</button>` : '') +
+        (opts.readerBtn ? `<button type="button" class="banner-link alt" onclick="switchTab('reader')">📖 Okuma modu</button>` : '') +
         `<a class="banner-link" href="${escapeHtml(realLinkOf(originalState.art))}" target="_blank" rel="noopener">↗️ Asıl habere git</a></span>`;
 }
+
+// Orijinal site sekmesinden yapay zekaya: çubuktaki soruyu (varsayılan "Bu haberi özetle") gönderir
+window.askAIFromWeb = function () {
+    const i = $id('aiChatInput');
+    if (i && !i.value.trim()) i.value = 'Bu haberi özetle';
+    if (typeof handleNewChatMessage === 'function') handleNewChatMessage('aiChatInput');
+};
 
 function resetOriginalFrame(art) {
     clearTimeout(frameTimer);
@@ -405,13 +415,33 @@ window.reloadFrameInteractive = function () {
     setBanner('⚡ Etkileşimli mod');
 };
 
+function buildCleanPage(art, paras) {
+    const e = escapeHtml;
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base target="_blank">` +
+        `<style>body{font:18px/1.75 Georgia,serif;margin:0 auto;padding:18px 18px 40px;max-width:720px;color:#1e293b;background:#fff}h1{font:700 1.45rem/1.3 system-ui,sans-serif;margin:.3em 0 .6em}img{max-width:100%;border-radius:8px;margin:0 0 14px}.m{color:#64748b;font:.8rem system-ui,sans-serif}p{margin:0 0 1em}</style></head><body>` +
+        `<div class="m">${e(art.source)}</div><h1>${e(art.title)}</h1>${art.image ? `<img src="${e(art.image)}" alt="">` : ''}${paras.map(p => `<p>${e(p)}</p>`).join('')}</body></html>`;
+}
+
+// Site proxylere izin vermiyorsa: metni başka yoldan alıp temiz bir sayfa olarak göster (+ yapay zeka bağlamı)
+async function showCleanFallback(art, link) {
+    try {
+        let hit = READER_CACHE.get(art.link);
+        if (!hit) { hit = await extractArticle(link, art); READER_CACHE.set(art.link, hit); persistReaderCache(); }
+        if (originalState.art !== art) return true;
+        mountFrame(buildCleanPage(art, hit.paras), false);
+        if (typeof resetArticleChat === 'function') resetArticleChat(hit.paras.join('\n'), art.description);
+        setBanner('📄 Site önizlemeyi engelledi — temiz metin görünümü', { readerBtn: true });
+        return true;
+    } catch (e) { return false; }
+}
+
 async function doLoadOriginalFrame(interactive) {
     const st = originalState;
     const art = st.art;
     if (!art || st.loaded) return;
     st.loaded = true;
+    let link = art.link;
     try {
-        let link = art.link;
         if (/news\.google\.com/.test(link)) {
             setBanner('⏳ Haber adresi çözülüyor…');
             link = await resolveGoogleNewsUrl(link);
@@ -437,11 +467,13 @@ async function doLoadOriginalFrame(interactive) {
             prep = prepareFrameHtml(raw, link, true); interactiveMode = true;
         }
         mountFrame(prep.html, interactiveMode);
-        setBanner(interactiveMode ? '⚡ Etkileşimli mod' : '✅ Sade önizleme (reklamsız)', !interactiveMode);
+        setBanner(interactiveMode ? '⚡ Etkileşimli mod' : '✅ Sade önizleme (reklamsız)', { interactive: !interactiveMode });
     } catch (e) {
         if (st.art !== art) return;
+        const ok = link && !/news\.google\.com/.test(link) ? await showCleanFallback(art, link) : false;
+        if (ok || st.art !== art) return;
         st.loaded = false;                           // tekrar basınca yeniden denesin
-        setBanner(e && e.message === 'gn' ? '⚠️ Google Haberler adresi çözülemedi' : '⚠️ Site önizlenemedi (engelli olabilir)');
+        setBanner(e && e.message === 'gn' ? '⚠️ Google Haberler adresi çözülemedi' : '⚠️ Site engelli: önizleme ve metin alınamadı', { readerBtn: true });
     }
 }
 
