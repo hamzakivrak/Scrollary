@@ -643,11 +643,13 @@ function switchTab(tab) {
         document.getElementById('readerView').style.display = 'block'; 
         document.getElementById('iframeView').style.display = 'none';
         if (aiStickyBar) aiStickyBar.style.display = 'flex'; 
+        document.getElementById('iframeView').style.height = '';
     } else { 
         document.getElementById('tabWeb').classList.add('active');
         document.getElementById('readerView').style.display = 'none'; 
         document.getElementById('iframeView').style.display = 'flex'; 
-        if (aiStickyBar) aiStickyBar.style.display = 'none';
+        // AI çubuğu orijinal sitede de görünür; iframe kalan yüksekliği doldurur
+        if (aiStickyBar) { aiStickyBar.style.display = 'flex'; document.getElementById('iframeView').style.height = `calc(100% - ${aiStickyBar.offsetHeight || 64}px)`; }
         if (window.loadOriginalFrame) window.loadOriginalFrame();
     } 
 }

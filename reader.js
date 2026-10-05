@@ -423,6 +423,14 @@ async function doLoadOriginalFrame(interactive) {
         const raw = await fetchHtmlRace(link);
         if (st.art !== art) return;
         st.html = raw; st.link = link;
+        // Okuma modu metni alamadıysa, indirilen sayfadan çıkardığımız metni yapay zekaya bağlam yap
+        if (!READER_CACHE.has(art.link) && !(art.content && art.content.length > 500)) {
+            const paras = extractFromHtml(raw, art);
+            if (paras.join(' ').length >= 350 && typeof resetArticleChat === 'function') {
+                READER_CACHE.set(art.link, { paras, via: 'önizleme' }); persistReaderCache();
+                resetArticleChat(paras.join('\n'), art.description);
+            }
+        }
         let prep = prepareFrameHtml(raw, link, interactive);
         let interactiveMode = interactive;
         if (!interactive && prep.textLen < 300) {            // sade modda boş görünüyorsa sayfa scriptle çiziliyordur
