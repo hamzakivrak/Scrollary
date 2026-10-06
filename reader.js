@@ -44,10 +44,72 @@ function parseGnBatch(text) {
     if (m) return ok(m[1].replace(/\\+u003d/g, '=').replace(/\\+u0026/g, '&').replace(/\\+\//g, '/'));
     return null;
 }
+
+// ---------- Yayıncı sitesini arama motoruyla bulma (Google linki çözülemezse son çare) ----------
+const trNorm = s => (s || '').toLowerCase().replace(/[ıİ]/g, 'i').replace(/[^a-z0-9ğüşöçâîû\s]/gi, ' ').replace(/\s+/g, ' ').trim();
+function gnSplitTitle(title) {
+    const i = title.lastIndexOf(' - ');
+    return i > 10 ? { clean: title.slice(0, i).trim(), pub: title.slice(i + 3).trim() } : { clean: title.trim(), pub: '' };
+}
+function titleOverlap(a, b) {
+    const A = new Set(trNorm(a).split(' ').filter(w => w.length > 2)), B = new Set(trNorm(b).split(' ').filter(w => w.length > 2));
+    if (!A.size) return 0;
+    let n = 0; A.forEach(w => { if (B.has(w)) n++; });
+    return n / A.size;
+}
+function pickSearchResult(cands, clean, domain, pub) {
+    const bad = /(^|\.)(google|bing|duckduckgo|microsoft|facebook|twitter|x|youtube|instagram|wikipedia)\./i;
+    const pubKey = trNorm(pub).replace(/\s/g, '').replace(/(net|com|org|tr)$/g, '');
+    let best = null, bestScore = 0;
+    for (const c of cands) {
+        let host = ''; try { host = new URL(c.href).hostname.replace(/^www\./, ''); } catch (e) { continue; }
+        if (bad.test(host + '.')) continue;
+        if (domain && !(host === domain || host.endsWith('.' + domain))) continue;
+        if (!domain && pubKey.length > 3 && !host.replace(/[^a-z0-9]/g, '').includes(pubKey)) continue;
+        const sc = titleOverlap(clean, c.text);
+        if (sc > bestScore) { bestScore = sc; best = c.href; }
+    }
+    return bestScore >= 0.5 ? best : null;   // başlık yeterince benzemiyorsa yanlış habere gitmeyelim
+}
+async function searchPublisherUrl(art) {
+    if (!art || !art.title) throw new Error('art yok');
+    const { clean, pub } = gnSplitTitle(art.title);
+    let domain = '';
+    try { if (art.pubUrl) domain = new URL(art.pubUrl).hostname.replace(/^www\./, ''); } catch (e) {}
+    const q = domain ? `site:${domain} ${clean}` : `${clean} ${pub}`.trim();
+    const ddg = async () => {
+        const html = await fetchHtmlRace('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(q));
+        const d = new DOMParser().parseFromString(html, 'text/html');
+        const c = [...d.querySelectorAll('a.result__a, a.result__url')].map(a => {
+            let h = a.getAttribute('href') || '';
+            const m = h.match(/[?&]uddg=([^&]+)/); if (m) h = decodeURIComponent(m[1]);
+            if (h.startsWith('//')) h = 'https:' + h;
+            return { href: h, text: a.textContent || '' };
+        }).filter(x => /^https?:/.test(x.href));
+        const hit = pickSearchResult(c, clean, domain, pub);
+        if (!hit) throw new Error('ddg sonuç yok');
+        return hit;
+    };
+    const bing = async () => {
+        const html = await fetchHtmlRace('https://www.bing.com/search?setlang=tr&q=' + encodeURIComponent(q));
+        const d = new DOMParser().parseFromString(html, 'text/html');
+        const c = [...d.querySelectorAll('li.b_algo h2 a')].map(a => {
+            let h = a.getAttribute('href') || '';
+            const m = h.match(/[?&]u=a1([^&]+)/);   // bing yönlendirmesi: base64
+            if (m) { try { let b = m[1].replace(/-/g, '+').replace(/_/g, '/'); while (b.length % 4) b += '='; h = atob(b); } catch (e) {} }
+            return { href: h, text: a.textContent || '' };
+        }).filter(x => /^https?:/.test(x.href));
+        const hit = pickSearchResult(c, clean, domain, pub);
+        if (!hit) throw new Error('bing sonuç yok');
+        return hit;
+    };
+    return raceStaggered([{ delay: 0, run: ddg }, { delay: 300, run: bing }]);
+}
+
 // Eski biçim yerelde çözülür; yeni (şifreli) biçim için birden çok yol yarıştırılır:
 // 1) (varsa) kendi çözücü adresin  2) Google batchexecute (doğrudan + proxy'ler)  3) Jina (gerçek tarayıcı, yönlendirmeyi takip eder)
 // Başarısız olursa null döner.
-async function resolveGoogleNewsUrl(link) {
+async function resolveGoogleNewsUrl(link, art) {
     const id = gnId(link);
     if (!id) return null;
     if (gnCache[id]) return gnCache[id];
@@ -101,6 +163,9 @@ async function resolveGoogleNewsUrl(link) {
         if (!u || /google\./.test(u)) throw new Error('jina boş');
         return u;
     }});
+
+    // 4) Son çare: başlık + yayıncı adıyla arama motorunda gerçek haberi bul
+    if (art) tasks.push({ delay: 1800, run: () => searchPublisherUrl(art) });
 
     try { return gnRemember(id, await raceStaggered(tasks)); }
     catch (e) { console.warn('[GN çözümü başarısız]', e); return null; }
@@ -266,7 +331,7 @@ window.prefetchArticle = function (art) {
     try {
         if (navigator.connection && navigator.connection.saveData) return;
         if (READER_CACHE.has(art.link) || (art.content && art.content.length > 500)) return;
-        if (/news\.google\.com/.test(art.link)) { resolveGoogleNewsUrl(art.link).then(u => { if (u) getHtmlShared(u).catch(() => {}); }).catch(() => {}); return; }
+        if (/news\.google\.com/.test(art.link)) { resolveGoogleNewsUrl(art.link, art).then(u => { if (u) getHtmlShared(u).catch(() => {}); }).catch(() => {}); return; }
         getHtmlShared(art.link).catch(() => {});
     } catch (e) {}
 };
@@ -367,7 +432,7 @@ async function loadReaderText(art, token, urlOverride, fresh) {
     box.innerHTML = skeletonHtml(t.extracting);
     let url = urlOverride || art.link;
     if (/news\.google\.com/.test(url)) {
-        const real = await resolveGoogleNewsUrl(url);
+        const real = await resolveGoogleNewsUrl(url, art);
         if (token !== readerToken) return;
         if (!real) return renderFailUI(art, url);
         url = real; refreshRealLinks(art);
@@ -517,7 +582,7 @@ async function doLoadOriginalFrame(interactive) {
     try {
         if (/news\.google\.com/.test(link)) {
             setBanner('⏳ Haber adresi çözülüyor…');
-            link = await resolveGoogleNewsUrl(link);
+            link = await resolveGoogleNewsUrl(link, art);
             if (st.art !== art) return;
             if (!link) throw new Error('gn');
             refreshRealLinks(art);

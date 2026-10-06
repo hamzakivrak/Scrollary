@@ -128,8 +128,10 @@ function parseXMLToArticles(textData, feed) {
                 if (ps.join('').length > 500) content = ps.join('\n\n').substring(0, 8000);
             }
             const plain = htmlToText(rawDesc);
+            let pubUrl = '';
+            try { const sn = item.getElementsByTagName('source')[0]; if (sn && sn.getAttribute('url')) pubUrl = sn.getAttribute('url'); } catch (e) {}
             result.push({
-                title, link, image, content,
+                title, link, image, content, pubUrl,
                 description: plain.length > 220 ? plain.substring(0, 220) + '…' : plain,
                 source: feed.name, date: pubDate, timestamp: pubDate.getTime(),
                 categories: feed.cat ? [feed.cat] : []
