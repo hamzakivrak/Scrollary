@@ -20,7 +20,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics-compat.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=3.6">
+    <link rel="stylesheet" href="style.css?v=3.7">
     <style id="readerUiV2">
         /* ===== Haber penceresi v2: dar çubuklar, geniş okuma alanı ===== */
         #newsModal .modal-header{padding:6px 10px 0!important}
@@ -257,12 +257,14 @@
                     <div class="setting-detail">
                         <label class="tap-label" for="tapPref_single">Tek dokunuşta aç</label>
                         <select id="tapPref_single" class="tap-select" onchange="setTapAction('single', this.value)">
+                            <option value="last">🕘 Son kullanılan mod (okuma / orijinal / temiz metin / etkileşimli)</option>
                             <option value="reader">📖 Okuma modu + yapay zeka (cümle inceleme)</option>
                             <option value="embedded">🖼️ Uygulama içinde orijinal site</option>
                             <option value="browser">🌐 Tarayıcıda orijinal site</option>
                         </select>
                         <label class="tap-label" for="tapPref_double">Çift dokunuşta aç</label>
                         <select id="tapPref_double" class="tap-select" onchange="setTapAction('double', this.value)">
+                            <option value="last">🕘 Son kullanılan mod (okuma / orijinal / temiz metin / etkileşimli)</option>
                             <option value="browser">🌐 Tarayıcıda orijinal site</option>
                             <option value="embedded">🖼️ Uygulama içinde orijinal site</option>
                             <option value="reader">📖 Okuma modu + yapay zeka (cümle inceleme)</option>
@@ -348,7 +350,7 @@
                     </div>
                 </div>
                 <div class="modal-tabs">
-                    <button class="tab-btn active" id="tabReader" onclick="switchTab('reader')" data-i18n="readerTab">📖 Reader View</button>
+                    <button class="tab-btn active" id="tabReader" onclick="setLastMode('reader');switchTab('reader')" data-i18n="readerTab">📖 Reader View</button>
                     <button class="tab-btn" id="tabWeb" onclick="onWebTabTap()" title="Çift dokun: tarayıcıda aç" data-i18n="originalTab">🌐 Original Site</button>
                 </div>
             </div>
@@ -442,12 +444,12 @@
 b.addEventListener('scroll',function(){var c=b.scrollTop;if(c>y+12&&c>140)m.classList.add('rd-compact');else if(c<y-12||c<60)m.classList.remove('rd-compact');y=c;},{passive:true});
 new MutationObserver(function(){if(m.style.display!=='flex'&&m.classList.contains('rd-compact'))m.classList.remove('rd-compact');}).observe(m,{attributes:true,attributeFilter:['style']});})();
 </script>
-<script src="config.js?v=3.6"></script>
-<script src="auth.js?v=3.6"></script>
-<script src="api.js?v=3.6"></script>
-<script src="ai.js?v=3.6"></script>
-<script src="ui.js?v=3.6"></script>
-<script src="reader.js?v=3.6"></script>
-<script src="sesli-asistan.js?v=3.6"></script>
+<script src="config.js?v=3.7"></script>
+<script src="auth.js?v=3.7"></script>
+<script src="api.js?v=3.7"></script>
+<script src="ai.js?v=3.7"></script>
+<script src="ui.js?v=3.7"></script>
+<script src="reader.js?v=3.7"></script>
+<script src="sesli-asistan.js?v=3.7"></script>
 </body>
 </html>

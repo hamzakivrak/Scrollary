@@ -640,10 +640,14 @@ function renderNextBatch(forceClear = false) {
 // embedded = uygulama içinde (gömülü pencerede) orijinal site
 // browser  = tarayıcıda orijinal site
 // off      = (sadece çift dokunuş için) kapalı
-const TAP_DEFAULTS = { single: 'reader', double: 'browser' };
+// last     = pencerede en son seçilen mod (okuma / orijinal sade / temiz metin / etkileşimli)
+const TAP_DEFAULTS = { single: 'last', double: 'browser' };
+if (!localStorage.getItem('tapMigrated_v36')) {            // bir kerelik: tek dokunuş "son mod", çift dokunuş "tarayıcı"
+    localStorage.setItem('tapAction_single', 'last'); localStorage.setItem('tapAction_double', 'browser'); localStorage.setItem('tapMigrated_v36', '1');
+}
 function getTapAction(kind) {
     const v = localStorage.getItem('tapAction_' + kind);
-    return ['reader', 'embedded', 'browser', 'off'].includes(v) && !(kind === 'single' && v === 'off') ? v : TAP_DEFAULTS[kind];
+    return ['last', 'reader', 'embedded', 'browser', 'off'].includes(v) && !(kind === 'single' && v === 'off') ? v : TAP_DEFAULTS[kind];
 }
 window.setTapAction = function (kind, value) {
     localStorage.setItem('tapAction_' + kind, value);
@@ -652,8 +656,14 @@ window.setTapAction = function (kind, value) {
 function runTapAction(art, mode) {
     markAsRead(art.link);
     if (mode === 'browser') { window.open(realLinkOf(art), '_blank', 'noopener'); return; }
+    const last = (window.getLastMode && getLastMode()) || 'reader';
+    if (mode === 'last') mode = last === 'reader' ? 'reader' : 'embedded';
     openModal(art);                         // openModal ilk await'e kadar senkron: sekme hemen değiştirilebilir
-    if (mode === 'embedded') { window.__frameNow = true; switchTab('web'); }
+    if (mode === 'embedded') {
+        window.__frameNow = true;
+        window.__frameMode = last.startsWith('web-') ? last : 'web-sade';   // sade / temiz metin / etkileşimli
+        switchTab('web');
+    }
 }
 ['single', 'double'].forEach(k => { const el = document.getElementById('tapPref_' + k); if (el) el.value = getTapAction(k); });
 

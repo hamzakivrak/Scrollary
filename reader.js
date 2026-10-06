@@ -492,10 +492,18 @@ window.openRealLink = function () {
 };
 
 // Sekme: tek dokunuş = uygulama içi önizleme, çift dokunuş = doğrudan asıl haber (tarayıcıda)
+// ---------- Son kullanılan mod hafızası ----------
+// 'reader' | 'web-sade' | 'web-clean' | 'web-interactive'  (yalnızca kullanıcının bilinçli seçimleri kaydedilir)
+window.getLastMode = function () { const m = localStorage.getItem('lastViewMode'); return ['reader', 'web-sade', 'web-clean', 'web-interactive'].includes(m) ? m : 'reader'; };
+window.setLastMode = function (m) { try { localStorage.setItem('lastViewMode', m); } catch (e) {} };
+
 window.onWebTabTap = function () {
     const now = Date.now();
     if (now - webTapAt < 450) { webTapAt = 0; clearTimeout(frameTimer); window.openRealLink(); return; }
     webTapAt = now;
+    const lm = getLastMode();
+    window.__frameMode = lm.startsWith('web-') ? lm : 'web-sade';
+    setLastMode(window.__frameMode);
     switchTab('web');
 };
 
@@ -507,11 +515,11 @@ function setBanner(statusHtml, opts = {}) {
     b.innerHTML = `<span class="banner-status">${statusHtml}</span><span class="banner-actions">` +
         (opts.interactive ? `<button type="button" class="banner-link alt" onclick="reloadFrameInteractive()" title="Sayfanın kendi scriptlerini çalıştır" aria-label="Etkileşimli mod">⚡</button>` : '') +
         (opts.interactive ? `<button type="button" class="banner-link alt" onclick="showCleanView()" title="Boş/bozuk görünüyorsa temiz metin görünümü" aria-label="Temiz metin">📄</button>` : '') +
-        (opts.readerBtn ? `<button type="button" class="banner-link alt" onclick="switchTab('reader')" title="Okuma modu" aria-label="Okuma modu">📖</button>` : '') +
+        (opts.readerBtn ? `<button type="button" class="banner-link alt" onclick="setLastMode('reader');switchTab('reader')" title="Okuma modu" aria-label="Okuma modu">📖</button>` : '') +
         `<a class="banner-link" href="${escapeHtml(realLinkOf(originalState.art))}" target="_blank" rel="noopener" title="Asıl habere git" aria-label="Asıl habere git">↗️</a></span>`;
 }
 
-window.showCleanView = function () { const st = originalState; if (st.art && st.link) { setBanner('⏳ Temiz metin hazırlanıyor…'); showCleanFallback(st.art, st.link).then(ok => { if (!ok) setBanner('⚠️ Metin çıkarılamadı', { interactive: true }); }); } };
+window.showCleanView = function () { setLastMode('web-clean'); const st = originalState; if (st.art && st.link) { setBanner('⏳ Temiz metin hazırlanıyor…'); showCleanFallback(st.art, st.link).then(ok => { if (!ok) setBanner('⚠️ Metin çıkarılamadı', { interactive: true }); }); } };
 
 // Orijinal site sekmesinden yapay zekaya: çubuktaki soruyu (varsayılan "Bu haberi özetle") gönderir
 window.askAIFromWeb = function () {
@@ -612,11 +620,14 @@ window.loadOriginalFrame = function () {
     const st = originalState;
     if (!st.art || st.loaded) return;
     clearTimeout(frameTimer);
-    if (window.__frameNow) { window.__frameNow = false; doLoadOriginalFrame(false); return; }   // doğrudan 'gömülü aç' seçildiyse bekleme yok
-    frameTimer = setTimeout(() => doLoadOriginalFrame(false), 450);   // çift dokunuş gelirse yüklemeye hiç girme
+    const mode = window.__frameMode; window.__frameMode = null;       // son kullanılan alt mod (sade / temiz / etkileşimli)
+    const run = () => { st.forceClean = mode === 'web-clean'; doLoadOriginalFrame(mode === 'web-interactive'); };
+    if (window.__frameNow) { window.__frameNow = false; run(); return; }   // doğrudan 'gömülü aç' seçildiyse bekleme yok
+    frameTimer = setTimeout(run, 450);   // çift dokunuş gelirse yüklemeye hiç girme
 };
 
 window.reloadFrameInteractive = function () {
+    setLastMode('web-interactive');
     if (!originalState.html) return;
     const { html } = prepareFrameHtml(originalState.html, originalState.link, true);
     mountFrame(html, true);
@@ -655,7 +666,8 @@ async function doLoadOriginalFrame(interactive) {
     // Google Haberler kaynaklı haber: bekletmeden doğrudan temiz metin görünümü.
     // Diğer siteler: 1,5 sn içinde sayfa pencerede çizilemezse temiz metin görünümüne düş.
     const isGoogle = /news\.google\.com/.test(link);
-    cleanTimer = setTimeout(async () => {
+    const forceClean = !!st.forceClean; st.forceClean = false;
+    if (!interactive) cleanTimer = setTimeout(async () => {
         if (st.art !== art || st.mounted) return;
         st.cleanForced = true;
         const ok = await showCleanFallback(art, art.link);
@@ -668,7 +680,7 @@ async function doLoadOriginalFrame(interactive) {
                 setBanner(im ? '⚡ Etkileşimli mod' : '✅ Sade önizleme (reklamsız)', { interactive: !im });
             }
         }
-    }, isGoogle ? 0 : 1500);
+    }, (isGoogle || forceClean) ? 0 : 1500);
     try {
         if (/news\.google\.com/.test(link)) {
             setBanner('⏳ Haber adresi çözülüyor…');
