@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('voiceStopBtn').style.setProperty('display', 'none', 'important');
             hideVoiceSubtitle(0);
         }
-        recognition.start();
+        try { recognition.start(); } catch (err) { try { recognition.stop(); } catch (e2) {} }
         micBtn.classList.add('listening'); 
     });
 
@@ -68,7 +68,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     recognition.onspeechend = () => { recognition.stop(); micBtn.classList.remove('listening'); };
-    recognition.onerror = () => { recognition.stop(); micBtn.classList.remove('listening'); };
+    recognition.onerror = (ev) => {
+        try { recognition.stop(); } catch (e) {}
+        micBtn.classList.remove('listening');
+        const msg = { 'not-allowed': 'Mikrofon izni verilmedi. Tarayıcı ayarlarından izin verin.', 'service-not-allowed': 'Ses tanıma bu tarayıcıda kapalı.', 'no-speech': 'Ses algılanmadı, tekrar deneyin.', 'network': 'Ses tanıma için internet gerekli.', 'audio-capture': 'Mikrofon bulunamadı.' }[ev && ev.error];
+        if (msg && typeof showToastGlobal === 'function') showToastGlobal('🎙️ ' + msg, 3500);
+    };
 });
 
 // --- KADEMELİ ALTYAZI MOTORU ---
@@ -103,44 +108,38 @@ function hideVoiceSubtitle(delay = 5000) {
 }
 
 // --- GROQ API MOTORU ---
+// llama-3.1-8b-instant Groq'ta 16 Ağu 2026'da kapandı; ortak istemci (ai.js > groqChat) modeli ve anahtarları yönetir.
 async function fetchFromGroq(systemPrompt, userPrompt, isJson = false) {
-    let apiKeys = [];
-    const keysString = localStorage.getItem('groqApiKeys');
-    if (keysString) {
-        try {
-            const parsed = JSON.parse(keysString);
-            if (Array.isArray(parsed) && parsed.length > 0) apiKeys = parsed;
-            else if (typeof parsed === 'string') apiKeys = [parsed];
-        } catch (e) {}
+    try {
+        return await groqChat(
+            [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+            { temperature: 0.3, maxTokens: isJson ? 700 : 1500, json: isJson, models: GROQ_MODELS_FAST }
+        );
+    } catch (e) {
+        if (/anahtarı eksik/i.test(e.message)) throw new Error("NO_KEY");
+        const err = new Error("ALL_KEYS_FAILED");
+        err.detail = e.message;
+        throw err;
     }
+}
 
-    if (apiKeys.length === 0) throw new Error("NO_KEY");
+// Model JSON'u ```kod bloğu``` veya ek metinle sarsa bile ayıklar
+function parseLooseJson(text) {
+    const t = String(text).replace(/```json|```/gi, '').trim();
+    try { return JSON.parse(t); } catch (e) {}
+    const m = t.match(/[\[{][\s\S]*[\]}]/);
+    if (!m) throw new Error('json');
+    return JSON.parse(m[0]);
+}
 
-    for (let i = 0; i < apiKeys.length; i++) {
-        try {
-            const bodyObj = {
-                model: 'llama-3.1-8b-instant', 
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: userPrompt }
-                ],
-                temperature: 0.3,
-                max_tokens: isJson ? 200 : 500
-            };
-            if (isJson) bodyObj.response_format = { type: "json_object" };
-
-            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${apiKeys[i]}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify(bodyObj)
-            });
-
-            if (!response.ok) continue; 
-            const data = await response.json();
-            return data.choices[0].message.content;
-        } catch (e) { continue; }
-    }
-    throw new Error("ALL_KEYS_FAILED");
+// Hata sebebini kullanıcıya sesli/yazılı söylemek için
+function voiceErrorText(e) {
+    const d = (e && e.detail) || '';
+    if (/Kota|429/i.test(d)) return "Yapay zeka kotası şu an dolmuş görünüyor, biraz sonra tekrar deneyin.";
+    if (/geçersiz|401/i.test(d)) return "API anahtarınız geçersiz görünüyor, ayarlardan kontrol edin.";
+    if (/Model kullanılamıyor/i.test(d)) return "Kullanılan yapay zeka modeli kapatılmış, uygulamayı güncelleyin.";
+    if (/Zaman aşımı|Bağlantı/i.test(d)) return "İnternet bağlantısında sorun var gibi görünüyor.";
+    return "Bağlantı sorunu yaşıyorum.";
 }
 
 function sesliOkuAsync(metin, myCmdId, appendSubtitle = false) {
@@ -196,10 +195,12 @@ async function processVoiceCommand(komut) {
     try {
         const intentResult = await fetchFromGroq(intentSystemPrompt, komut, true);
         if(myCmdId !== currentVoiceCmdId) return;
-        aiData = JSON.parse(intentResult);
+        aiData = parseLooseJson(intentResult);
+        if (!aiData || !aiData.intent) throw new Error('json');
     } catch (e) {
         if (e.message === "NO_KEY") return sesliOkuAsync("Lütfen ayarlardan API anahtarı ekleyin.", myCmdId, false);
-        return sesliOkuAsync("Bağlantı sorunu yaşıyorum.", myCmdId, false);
+        if (e.detail && typeof showToastGlobal === 'function') showToastGlobal("⚠️ " + e.detail, 5000);
+        return sesliOkuAsync(e.message === "ALL_KEYS_FAILED" ? voiceErrorText(e) : "Komutu anlayamadım, tekrar söyler misiniz?", myCmdId, false);
     }
 
     if(typeof showToastGlobal === 'function') showToastGlobal("🤖 " + aiData.ui_message, 4000);
@@ -265,7 +266,7 @@ async function processVoiceCommand(komut) {
 
         let parsedArray = [];
         try { 
-            parsedArray = JSON.parse(summaryResult); 
+            parsedArray = parseLooseJson(summaryResult); if (!Array.isArray(parsedArray)) parsedArray = Object.values(parsedArray).find(Array.isArray) || []; 
         } catch(e) { 
             return sesliOkuAsync("Haberleri derlerken bir hata oluştu.", myCmdId, false);
         }
@@ -303,7 +304,7 @@ async function processVoiceCommand(komut) {
         }
 
     } catch (e) {
-        if (myCmdId === currentVoiceCmdId) await sesliOkuAsync("Özetleme sırasında bir hata oluştu.", myCmdId, false);
+        if (myCmdId === currentVoiceCmdId) await sesliOkuAsync(e && e.detail ? voiceErrorText(e) : "Özetleme sırasında bir hata oluştu.", myCmdId, false);
     }
 }
 
@@ -317,16 +318,17 @@ async function handleDeepResearch(article, listIndex, myCmdId) {
     let isDone = false;
     let seconds = 0;
 
-    while (seconds < 12 && myCmdId === currentVoiceCmdId && isVoiceActive) {
+    while (seconds < 15 && myCmdId === currentVoiceCmdId && isVoiceActive) {
         await new Promise(r => setTimeout(r, 1000));
         seconds++;
         
         const textContainer = document.getElementById('fullTextContainer');
         if (textContainer) {
+            if (textContainer.querySelector('.reader-fail')) break;      // metin alınamadı: boşuna bekleme
             const htmlContent = textContainer.innerHTML;
             
             if (!htmlContent.includes('loading-pulse') && textContainer.innerText.trim().length > 100) {
-                const pTags = textContainer.querySelectorAll('p');
+                const pTags = textContainer.querySelectorAll('.p-text');   // sadece haber metni (🔊🌐 düğmeleri hariç)
                 if (pTags.length > 0) {
                     fullText = Array.from(pTags).map(p => p.textContent.trim()).join(' ');
                 } else {
@@ -375,7 +377,7 @@ async function handleDeepResearch(article, listIndex, myCmdId) {
 
     } catch(e) { 
         if (myCmdId === currentVoiceCmdId) {
-            await sesliOkuAsync("Haberin detaylarını özetlerken bir sorun oluştu.", myCmdId, false);
+            await sesliOkuAsync(e && e.detail ? voiceErrorText(e) : "Haberin detaylarını özetlerken bir sorun oluştu.", myCmdId, false);
             setTimeout(() => { if (myCmdId === currentVoiceCmdId && isVoiceActive && typeof closeModalSafe === 'function') closeModalSafe('newsModal'); }, 1000);
         }
     }

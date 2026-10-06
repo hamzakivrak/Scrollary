@@ -6,7 +6,7 @@ try { localStorage.removeItem('readerCacheV1'); (JSON.parse(localStorage.getItem
 const $id = id => document.getElementById(id);
 
 function persistReaderCache() {
-    try { localStorage.setItem('readerCacheV2', JSON.stringify([...READER_CACHE.entries()].slice(-15))); } catch (e) {}
+    try { localStorage.setItem('readerCacheV2', JSON.stringify([...READER_CACHE.entries()].slice(-30))); } catch (e) {}
 }
 
 // ---------- Yardımcılar ----------
@@ -192,22 +192,57 @@ async function fetchViaRoute(route, url, timeout = 11000) {
     return html;
 }
 
-async function fetchHtmlRace(url) {
-    return raceStaggered(HTML_ROUTES.map(r => ({ delay: r.delay, run: () => fetchViaRoute(r, url) })));
+// Son kazanan rota ilk sırada, hemen başlar; diğerleri yedek olarak biraz gecikmeyle
+function routesFor() {
+    let best = null;
+    try { best = localStorage.getItem('bestRoute'); } catch (e) {}
+    if (!best || !HTML_ROUTES.some(r => r.via === best)) return HTML_ROUTES;
+    return HTML_ROUTES.map(r => r.via === best ? { ...r, delay: 0 } : { ...r, delay: Math.max(r.delay, 700) });
 }
 
-// Tüm yolları dener, yeterli uzunlukta metin veren İLK yol kazanır
-async function extractArticle(url, hint) {
+async function fetchHtmlRace(url) {
+    let won = false;
+    return raceStaggered(routesFor().map(r => ({
+        delay: r.delay,
+        run: async () => {
+            const html = await fetchViaRoute(r, url);
+            if (!won) { won = true; try { localStorage.setItem('bestRoute', r.via); } catch (e) {} }
+            return html;
+        }
+    })));
+}
+
+// Aynı adres için tek indirme: okuma modu, orijinal site sekmesi ve ön yükleme aynı isteği paylaşır
+const HTML_SHARED = new Map();
+function getHtmlShared(url, fresh) {
+    const hit = HTML_SHARED.get(url);
+    if (hit && !fresh && Date.now() - hit.t < 300000) return hit.p;
+    const p = fetchHtmlRace(url);
+    HTML_SHARED.set(url, { t: Date.now(), p });
+    p.catch(() => { const h = HTML_SHARED.get(url); if (h && h.p === p) HTML_SHARED.delete(url); });
+    if (HTML_SHARED.size > 20) HTML_SHARED.delete(HTML_SHARED.keys().next().value);
+    return p;
+}
+
+// Kullanıcı karta dokunduğu anda indirmeyi başlatır; açılış ekranı geldiğinde sayfa çoktan yoldadır
+window.prefetchArticle = function (art) {
+    try {
+        if (navigator.connection && navigator.connection.saveData) return;
+        if (READER_CACHE.has(art.link) || (art.content && art.content.length > 500)) return;
+        if (/news\.google\.com/.test(art.link)) { resolveGoogleNewsUrl(art.link).then(u => { if (u) getHtmlShared(u).catch(() => {}); }).catch(() => {}); return; }
+        getHtmlShared(art.link).catch(() => {});
+    } catch (e) {}
+};
+
+// Sayfa yolu hızlıysa Jina hiç devreye girmez; yavaşsa/bloklandıysa 1.2 sn sonra yedek olarak başlar
+async function extractArticle(url, hint, fresh) {
     const accept = (paras, via) => {
         if (paras.length < 2 || paras.join(' ').length < 350) throw new Error('kısa');
         return { paras, via };
     };
-    const htmlTasks = HTML_ROUTES.map(r => ({
-        delay: r.delay,
-        run: async () => accept(extractFromHtml(await fetchViaRoute(r, url), hint), r.via)
-    }));
+    const page = { delay: 0, run: async () => accept(extractFromHtml(await getHtmlShared(url, fresh), hint), 'sayfa') };
     const jina = {
-        delay: 0,
+        delay: 1200,
         run: async () => {
             const res = await fetchWithTimeout('https://r.jina.ai/' + url, 14000, { headers: { Accept: 'application/json' } });
             if (!res.ok) throw new Error('jina');
@@ -216,7 +251,7 @@ async function extractArticle(url, hint) {
             return accept(cleanMarkdown(j.data.content, hint), 'jina');
         }
     };
-    return raceStaggered([...htmlTasks, jina]);
+    return raceStaggered([page, jina]);
 }
 
 // ---------- Görünüm ----------
@@ -269,7 +304,7 @@ function renderFailUI(art, url) {
         <div class="reader-fallback-desc"><strong>Özet:</strong><br>${escapeHtml(art.description)}</div>`;
     if (typeof resetArticleChat === 'function') resetArticleChat('Bu haberin sadece özeti mevcut:\n' + art.description, art.description);
     const token = readerToken;
-    $id('rfRetry').onclick = () => loadReaderText(art, token);
+    $id('rfRetry').onclick = () => loadReaderText(art, token, undefined, true);
     const input = $id('manualPastedUrl');
     const go = () => { const v = input.value.trim(); if (/^https?:\/\//.test(v)) loadReaderText(art, token, v); };
     input.addEventListener('input', go);
@@ -284,7 +319,7 @@ function refreshRealLinks(art) {
     ['modalLinkExt', 'stickyOpenLink', 'aiResultLink'].forEach(id => { const a = $id(id); if (a) a.href = real; });
 }
 
-async function loadReaderText(art, token, urlOverride) {
+async function loadReaderText(art, token, urlOverride, fresh) {
     const t = TRANSLATIONS[currentRegion];
     const box = $id('fullTextContainer');
 
@@ -303,7 +338,7 @@ async function loadReaderText(art, token, urlOverride) {
     if (urlOverride) { const ext = $id('modalLinkExt'); if (ext) ext.href = url; }
 
     try {
-        const res = await extractArticle(url, art);
+        const res = await extractArticle(url, art, fresh);
         if (token !== readerToken) return;           // kullanıcı başka habere geçti
         READER_CACHE.set(art.link, res); persistReaderCache();
         renderReaderText(res.paras, art, res.via);
@@ -405,6 +440,7 @@ window.loadOriginalFrame = function () {
     const st = originalState;
     if (!st.art || st.loaded) return;
     clearTimeout(frameTimer);
+    if (window.__frameNow) { window.__frameNow = false; doLoadOriginalFrame(false); return; }   // doğrudan 'gömülü aç' seçildiyse bekleme yok
     frameTimer = setTimeout(() => doLoadOriginalFrame(false), 450);   // çift dokunuş gelirse yüklemeye hiç girme
 };
 
@@ -450,7 +486,7 @@ async function doLoadOriginalFrame(interactive) {
             refreshRealLinks(art);
         }
         setBanner('⏳ Sayfa indiriliyor…');
-        const raw = await fetchHtmlRace(link);
+        const raw = await getHtmlShared(link);
         if (st.art !== art) return;
         st.html = raw; st.link = link;
         // Okuma modu metni alamadıysa, indirilen sayfadan çıkardığımız metni yapay zekaya bağlam yap

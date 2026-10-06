@@ -84,49 +84,63 @@ document.addEventListener('DOMContentLoaded', initAIPromptsUI);
 // llama-3.3-70b-versatile Groq'ta 16 Ağu 2026'da kaldırıldı -> tüm istekler hata veriyordu.
 // Model değişirse sadece bu listeyi güncelle. Sırayla denenir.
 // ==========================================
-const GROQ_MODELS = ['openai/gpt-oss-120b', 'qwen/qwen3.6-27b'];
+// Üretim modelleri önce; qwen Groq'ta 'preview' (önizleme) olduğu için son yedek.
+const GROQ_MODELS = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.6-27b'];
+const GROQ_MODELS_FAST = ['openai/gpt-oss-20b', 'openai/gpt-oss-120b', 'qwen/qwen3.6-27b'];   // sesli asistan: hızlı küçük model önce
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 // Döndürür: metin. Hata olursa Türkçe, GERÇEK sebebi söyleyen bir Error fırlatır.
-async function groqChat(messages, { temperature = 0.5, maxTokens = 2048 } = {}) {
+// opts: { temperature, maxTokens, json (JSON modu), models (sıra) }
+async function groqChat(messages, { temperature = 0.5, maxTokens = 2048, json = false, models = GROQ_MODELS } = {}) {
     const keys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
     if (!keys.length) throw new Error('API anahtarı eksik. Ayarlardan Groq anahtarı ekleyin.');
     let lastReason = 'Bilinmeyen hata';
-    let allRateLimited = true;
+    let useJson = json;
+    let badKeys = 0;
 
-    for (const model of GROQ_MODELS) {
-        let modelGone = false;
-        for (const key of keys) {
-            try {
-                const body = { model, messages, temperature, max_tokens: maxTokens };
-                if (model.startsWith('openai/gpt-oss')) body.reasoning_effort = 'low';
-                const res = await fetchWithTimeout(GROQ_URL, 30000, {
-                    method: 'POST',
-                    headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    let text = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
-                    text = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-                    if (text) return text;
-                    lastReason = 'Model boş yanıt döndürdü'; allRateLimited = false; continue;
+    const once = async (model, key) => {
+        const body = { model, messages, temperature, max_tokens: maxTokens };
+        if (useJson) body.response_format = { type: 'json_object' };
+        if (model.startsWith('openai/gpt-oss')) body.reasoning_effort = 'low';
+        const res = await fetchWithTimeout(GROQ_URL, 30000, {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        if (res.ok) {
+            const data = await res.json();
+            let text = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+            text = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+            return text ? { text } : { fail: 'Model boş yanıt döndürdü', next: 'key' };
+        }
+        let detail = '';
+        try { detail = ((await res.json()).error || {}).message || ''; } catch (e) {}
+        console.warn('[Groq]', model, res.status, detail);
+        if (res.status === 429) return { fail: 'Kota/limit doldu (429). Birkaç dakika sonra deneyin.', next: 'key' };
+        if (res.status === 401) return { fail: 'API anahtarı geçersiz (401).', next: 'key', badKey: true };
+        if (res.status === 413) return { fail: 'Haber çok uzun (413).', next: 'key' };
+        if (res.status === 400 && useJson && /json|response_format/i.test(detail)) { useJson = false; return { retry: true }; }   // model JSON modunu desteklemiyor
+        if (res.status === 404 || (res.status === 400 && /model/i.test(detail))) return { fail: `Model kullanılamıyor: ${model}`, next: 'model' };
+        return { fail: `Sunucu hatası (${res.status}) ${detail}`.trim(), next: 'key' };
+    };
+
+    for (const model of models) {
+        modelLoop: for (const key of keys) {
+            for (let attempt = 0; attempt < 2; attempt++) {
+                try {
+                    const r = await once(model, key);
+                    if (r.text) return r.text;
+                    if (r.retry) continue;                       // JSON modu kapatıldı, aynı anahtarla yeniden dene
+                    lastReason = r.fail;
+                    if (r.badKey) badKeys++;
+                    if (r.next === 'model') break modelLoop;
+                } catch (e) {
+                    lastReason = e.name === 'AbortError' ? 'Zaman aşımı, tekrar deneyin.' : 'Bağlantı hatası (internet/engelleyici?).';
                 }
-                let detail = '';
-                try { detail = ((await res.json()).error || {}).message || ''; } catch (e) {}
-                console.warn('[Groq]', model, res.status, detail);
-                if (res.status === 429) { lastReason = 'Kota/limit doldu (429). Birkaç dakika sonra deneyin.'; continue; }
-                allRateLimited = false;
-                if (res.status === 401) { lastReason = 'API anahtarı geçersiz (401).'; continue; }
-                if (res.status === 404 || (res.status === 400 && /model/i.test(detail))) { lastReason = `Model kullanılamıyor: ${model}`; modelGone = true; break; }
-                if (res.status === 413) { lastReason = 'Haber çok uzun (413).'; continue; }
-                lastReason = `Sunucu hatası (${res.status}) ${detail}`.trim();
-            } catch (e) {
-                allRateLimited = false;
-                lastReason = e.name === 'AbortError' ? 'Zaman aşımı, tekrar deneyin.' : 'Bağlantı hatası (internet/engelleyici?).';
+                break;
             }
         }
-        if (!modelGone && allRateLimited === false && lastReason.startsWith('API anahtarı')) break; // anahtar sorunu model değiştirmekle düzelmez
+        if (badKeys >= keys.length) break;   // tüm anahtarlar geçersizse model değiştirmek işe yaramaz
     }
     throw new Error(lastReason);
 }

@@ -260,16 +260,35 @@ function saveActiveSources() {
     syncToCloud();
 }
 
+// Aynı habere ait kopyaları yakalamak için başlık anahtarı (" - yayıncı" eki atılır)
+function titleKey(a) {
+    let t = (a.title || '').toLocaleLowerCase('tr');
+    const m = t.match(/^(.*\S)\s[-–|]\s[^-–|]{2,40}$/);
+    if (m) t = m[1];
+    return t.replace(/[^\p{L}\p{N}]+/gu, '').slice(0, 70);
+}
+
+// Kronolojik sıra korunur ama aynı kaynak art arda dizilmez:
+// son 3 öğede geçen kaynak, son 3 saat içindeki başka bir kaynak varsa ona yer verir.
 function interlaceArticles(articles) {
-    const rest = [...articles].sort((x, y) => y.timestamp - x.timestamp);
+    const sorted = [...articles].sort((x, y) => y.timestamp - x.timestamp);
+    const keys = new Set();
+    const rest = sorted.filter(a => {
+        const k = titleKey(a);
+        if (k.length < 20) return true;
+        if (keys.has(k)) return false;
+        keys.add(k); return true;
+    });
+    const COOL = 3, WINDOW = 3 * 3600 * 1000, LOOK = 40;
     const out = [];
     while (rest.length) {
-        const s1 = out.length > 0 ? out[out.length - 1].source : null;
-        const s2 = out.length > 1 ? out[out.length - 2].source : null;
+        const recent = out.slice(-COOL);
         let idx = 0;
-        if (s1 && s1 === s2) {
-            const alt = rest.findIndex((x, k) => k < 15 && x.source !== s1);
-            if (alt > 0) idx = alt;
+        if (recent.some(x => x.source === rest[0].source)) {
+            const limit = rest[0].timestamp - WINDOW;
+            for (let k = 1; k < rest.length && k < LOOK && rest[k].timestamp >= limit; k++) {
+                if (!recent.some(x => x.source === rest[k].source)) { idx = k; break; }
+            }
         }
         out.push(rest.splice(idx, 1)[0]);
     }
@@ -596,6 +615,11 @@ function renderNextBatch(forceClear = false) {
         `;
 
         const card = wrapper.querySelector('.news-card'); 
+        // Dokunma anında indirmeyi başlat (kaydırmada iptal): haber açıldığında metin çoktan yolda olur
+        let pfTimer = null;
+        card.addEventListener('pointerdown', () => { pfTimer = setTimeout(() => window.prefetchArticle && prefetchArticle(art), 150); }, { passive: true });
+        card.addEventListener('pointerup', () => { clearTimeout(pfTimer); window.prefetchArticle && prefetchArticle(art); }, { passive: true });
+        ['pointermove', 'pointercancel'].forEach(ev => card.addEventListener(ev, () => clearTimeout(pfTimer), { passive: true }));
         let lastTap = 0, tapTimer = null;
         card.onclick = (e) => {
             if (e.target.tagName === 'A' || e.target.closest('.source-badge')) return;
@@ -629,7 +653,7 @@ function runTapAction(art, mode) {
     markAsRead(art.link);
     if (mode === 'browser') { window.open(realLinkOf(art), '_blank', 'noopener'); return; }
     openModal(art);                         // openModal ilk await'e kadar senkron: sekme hemen değiştirilebilir
-    if (mode === 'embedded') switchTab('web');
+    if (mode === 'embedded') { window.__frameNow = true; switchTab('web'); }
 }
 ['single', 'double'].forEach(k => { const el = document.getElementById('tapPref_' + k); if (el) el.value = getTapAction(k); });
 
