@@ -103,16 +103,21 @@ async function searchPublisherUrl(art) {
         if (!hit) throw new Error('bing sonuç yok');
         return hit;
     };
-    return raceStaggered([{ delay: 0, run: ddg }, { delay: 300, run: bing }]);
+    return raceStaggered([{ delay: 0, run: ddg }, { delay: 1800, run: bing }]);
 }
 
 // Eski biçim yerelde çözülür; yeni (şifreli) biçim için birden çok yol yarıştırılır:
 // 1) (varsa) kendi çözücü adresin  2) Google batchexecute (doğrudan + proxy'ler)  3) Jina (gerçek tarayıcı, yönlendirmeyi takip eder)
 // Başarısız olursa null döner.
-async function resolveGoogleNewsUrl(link, art) {
+const gnInflight = {};
+function resolveGoogleNewsUrl(link, art) {
     const id = gnId(link);
-    if (!id) return null;
-    if (gnCache[id]) return gnCache[id];
+    if (!id) return Promise.resolve(null);
+    if (gnCache[id]) return Promise.resolve(gnCache[id]);
+    if (!gnInflight[id]) gnInflight[id] = resolveGoogleNewsUrlRaw(link, art, id).finally(() => { delete gnInflight[id]; });
+    return gnInflight[id];
+}
+async function resolveGoogleNewsUrlRaw(link, art, id) {
     const local = decodeGoogleNewsUrl(link);
     if (local) return gnRemember(id, local);
     const gUrl = `https://news.google.com/rss/articles/${id}`;
@@ -130,7 +135,7 @@ async function resolveGoogleNewsUrl(link, art) {
     // 2) Google'ın kendi uç noktası: imza/zaman damgası sayfadan, sonra POST
     tasks.push({ delay: 0, run: async () => {
         let page = '';
-        for (const q of [`?hl=tr&gl=TR&ceid=TR:tr`, `?hl=en-US&gl=US&ceid=US:en`, ``]) {
+        for (const q of [`?hl=tr&gl=TR&ceid=TR:tr`, ``]) {
             try { page = await fetchHtmlRace(gUrl + q); if (/data-n-a-sg/.test(page)) break; } catch (e) {}
         }
         const sg = (page.match(/data-n-a-sg=["']([^"']+)["']/) || [])[1];
@@ -177,12 +182,18 @@ let warming = false;
 window.warmGoogleLinks = async function (list) {
     if (warming) return;
     try { if (navigator.connection && navigator.connection.saveData) return; } catch (e) {}
-    const todo = (list || []).slice(0, 24).filter(a => a && /news\.google\.com/.test(a.link) && !(gnId(a.link) && gnCache[gnId(a.link)]));
+    const todo = (list || []).slice(0, 10).filter(a => a && /news\.google\.com/.test(a.link) && !(gnId(a.link) && gnCache[gnId(a.link)]));
     if (!todo.length) return;
     warming = true;
+    const modalOpen = () => { const m = $id('newsModal'); return m && m.style.display === 'flex'; };
     try {
-        const worker = async () => { while (todo.length) { const a = todo.shift(); try { await resolveGoogleNewsUrl(a.link, a); } catch (e) {} await new Promise(r => setTimeout(r, 250)); } };
-        await Promise.all([worker(), worker()]);
+        await new Promise(r => setTimeout(r, 4000));
+        while (todo.length) {
+            while (modalOpen()) await new Promise(r => setTimeout(r, 1500));   // kullanıcı haber açtıysa proxy'yi ona bırak
+            const a = todo.shift();
+            try { await resolveGoogleNewsUrl(a.link, a); } catch (e) {}
+            await new Promise(r => setTimeout(r, 1500));
+        }
     } finally { warming = false; }
 };
 
