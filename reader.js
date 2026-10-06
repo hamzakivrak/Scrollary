@@ -641,15 +641,23 @@ async function doLoadOriginalFrame(interactive) {
     st.mounted = false; st.cleanForced = false;
     let link = art.link;
     let cleanTimer = null;
-    if (/news\.google\.com/.test(link)) {
-        // Google kaynaklı haber 1,5 sn içinde pencerede çizilemezse bekletmeden temiz metin görünümünü aç
-        cleanTimer = setTimeout(async () => {
-            if (st.art !== art || st.mounted) return;
-            st.cleanForced = true;
-            const ok = await showCleanFallback(art, art.link);
-            if (!ok) st.cleanForced = false;          // temiz metin de çıkmadıysa normal akış sürsün
-        }, 1500);
-    }
+    // Google Haberler kaynaklı haber: bekletmeden doğrudan temiz metin görünümü.
+    // Diğer siteler: 1,5 sn içinde sayfa pencerede çizilemezse temiz metin görünümüne düş.
+    const isGoogle = /news\.google\.com/.test(link);
+    cleanTimer = setTimeout(async () => {
+        if (st.art !== art || st.mounted) return;
+        st.cleanForced = true;
+        const ok = await showCleanFallback(art, art.link);
+        if (!ok) {                                    // temiz metin çıkmadıysa normal akış sürsün
+            st.cleanForced = false;
+            if (st.html && st.link && !st.mounted && st.art === art) {   // sayfa zaten inmişse sade önizlemeyi şimdi göster
+                let p = prepareFrameHtml(st.html, st.link, false), im = false;
+                if (p.textLen < 300) { p = prepareFrameHtml(st.html, st.link, true); im = true; }
+                st.mounted = true; mountFrame(p.html, im);
+                setBanner(im ? '⚡ Etkileşimli mod' : '✅ Sade önizleme (reklamsız)', { interactive: !im });
+            }
+        }
+    }, isGoogle ? 0 : 1500);
     try {
         if (/news\.google\.com/.test(link)) {
             setBanner('⏳ Haber adresi çözülüyor…');
