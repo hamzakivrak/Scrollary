@@ -32,41 +32,78 @@ function gnRemember(id, url) {
     try { localStorage.setItem('gnResolveV1', JSON.stringify(gnCache)); } catch (e) {}
     return url;
 }
-// Google'ın batchexecute yanıtından adresi çıkarır (saf fonksiyon)
+// Google'ın batchexecute yanıtından adresi çıkarır (saf fonksiyon; JSON bozulursa regex yedeği)
 function parseGnBatch(text) {
-    const arr = JSON.parse(text.split('\n\n')[1]);
-    const u = JSON.parse(arr[0][2])[1];
-    return /^https?:\/\//.test(u) && !/google\./.test(u) ? u : null;
+    const ok = u => (/^https?:\/\//.test(u) && !/google\./.test(u)) ? u : null;
+    try {
+        const arr = JSON.parse(text.split('\n\n')[1]);
+        const u = ok(JSON.parse(arr[0][2])[1]);
+        if (u) return u;
+    } catch (e) {}
+    const m = text.match(/garturlres[^h]{0,12}(https?:(?:\\\\u003d|\\\\u0026|\\\\\/|\\\/|[^"\\\s])+)/);
+    if (m) return ok(m[1].replace(/\\+u003d/g, '=').replace(/\\+u0026/g, '&').replace(/\\+\//g, '/'));
+    return null;
 }
-// Eski biçim yerelde çözülür; yeni (şifreli) biçim için Google'ın kendi uç noktası denenir.
-// Başarısız olursa null döner; çağıran taraf Google linkini tarayıcıda açmaya düşer.
+// Eski biçim yerelde çözülür; yeni (şifreli) biçim için birden çok yol yarıştırılır:
+// 1) (varsa) kendi çözücü adresin  2) Google batchexecute (doğrudan + proxy'ler)  3) Jina (gerçek tarayıcı, yönlendirmeyi takip eder)
+// Başarısız olursa null döner.
 async function resolveGoogleNewsUrl(link) {
     const id = gnId(link);
     if (!id) return null;
     if (gnCache[id]) return gnCache[id];
     const local = decodeGoogleNewsUrl(link);
     if (local) return gnRemember(id, local);
-    try {
-        const page = await fetchHtmlRace(`https://news.google.com/rss/articles/${id}?hl=en-US&gl=US&ceid=US:en`);
-        const sg = (page.match(/data-n-a-sg="([^"]+)"/) || [])[1];
-        const ts = (page.match(/data-n-a-ts="([^"]+)"/) || [])[1];
-        if (!sg || !ts) return null;
+    const gUrl = `https://news.google.com/rss/articles/${id}`;
+    const tasks = [];
+
+    // 1) İsteğe bağlı: window.GN_RESOLVER_URL = 'https://senin-worker.workers.dev/?url=' (config.js'e eklenir)
+    if (window.GN_RESOLVER_URL) tasks.push({ delay: 0, run: async () => {
+        const res = await fetchWithTimeout(window.GN_RESOLVER_URL + encodeURIComponent(gUrl), 10000);
+        if (!res.ok) throw new Error('http');
+        const j = await res.json();
+        if (!j.url || /google\./.test(j.url)) throw new Error('boş');
+        return j.url;
+    }});
+
+    // 2) Google'ın kendi uç noktası: imza/zaman damgası sayfadan, sonra POST
+    tasks.push({ delay: 0, run: async () => {
+        let page = '';
+        for (const q of [`?hl=tr&gl=TR&ceid=TR:tr`, `?hl=en-US&gl=US&ceid=US:en`, ``]) {
+            try { page = await fetchHtmlRace(gUrl + q); if (/data-n-a-sg/.test(page)) break; } catch (e) {}
+        }
+        const sg = (page.match(/data-n-a-sg=["']([^"']+)["']/) || [])[1];
+        const ts = (page.match(/data-n-a-ts=["']([^"']+)["']/) || [])[1];
+        if (!sg || !ts) throw new Error('imza yok');
         const args = `["garturlreq",[["X","X",["X","X"],null,null,1,1,"US:en",null,1,null,null,null,null,null,0,1],"X","X",1,[1,1,1],1,1,null,0,0,null,0],"${id}",${ts},"${sg}"]`;
         const body = 'f.req=' + encodeURIComponent(JSON.stringify([[['Fbv4je', args]]]));
         const endpoint = 'https://news.google.com/_/DotsSplashUi/data/batchexecute';
-        const post = (u) => async () => {
+        const post = (u, delay) => ({ delay, run: async () => {
             const res = await fetchWithTimeout(u, 10000, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' }, body });
             if (!res.ok) throw new Error('http');
             const real = parseGnBatch(await res.text());
             if (!real) throw new Error('çözülemedi');
             return real;
-        };
-        const real = await raceStaggered([
-            { delay: 0, run: post(endpoint) },
-            { delay: 0, run: post(`https://corsproxy.io/?url=${encodeURIComponent(endpoint)}`) }
+        }});
+        return raceStaggered([
+            post(endpoint, 0),
+            post(`https://corsproxy.io/?url=${encodeURIComponent(endpoint)}`, 0),
+            post(`https://thingproxy.freeboard.io/fetch/${endpoint}`, 400),
+            post(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(endpoint)}`, 800)
         ]);
-        return gnRemember(id, real);
-    } catch (e) { return null; }
+    }});
+
+    // 3) Jina: sayfayı gerçek tarayıcıyla açar, yönlendirmeyi takip eder; son adres data.url'de gelir
+    tasks.push({ delay: 2500, run: async () => {
+        const res = await fetchWithTimeout('https://r.jina.ai/' + gUrl, 15000, { headers: { Accept: 'application/json' } });
+        if (!res.ok) throw new Error('jina');
+        const j = await res.json();
+        const u = j && j.data && j.data.url;
+        if (!u || /google\./.test(u)) throw new Error('jina boş');
+        return u;
+    }});
+
+    try { return gnRemember(id, await raceStaggered(tasks)); }
+    catch (e) { console.warn('[GN çözümü başarısız]', e); return null; }
 }
 
 const BLOCK_RE = /security service to protect itself|Just a moment\.\.\.|cf-browser-verification|Attention Required|Enable JavaScript and cookies|Access Denied|Pardon Our Interruption|Request unsuccessful|Incapsula incident|captcha-delivery|Checking your browser|Verify you are human|px-captcha|robot or human/i;
