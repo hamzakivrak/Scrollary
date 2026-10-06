@@ -440,7 +440,7 @@
 <script>
 (function(){var m=document.getElementById('newsModal'),b=document.getElementById('modalBodyArea');if(!m||!b)return;var y=0;
 b.addEventListener('scroll',function(){var c=b.scrollTop;if(c>y+12&&c>140)m.classList.add('rd-compact');else if(c<y-12||c<60)m.classList.remove('rd-compact');y=c;},{passive:true});
-new MutationObserver(function(){if(m.style.display!=='flex')m.classList.remove('rd-compact');}).observe(m,{attributes:true,attributeFilter:['style','class']});})();
+new MutationObserver(function(){if(m.style.display!=='flex'&&m.classList.contains('rd-compact'))m.classList.remove('rd-compact');}).observe(m,{attributes:true,attributeFilter:['style']});})();
 </script>
 <script src="config.js?v=3.6"></script>
 <script src="auth.js?v=3.6"></script>
