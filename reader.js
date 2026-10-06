@@ -623,8 +623,9 @@ function buildCleanPage(art, paras) {
 async function showCleanFallback(art, link) {
     try {
         let hit = READER_CACHE.get(art.link);
-        if (!hit) { hit = await extractArticle(link, art); READER_CACHE.set(art.link, hit); persistReaderCache(); }
+        if (!hit) { if (/news\.google\.com/.test(link)) link = (await resolveGoogleNewsUrl(link, art)) || link; hit = await extractArticle(link, art); READER_CACHE.set(art.link, hit); persistReaderCache(); }
         if (originalState.art !== art) return true;
+        originalState.mounted = true;
         mountFrame(buildCleanPage(art, hit.paras), false);
         if (typeof resetArticleChat === 'function') resetArticleChat(hit.paras.join('\n'), art.description);
         setBanner('📄 Site önizlemeyi engelledi — temiz metin görünümü', { readerBtn: true });
@@ -637,7 +638,18 @@ async function doLoadOriginalFrame(interactive) {
     const art = st.art;
     if (!art || st.loaded) return;
     st.loaded = true;
+    st.mounted = false; st.cleanForced = false;
     let link = art.link;
+    let cleanTimer = null;
+    if (/news\.google\.com/.test(link)) {
+        // Google kaynaklı haber 1,5 sn içinde pencerede çizilemezse bekletmeden temiz metin görünümünü aç
+        cleanTimer = setTimeout(async () => {
+            if (st.art !== art || st.mounted) return;
+            st.cleanForced = true;
+            const ok = await showCleanFallback(art, art.link);
+            if (!ok) st.cleanForced = false;          // temiz metin de çıkmadıysa normal akış sürsün
+        }, 1500);
+    }
     try {
         if (/news\.google\.com/.test(link)) {
             setBanner('⏳ Haber adresi çözülüyor…');
@@ -663,10 +675,19 @@ async function doLoadOriginalFrame(interactive) {
         if (!interactive && prep.textLen < 300) {            // sade modda boş görünüyorsa sayfa scriptle çiziliyordur
             prep = prepareFrameHtml(raw, link, true); interactiveMode = true;
         }
+        clearTimeout(cleanTimer);
+        if (st.cleanForced) {                       // temiz metin zaten açık; tam siteyi isteyen ⚡ ile açabilir
+            st.html = raw; st.link = link;
+            setBanner('📄 Temiz metin görünümü', { interactive: true });
+            return;
+        }
+        st.mounted = true;
         mountFrame(prep.html, interactiveMode);
         setBanner(interactiveMode ? '⚡ Etkileşimli mod' : '✅ Sade önizleme (reklamsız)', { interactive: !interactiveMode });
     } catch (e) {
+        clearTimeout(cleanTimer);
         if (st.art !== art) return;
+        if (st.cleanForced) { setBanner('📄 Temiz metin görünümü', { readerBtn: true }); return; }
         const ok = link && !/news\.google\.com/.test(link) ? await showCleanFallback(art, link) : false;
         if (ok || st.art !== art) return;
         st.loaded = false;                           // tekrar basınca yeniden denesin
