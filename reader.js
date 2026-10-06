@@ -495,9 +495,12 @@ function setBanner(statusHtml, opts = {}) {
     b.style.display = '';
     b.innerHTML = `<span class="banner-status">${statusHtml}</span><span class="banner-actions">` +
         (opts.interactive ? `<button type="button" class="banner-link alt" onclick="reloadFrameInteractive()" title="Sayfanın kendi scriptlerini çalıştır" aria-label="Etkileşimli mod">⚡</button>` : '') +
+        (opts.interactive ? `<button type="button" class="banner-link alt" onclick="showCleanView()" title="Boş/bozuk görünüyorsa temiz metin görünümü" aria-label="Temiz metin">📄</button>` : '') +
         (opts.readerBtn ? `<button type="button" class="banner-link alt" onclick="switchTab('reader')" title="Okuma modu" aria-label="Okuma modu">📖</button>` : '') +
         `<a class="banner-link" href="${escapeHtml(realLinkOf(originalState.art))}" target="_blank" rel="noopener" title="Asıl habere git" aria-label="Asıl habere git">↗️</a></span>`;
 }
+
+window.showCleanView = function () { const st = originalState; if (st.art && st.link) { setBanner('⏳ Temiz metin hazırlanıyor…'); showCleanFallback(st.art, st.link).then(ok => { if (!ok) setBanner('⚠️ Metin çıkarılamadı', { interactive: true }); }); } };
 
 // Orijinal site sekmesinden yapay zekaya: çubuktaki soruyu (varsayılan "Bu haberi özetle") gönderir
 window.askAIFromWeb = function () {
@@ -542,23 +545,53 @@ function prepareFrameHtml(rawHtml, link, interactive) {
     const base = doc.createElement('base'); base.setAttribute('href', link); base.setAttribute('target', '_blank');
     head.insertBefore(base, head.firstChild);
     // Mobil okuma için güvenli sıfırlama: devasa logo/görsel, yatay taşma, atla-bağlantıları, menü/alt bilgi
+    if (!interactive && doc.documentElement) { doc.documentElement.className = (doc.documentElement.className || '').replace(/\bjs\b/g, '') + ' no-js'; }
     const vp = doc.createElement('meta'); vp.setAttribute('name', 'viewport'); vp.setAttribute('content', 'width=device-width,initial-scale=1'); head.insertBefore(vp, head.firstChild);
     const rf = doc.createElement('meta'); rf.setAttribute('name', 'referrer'); rf.setAttribute('content', 'no-referrer'); head.insertBefore(rf, head.firstChild);
     const rs = doc.createElement('style');
+    const hide = ['a[href^="#"][class*="skip"]','a[href*="#main"]','a[href*="#content"]','a[href*="#footer"]','a[href*="#menu"]','.skip-link','.sr-only','.screen-reader-text','footer','aside',
+        '[class*="newsletter"]','[class*="social-"]','[class*="share"]','[class*="breadcrumb"]','[class*="related"]','[class*="popular"]','[class*="most-read"]','[class*="cok-okunan"]']
+        .map(s => s + ':not(body):not(html):not(main):not(article):not(#content)').join(',');
+    // Scriptsiz ortamda JS'in açacağı içerikler gizli kalır: ön yükleyiciler, 'yükleniyor' perdeleri, opaklık 0 animasyonları
+    const reveal = 'html,body{opacity:1!important;visibility:visible!important;display:block!important;height:auto!important;overflow-y:visible!important;position:static!important}' +
+        '[class*="preloader"],[id*="preloader"],[class*="page-loader"],[class*="splash"],[class*="loading-screen"],[class*="modal-backdrop"],[class*="overlay"][class*="fixed"],[class*="paywall"],[class*="popup"],[id*="popup"],[class*="onesignal"]{display:none!important}' +
+        '[data-aos],[class*="reveal"],[class*="fade-in"],[class*="lazy"],[class*="animate"],.js-hidden{opacity:1!important;visibility:visible!important;transform:none!important}';
     rs.textContent = 'html,body{max-width:100%;overflow-x:hidden}img,video,svg,canvas,table{max-width:100%!important;height:auto}svg:not([width]){max-height:3em}' +
-        'a[href^="#"][class*="skip"],a[href*="#main"],a[href*="#content"],a[href*="#footer"],a[href*="#menu"],.skip-link,.sr-only,.screen-reader-text,footer,aside,[class*="newsletter"],[class*="social-"],[class*="share"],[class*="breadcrumb"],[class*="related"],[class*="popular"],[class*="most-read"],[class*="cok-okunan"]{display:none!important}' +
-        'body{line-height:1.6;word-wrap:break-word}';
+        (interactive ? '' : reveal + hide + '{display:none!important}') + 'body{line-height:1.6;word-wrap:break-word}';
     head.appendChild(rs);
+    if (!interactive) {
+        // Siteler içeriği JS gelene kadar gizler (opacity:0, preloader...). Scriptleri attığımız için gösterimi zorluyoruz.
+        rs.textContent += 'html,body{opacity:1!important;visibility:visible!important;display:block!important;height:auto!important;overflow:visible!important;position:static!important}' +
+            '[class*="preloader"],[id*="preloader"],[class*="page-loader"],[id*="page-loader"],[class*="spinner"],[class*="skeleton"]{display:none!important}';
+        [doc.documentElement, doc.body].forEach(el => { if (el) el.className = (el.className || '').replace(/\b(no-?scroll|loading|preload\w*|is-loading|js-loading|modal-open|overflow-hidden)\b/g, ''); });
+        doc.querySelectorAll('*').forEach(el => { [...el.attributes].forEach(a => { if (/^on/i.test(a.name)) el.removeAttribute(a.name); }); });
+        const chk = doc.createElement('script');
+        chk.textContent = "addEventListener('load',function(){setTimeout(function(){try{var t=(document.body.innerText||'').replace(/\\s+/g,' ').trim().length;var h=document.documentElement.scrollHeight;parent.postMessage({rdBlank:t<250||h<400},'*')}catch(e){}},700)})";
+        (doc.body || doc.documentElement).appendChild(chk);
+    }
     const textLen = (doc.body ? doc.body.textContent : '').replace(/\s+/g, ' ').trim().length;
     return { html: '<!DOCTYPE html>' + doc.documentElement.outerHTML, textLen };
 }
+
+
+// Sade önizleme boş çıkarsa (içerik JS ile çiziliyorsa) otomatik temiz metin görünümüne geç
+window.addEventListener('message', async (e) => {
+    if (!e.data || typeof e.data.rdBlank !== 'boolean') return;
+    const f = $id('modalIframe');
+    if (!f || e.source !== f.contentWindow) return;
+    const st = originalState, art = st.art;
+    if (!art || !e.data.rdBlank || !st.link || f.dataset.interactive === '1') return;
+    if (await showCleanFallback(art, st.link)) return;
+    setBanner('⚠️ Sayfa boş göründü — okuma modunu dene', { interactive: true, readerBtn: true });
+});
 
 function mountFrame(html, interactive) {
     const old = $id('modalIframe');
     const iframe = document.createElement('iframe');
     iframe.id = 'modalIframe'; iframe.className = 'modal-iframe';
     // allow-same-origin YOK: yabancı scriptler uygulamanın verilerine (giriş, localStorage) erişemesin
-    iframe.setAttribute('sandbox', interactive ? 'allow-scripts allow-forms allow-popups' : 'allow-popups');
+    iframe.setAttribute('sandbox', interactive ? 'allow-scripts allow-forms allow-popups' : 'allow-scripts allow-popups');   // sade modda sitenin scriptleri atılmış olur; sadece bizim boşluk kontrolü çalışır
+    if (interactive) iframe.dataset.interactive = '1';
     iframe.srcdoc = html;
     old.parentNode.replaceChild(iframe, old);
     return iframe;
