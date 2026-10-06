@@ -673,7 +673,7 @@ function switchTab(tab) {
         document.getElementById('readerView').style.display = 'none'; 
         document.getElementById('iframeView').style.display = 'flex'; 
         // AI çubuğu orijinal sitede de görünür; iframe kalan yüksekliği doldurur
-        if (aiStickyBar) { aiStickyBar.style.display = 'flex'; document.getElementById('iframeView').style.height = `calc(100% - ${aiStickyBar.offsetHeight || 64}px)`; }
+        if (aiStickyBar) { aiStickyBar.style.display = 'flex'; document.getElementById('iframeView').style.height = `calc(100% - ${aiStickyBar.offsetHeight || 0}px)`; }
         if (window.loadOriginalFrame) window.loadOriginalFrame();
     } 
 }

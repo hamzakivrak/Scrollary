@@ -196,6 +196,7 @@ async function fetchAllRSS(isSilent = false, isAuto = false) {
     if (endSpinner) endSpinner.style.display = 'none';
     if (fetchBtn) { fetchBtn.innerText = t.fetchBtnText; fetchBtn.style.opacity = '1'; }
     isFetchingRefresh = false;
+    if (window.warmGoogleLinks) setTimeout(() => window.warmGoogleLinks(allArticles), 800);   // Google linkleri kullanıcı dokunmadan çözülsün
     if (!isSilent) handleSearch(true);
 }
 

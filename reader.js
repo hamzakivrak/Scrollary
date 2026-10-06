@@ -165,11 +165,26 @@ async function resolveGoogleNewsUrl(link, art) {
     }});
 
     // 4) Son çare: başlık + yayıncı adıyla arama motorunda gerçek haberi bul
-    if (art) tasks.push({ delay: 1800, run: () => searchPublisherUrl(art) });
+    if (art) tasks.push({ delay: art.pubUrl ? 0 : 900, run: () => searchPublisherUrl(art) });
 
     try { return gnRemember(id, await raceStaggered(tasks)); }
     catch (e) { console.warn('[GN çözümü başarısız]', e); return null; }
 }
+
+
+// Akıştaki en yeni Google Haberler kartlarının gerçek adreslerini arka planda önceden çözer (açılışta bekleme olmasın)
+let warming = false;
+window.warmGoogleLinks = async function (list) {
+    if (warming) return;
+    try { if (navigator.connection && navigator.connection.saveData) return; } catch (e) {}
+    const todo = (list || []).slice(0, 24).filter(a => a && /news\.google\.com/.test(a.link) && !(gnId(a.link) && gnCache[gnId(a.link)]));
+    if (!todo.length) return;
+    warming = true;
+    try {
+        const worker = async () => { while (todo.length) { const a = todo.shift(); try { await resolveGoogleNewsUrl(a.link, a); } catch (e) {} await new Promise(r => setTimeout(r, 250)); } };
+        await Promise.all([worker(), worker()]);
+    } finally { warming = false; }
+};
 
 const BLOCK_RE = /security service to protect itself|Just a moment\.\.\.|cf-browser-verification|Attention Required|Enable JavaScript and cookies|Access Denied|Pardon Our Interruption|Request unsuccessful|Incapsula incident|captcha-delivery|Checking your browser|Verify you are human|px-captcha|robot or human/i;
 // Gerçek haber sayfaları büyüktür; küçük + engel ifadesi içeren sayfa bot korumasıdır
@@ -479,10 +494,9 @@ function setBanner(statusHtml, opts = {}) {
     if (opts === true) opts = { interactive: true };     // eski çağrılarla uyum
     b.style.display = '';
     b.innerHTML = `<span class="banner-status">${statusHtml}</span><span class="banner-actions">` +
-        `<button type="button" class="banner-link ai" onclick="askAIFromWeb()">✨ Özetle / Sor</button>` +
-        (opts.interactive ? `<button type="button" class="banner-link alt" onclick="reloadFrameInteractive()" title="Sayfanın kendi scriptlerini çalıştır">⚡ Etkileşimli</button>` : '') +
-        (opts.readerBtn ? `<button type="button" class="banner-link alt" onclick="switchTab('reader')">📖 Okuma modu</button>` : '') +
-        `<a class="banner-link" href="${escapeHtml(realLinkOf(originalState.art))}" target="_blank" rel="noopener">↗️ Asıl habere git</a></span>`;
+        (opts.interactive ? `<button type="button" class="banner-link alt" onclick="reloadFrameInteractive()" title="Sayfanın kendi scriptlerini çalıştır" aria-label="Etkileşimli mod">⚡</button>` : '') +
+        (opts.readerBtn ? `<button type="button" class="banner-link alt" onclick="switchTab('reader')" title="Okuma modu" aria-label="Okuma modu">📖</button>` : '') +
+        `<a class="banner-link" href="${escapeHtml(realLinkOf(originalState.art))}" target="_blank" rel="noopener" title="Asıl habere git" aria-label="Asıl habere git">↗️</a></span>`;
 }
 
 // Orijinal site sekmesinden yapay zekaya: çubuktaki soruyu (varsayılan "Bu haberi özetle") gönderir
@@ -515,6 +529,10 @@ function prepareFrameHtml(rawHtml, link, interactive) {
         el.removeAttribute('loading');
     });
     if (!interactive) {
+        // Siteler CSS'i çoğunlukla preload + script ile yükler; scriptleri attığımız için stilleri elle etkinleştiriyoruz
+        doc.querySelectorAll('link[rel="preload"][as="style"], link[rel="alternate stylesheet"]').forEach(l => l.setAttribute('rel', 'stylesheet'));
+        doc.querySelectorAll('link[rel~="stylesheet"][media]').forEach(l => { if (/print|^$/i.test(l.getAttribute('media'))) l.setAttribute('media', 'all'); });
+        doc.querySelectorAll('noscript').forEach(n => { try { const t = new DOMParser().parseFromString('<body>' + n.textContent + '</body>', 'text/html'); t.querySelectorAll('link[rel~="stylesheet"]').forEach(l => (doc.head || doc.documentElement).appendChild(doc.importNode(l, true))); } catch (e) {} });
         doc.querySelectorAll('script, iframe, object, embed, link[rel="preload"], link[rel="modulepreload"]').forEach(n => n.remove());
         doc.querySelectorAll('[class*="advert"], [class*="reklam"], [id*="advert"], [id*="reklam"], [class*="cookie"], [id*="cookie"], [class*="consent"], [id*="consent"]').forEach(n => n.remove());
     } else {
@@ -523,6 +541,14 @@ function prepareFrameHtml(rawHtml, link, interactive) {
     const head = doc.head || doc.documentElement.insertBefore(doc.createElement('head'), doc.body);
     const base = doc.createElement('base'); base.setAttribute('href', link); base.setAttribute('target', '_blank');
     head.insertBefore(base, head.firstChild);
+    // Mobil okuma için güvenli sıfırlama: devasa logo/görsel, yatay taşma, atla-bağlantıları, menü/alt bilgi
+    const vp = doc.createElement('meta'); vp.setAttribute('name', 'viewport'); vp.setAttribute('content', 'width=device-width,initial-scale=1'); head.insertBefore(vp, head.firstChild);
+    const rf = doc.createElement('meta'); rf.setAttribute('name', 'referrer'); rf.setAttribute('content', 'no-referrer'); head.insertBefore(rf, head.firstChild);
+    const rs = doc.createElement('style');
+    rs.textContent = 'html,body{max-width:100%;overflow-x:hidden}img,video,svg,canvas,table{max-width:100%!important;height:auto}svg:not([width]){max-height:3em}' +
+        'a[href^="#"][class*="skip"],a[href*="#main"],a[href*="#content"],a[href*="#footer"],a[href*="#menu"],.skip-link,.sr-only,.screen-reader-text,footer,aside,[class*="newsletter"],[class*="social-"],[class*="share"],[class*="breadcrumb"],[class*="related"],[class*="popular"],[class*="most-read"],[class*="cok-okunan"]{display:none!important}' +
+        'body{line-height:1.6;word-wrap:break-word}';
+    head.appendChild(rs);
     const textLen = (doc.body ? doc.body.textContent : '').replace(/\s+/g, ' ').trim().length;
     return { html: '<!DOCTYPE html>' + doc.documentElement.outerHTML, textLen };
 }
