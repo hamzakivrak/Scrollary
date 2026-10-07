@@ -670,7 +670,7 @@ function runTapAction(art, mode) {
     openModal(art);                         // openModal ilk await'e kadar senkron: sekme hemen değiştirilebilir
     if (mode === 'embedded') {
         window.__frameNow = true;
-        window.__frameMode = last.startsWith('web-') ? last : 'web-sade';   // sade / temiz metin / etkileşimli
+        window.__frameMode = (window.getLastWebSub && getLastWebSub()) || 'web-sade';   // sade / temiz metin / etkileşimli
         switchTab('web');
     }
 }

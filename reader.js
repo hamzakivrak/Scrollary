@@ -541,14 +541,18 @@ window.openRealLink = function () {
 // ---------- Son kullanılan mod hafızası ----------
 // 'reader' | 'web-sade' | 'web-clean' | 'web-interactive'  (yalnızca kullanıcının bilinçli seçimleri kaydedilir)
 window.getLastMode = function () { const m = localStorage.getItem('lastViewMode'); return ['reader', 'web-sade', 'web-clean', 'web-interactive'].includes(m) ? m : 'reader'; };
-window.setLastMode = function (m) { try { localStorage.setItem('lastViewMode', m); } catch (e) {} };
+window.setLastMode = function (m) { try { localStorage.setItem('lastViewMode', m); if (m.indexOf('web-') === 0) localStorage.setItem('lastWebSub', m); } catch (e) {} };
+// Orijinal Site sekmesinin alt modu (sade / temiz / etkileşimli), Okuma sekmesine gidip gelmekten etkilenmez
+window.getLastWebSub = function () {
+    let m = null; try { m = localStorage.getItem('lastWebSub') || localStorage.getItem('lastViewMode'); } catch (e) {}
+    return ['web-sade', 'web-clean', 'web-interactive'].includes(m) ? m : 'web-sade';
+};
 
 window.onWebTabTap = function () {
     const now = Date.now();
     if (now - webTapAt < 450) { webTapAt = 0; clearTimeout(frameTimer); window.openRealLink(); return; }
     webTapAt = now;
-    const lm = getLastMode();
-    window.__frameMode = lm.startsWith('web-') ? lm : 'web-sade';
+    window.__frameMode = getLastWebSub();
     setLastMode(window.__frameMode);
     switchTab('web');
 };
@@ -557,14 +561,24 @@ function setBanner(statusHtml, opts = {}) {
     const b = $id('iframeBanner');
     if (!b) return;
     if (opts === true) opts = { interactive: true };     // eski çağrılarla uyum
+    const mode = opts.mode || (opts.interactive ? 'sade' : '');   // 'sade' | 'clean' | 'interactive' | '' (durum mesajı)
+    const btn = (fn, ico, title) => `<button type="button" class="banner-link alt" onclick="${fn}" title="${title}" aria-label="${title}">${ico}</button>`;
     b.style.display = '';
     b.innerHTML = `<span class="banner-status">${statusHtml}</span><span class="banner-actions">` +
-        (opts.interactive ? `<button type="button" class="banner-link alt" onclick="reloadFrameInteractive()" title="Sayfanın kendi scriptlerini çalıştır" aria-label="Etkileşimli mod">⚡</button>` : '') +
-        (opts.interactive ? `<button type="button" class="banner-link alt" onclick="showCleanView()" title="Boş/bozuk görünüyorsa temiz metin görünümü" aria-label="Temiz metin">📄</button>` : '') +
-        (opts.readerBtn ? `<button type="button" class="banner-link alt" onclick="setLastMode('reader');switchTab('reader')" title="Okuma modu" aria-label="Okuma modu">📖</button>` : '') +
+        (mode && mode !== 'interactive' ? btn('reloadFrameInteractive()', '⚡', 'Etkileşimli mod') : '') +
+        (mode && mode !== 'clean' ? btn('showCleanView()', '📄', 'Temiz metin görünümü') : '') +
+        (mode && mode !== 'sade' ? btn('showSadeView()', '🖼️', 'Sade önizleme') : '') +
+        (opts.readerBtn ? btn("setLastMode('reader');switchTab('reader')", '📖', 'Okuma modu') : '') +
         `<a class="banner-link" href="${escapeHtml(realLinkOf(originalState.art))}" target="_blank" rel="noopener" title="Asıl habere git" aria-label="Asıl habere git">↗️</a></span>`;
 }
 
+window.showSadeView = function () {
+    const st = originalState;
+    if (!st.art) return;
+    setLastMode('web-sade');
+    st.noAutoClean = true; st.loaded = false; st.mounted = false; st.cleanForced = false;
+    doLoadOriginalFrame(false);
+};
 window.showCleanView = function () { setLastMode('web-clean'); const st = originalState; if (st.art && st.link) { setBanner('⏳ Temiz metin hazırlanıyor…'); showCleanFallback(st.art, st.link).then(ok => { if (!ok) setBanner('⚠️ Metin çıkarılamadı', { interactive: true }); }); } };
 
 // Orijinal site sekmesinden yapay zekaya: çubuktaki soruyu (varsayılan "Bu haberi özetle") gönderir
@@ -677,7 +691,7 @@ window.reloadFrameInteractive = function () {
     if (!originalState.html) return;
     const { html } = prepareFrameHtml(originalState.html, originalState.link, true);
     mountFrame(html, true);
-    setBanner('⚡ Etkileşimli mod');
+    setBanner('⚡ Etkileşimli mod', { mode: 'interactive' });
 };
 
 function buildCleanPage(art, paras) {
@@ -697,7 +711,7 @@ async function showCleanFallback(art, link) {
         originalState.mounted = true;
         mountFrame(buildCleanPage(art, hit.paras), false);
         if (typeof resetArticleChat === 'function') resetArticleChat(hit.paras.join('\n'), art.description);
-        setBanner('📄 Site önizlemeyi engelledi — temiz metin görünümü', { readerBtn: true });
+        setBanner('📄 Site önizlemeyi engelledi — temiz metin görünümü', { mode: 'clean', readerBtn: true });
         return true;
     } catch (e) { return false; }
 }
@@ -714,7 +728,8 @@ async function doLoadOriginalFrame(interactive) {
     // Diğer siteler: 1,5 sn içinde sayfa pencerede çizilemezse temiz metin görünümüne düş.
     const isGoogle = /news\.google\.com/.test(link);
     const forceClean = !!st.forceClean; st.forceClean = false;
-    if (!interactive) cleanTimer = setTimeout(async () => {
+    const noAuto = !!st.noAutoClean; st.noAutoClean = false;   // kullanıcı bilerek sade önizlemeyi seçti
+    if (!interactive && !noAuto) cleanTimer = setTimeout(async () => {
         if (st.art !== art || st.mounted) return;
         st.cleanForced = true;
         const ok = await showCleanFallback(art, art.link);
@@ -724,7 +739,7 @@ async function doLoadOriginalFrame(interactive) {
                 let p = prepareFrameHtml(st.html, st.link, false), im = false;
                 if (p.textLen < 300) { p = prepareFrameHtml(st.html, st.link, true); im = true; }
                 st.mounted = true; mountFrame(p.html, im);
-                setBanner(im ? '⚡ Etkileşimli mod' : '✅ Sade önizleme (reklamsız)', { interactive: !im });
+                setBanner(im ? '⚡ Etkileşimli mod' : '✅ Sade önizleme (reklamsız)', { mode: im ? 'interactive' : 'sade' });
             }
         }
     }, (isGoogle || forceClean) ? 0 : 1500);
@@ -756,16 +771,16 @@ async function doLoadOriginalFrame(interactive) {
         clearTimeout(cleanTimer);
         if (st.cleanForced) {                       // temiz metin zaten açık; tam siteyi isteyen ⚡ ile açabilir
             st.html = raw; st.link = link;
-            setBanner('📄 Temiz metin görünümü', { interactive: true });
+            setBanner('📄 Temiz metin görünümü', { mode: 'clean', readerBtn: true });
             return;
         }
         st.mounted = true;
         mountFrame(prep.html, interactiveMode);
-        setBanner(interactiveMode ? '⚡ Etkileşimli mod' : '✅ Sade önizleme (reklamsız)', { interactive: !interactiveMode });
+        setBanner(interactiveMode ? '⚡ Etkileşimli mod' : '✅ Sade önizleme (reklamsız)', { mode: interactiveMode ? 'interactive' : 'sade' });
     } catch (e) {
         clearTimeout(cleanTimer);
         if (st.art !== art) return;
-        if (st.cleanForced) { setBanner('📄 Temiz metin görünümü', { readerBtn: true }); return; }
+        if (st.cleanForced) { setBanner('📄 Temiz metin görünümü', { mode: 'clean', readerBtn: true }); return; }
         const ok = link && !/news\.google\.com/.test(link) ? await showCleanFallback(art, link) : false;
         if (ok || st.art !== art) return;
         st.loaded = false;                           // tekrar basınca yeniden denesin
