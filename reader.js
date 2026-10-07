@@ -124,8 +124,9 @@ async function resolveGoogleNewsUrlRaw(link, art, id) {
     const tasks = [];
 
     // 1) İsteğe bağlı: window.GN_RESOLVER_URL = 'https://senin-worker.workers.dev/?url=' (config.js'e eklenir)
-    if (window.GN_RESOLVER_URL) tasks.push({ delay: 0, run: async () => {
-        const res = await fetchWithTimeout(window.GN_RESOLVER_URL + encodeURIComponent(gUrl), 10000);
+    const resolverBase = workerBase() ? workerBase() + '/resolve?url=' : window.GN_RESOLVER_URL;
+    if (resolverBase) tasks.push({ delay: 0, run: async () => {
+        const res = await fetchWithTimeout(resolverBase + encodeURIComponent(gUrl), 10000);
         if (!res.ok) throw new Error('http');
         const j = await res.json();
         if (!j.url || /google\./.test(j.url)) throw new Error('boş');
@@ -133,7 +134,7 @@ async function resolveGoogleNewsUrlRaw(link, art, id) {
     }});
 
     // 2) Google'ın kendi uç noktası: imza/zaman damgası sayfadan, sonra POST
-    tasks.push({ delay: 0, run: async () => {
+    tasks.push({ delay: workerBase() ? 2500 : 0, run: async () => {
         let page = '';
         for (const q of [`?hl=tr&gl=TR&ceid=TR:tr`, ``]) {
             try { page = await fetchHtmlRace(gUrl + q); if (/data-n-a-sg/.test(page)) break; } catch (e) {}
@@ -182,18 +183,24 @@ let warming = false;
 window.warmGoogleLinks = async function (list) {
     if (warming) return;
     try { if (navigator.connection && navigator.connection.saveData) return; } catch (e) {}
-    const todo = (list || []).slice(0, 10).filter(a => a && /news\.google\.com/.test(a.link) && !(gnId(a.link) && gnCache[gnId(a.link)]));
+    const wb = !!workerBase();
+    const todo = (list || []).slice(0, wb ? 20 : 10).filter(a => a && /news\.google\.com/.test(a.link) && !READER_CACHE.get(a.link) && !(!wb && gnId(a.link) && gnCache[gnId(a.link)]));
     if (!todo.length) return;
     warming = true;
     const modalOpen = () => { const m = $id('newsModal'); return m && m.style.display === 'flex'; };
     try {
-        await new Promise(r => setTimeout(r, 4000));
+        await new Promise(r => setTimeout(r, wb ? 1500 : 4000));
+        let saved = false;
         while (todo.length) {
-            while (modalOpen()) await new Promise(r => setTimeout(r, 1500));   // kullanıcı haber açtıysa proxy'yi ona bırak
+            while (modalOpen()) await new Promise(r => setTimeout(r, 1500));   // kullanıcı haber açtıysa sunucuyu ona bırak
             const a = todo.shift();
-            try { await resolveGoogleNewsUrl(a.link, a); } catch (e) {}
-            await new Promise(r => setTimeout(r, 1500));
+            try {
+                if (wb) { const w = await workerRead(a.link, a); if (w) { workerRemember(a.link, w); READER_CACHE.set(a.link, { paras: w.paras, via: 'hızlı sunucu' }); saved = true; } }
+                else await resolveGoogleNewsUrl(a.link, a);
+            } catch (e) {}
+            await new Promise(r => setTimeout(r, wb ? 400 : 1500));
         }
+        if (saved) persistReaderCache();
     } finally { warming = false; }
 };
 
@@ -302,6 +309,31 @@ function cleanMarkdown(text, hint) {
     return finalizeParas(lines.filter(l => l.split(' ').length >= 7 || END_RE.test(l)), hint);
 }
 
+// ---------- Hızlı sunucu (Cloudflare Worker) ----------
+function workerBase() { try { return (localStorage.getItem('workerUrl') || window.SCROLLARY_WORKER || '').trim().replace(/\/+$/, ''); } catch (e) { return ''; } }
+window.saveWorkerUrl = function (v) {
+    v = (v || '').trim().replace(/\/+$/, '');
+    if (v && !/^https:\/\/[^\s]+$/.test(v)) { alert('Adres https:// ile başlamalı (örn. https://scrollary.kullanici.workers.dev)'); return; }
+    try { v ? localStorage.setItem('workerUrl', v) : localStorage.removeItem('workerUrl'); } catch (e) {}
+    const st = $id('workerUrlStatus'); if (st) st.textContent = v ? '⏳ Test ediliyor…' : 'Kapalı (ücretsiz proxy kullanılıyor)';
+    if (v) fetchWithTimeout(v + '/raw?url=' + encodeURIComponent('https://example.com'), 8000).then(x => { if (st) st.textContent = x.ok ? '✅ Hızlı sunucu çalışıyor' : '⚠️ Yanıt hatası: ' + x.status; }).catch(() => { if (st) st.textContent = '⚠️ Sunucuya ulaşılamadı'; });
+};
+// Çözme + indirme + ayıklama tek istekte. Başarısızsa null (eski zincire düşülür).
+async function workerRead(url, hint) {
+    const base = workerBase();
+    if (!base) return null;
+    const res = await fetchWithTimeout(`${base}/read?url=${encodeURIComponent(url)}`, 14000);
+    if (!res.ok) return null;
+    const j = await res.json();
+    if (!j || !Array.isArray(j.paras)) return null;
+    const paras = finalizeParas(j.paras, hint);
+    if (paras.length < 2 || paras.join(' ').length < 350) return null;
+    return { url: j.url, paras, image: j.image || '' };
+}
+function workerRemember(link, w) {
+    if (w.url && /news\.google\.com/.test(link)) { const id = gnId(link); if (id && !/news\.google\./.test(w.url)) gnRemember(id, w.url); }
+}
+
 // Tek bir rota üzerinden sayfa HTML'i çeker
 const HTML_ROUTES = [
     { delay: 0,    via: 'doğrudan',   url: u => u },
@@ -324,8 +356,10 @@ async function fetchViaRoute(route, url, timeout = 11000) {
 function routesFor() {
     let best = null;
     try { best = localStorage.getItem('bestRoute'); } catch (e) {}
-    if (!best || !HTML_ROUTES.some(r => r.via === best)) return HTML_ROUTES;
-    return HTML_ROUTES.map(r => r.via === best ? { ...r, delay: 0 } : { ...r, delay: Math.max(r.delay, 700) });
+    const wb = workerBase();
+    const routes = wb ? [{ delay: 0, via: 'worker', url: u => `${wb}/raw?url=${encodeURIComponent(u)}` }, ...HTML_ROUTES.map(x => ({ ...x, delay: Math.max(x.delay, 900) }))] : HTML_ROUTES;
+    if (!best || !routes.some(x => x.via === best)) return routes;
+    return routes.map(x => x.via === best ? { ...x, delay: 0 } : { ...x, delay: Math.max(x.delay, 700) });
 }
 
 async function fetchHtmlRace(url) {
@@ -457,6 +491,18 @@ async function loadReaderText(art, token, urlOverride, fresh) {
 
     box.innerHTML = skeletonHtml(t.extracting);
     let url = urlOverride || art.link;
+    if (workerBase() && !urlOverride) {                       // hızlı yol: çöz + indir + ayıkla tek istekte
+        try {
+            const w = await workerRead(url, art);
+            if (token !== readerToken) return;
+            if (w) {
+                workerRemember(url, w); refreshRealLinks(art);
+                const res = { paras: w.paras, via: 'hızlı sunucu' };
+                READER_CACHE.set(art.link, res); persistReaderCache();
+                return renderReaderText(res.paras, art, res.via);
+            }
+        } catch (e) { if (token !== readerToken) return; }
+    }
     if (/news\.google\.com/.test(url)) {
         const real = await resolveGoogleNewsUrl(url, art);
         if (token !== readerToken) return;
@@ -645,6 +691,7 @@ function buildCleanPage(art, paras) {
 async function showCleanFallback(art, link) {
     try {
         let hit = READER_CACHE.get(art.link);
+        if (!hit && workerBase()) { try { const w = await workerRead(link, art); if (w) { workerRemember(link, w); hit = { paras: w.paras, via: 'hızlı sunucu' }; READER_CACHE.set(art.link, hit); persistReaderCache(); } } catch (e) {} }
         if (!hit) { if (/news\.google\.com/.test(link)) link = (await resolveGoogleNewsUrl(link, art)) || link; hit = await extractArticle(link, art); READER_CACHE.set(art.link, hit); persistReaderCache(); }
         if (originalState.art !== art) return true;
         originalState.mounted = true;

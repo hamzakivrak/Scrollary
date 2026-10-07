@@ -20,7 +20,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics-compat.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=3.7">
+    <link rel="stylesheet" href="style.css?v=3.8">
     <style id="readerUiV2">
         /* ===== Haber penceresi v2: dar çubuklar, geniş okuma alanı ===== */
         #newsModal .modal-header{padding:6px 10px 0!important}
@@ -275,6 +275,16 @@
                 </details>
 
                 <details class="setting-item">
+                    <summary>⚡ Hızlı Sunucu (Cloudflare Worker)</summary>
+                    <div class="setting-detail">
+                        <label class="tap-label" for="workerUrlInput">Worker adresi</label>
+                        <input id="workerUrlInput" class="tap-select" type="url" inputmode="url" autocomplete="off" placeholder="https://scrollary.kullanici.workers.dev" onchange="saveWorkerUrl(this.value)">
+                        <p id="workerUrlStatus" style="color: var(--text-muted); font-size: 0.8rem; margin: 8px 0 0;">Kapalı (ücretsiz proxy kullanılıyor)</p>
+                        <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 0;">Google haber linklerini çözer, metni tek istekte getirir ve önbelleğe alır. Boş bırakırsan eski yöntem kullanılır.</p>
+                    </div>
+                </details>
+
+                <details class="setting-item">
                     <summary data-i18n="themeTitle">🎨 Tema Seçimi</summary>
                     <div class="setting-detail">
                         <div class="view-controls" id="themeBtnsWrapper" style="margin-bottom:0;"></div>
@@ -444,12 +454,16 @@
 b.addEventListener('scroll',function(){var c=b.scrollTop;if(c>y+12&&c>140)m.classList.add('rd-compact');else if(c<y-12||c<60)m.classList.remove('rd-compact');y=c;},{passive:true});
 new MutationObserver(function(){if(m.style.display!=='flex'&&m.classList.contains('rd-compact'))m.classList.remove('rd-compact');}).observe(m,{attributes:true,attributeFilter:['style']});})();
 </script>
-<script src="config.js?v=3.7"></script>
-<script src="auth.js?v=3.7"></script>
-<script src="api.js?v=3.7"></script>
-<script src="ai.js?v=3.7"></script>
-<script src="ui.js?v=3.7"></script>
-<script src="reader.js?v=3.7"></script>
-<script src="sesli-asistan.js?v=3.7"></script>
+<script>
+(function(){var i=document.getElementById('workerUrlInput'),s=document.getElementById('workerUrlStatus');if(!i)return;var v='';try{v=localStorage.getItem('workerUrl')||'';}catch(e){}
+i.value=v;if(v&&s)s.textContent='✅ Kayıtlı: hızlı sunucu açık';})();
+</script>
+<script src="config.js?v=3.8"></script>
+<script src="auth.js?v=3.8"></script>
+<script src="api.js?v=3.8"></script>
+<script src="ai.js?v=3.8"></script>
+<script src="ui.js?v=3.8"></script>
+<script src="reader.js?v=3.8"></script>
+<script src="sesli-asistan.js?v=3.8"></script>
 </body>
 </html>

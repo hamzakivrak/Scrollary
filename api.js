@@ -43,9 +43,15 @@ const FEED_ROUTES = [
     { delay: 2500, url: u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}` }
 ];
 
+function feedRoutes() {
+    let wb = ''; try { wb = (localStorage.getItem('workerUrl') || window.SCROLLARY_WORKER || '').trim().replace(/\/+$/, ''); } catch (e) {}
+    if (!wb) return FEED_ROUTES;
+    return [{ delay: 0, url: u => `${wb}/raw?url=${encodeURIComponent(u)}` }, ...FEED_ROUTES.map(r => ({ ...r, delay: Math.max(r.delay, 1200) }))];
+}
+
 async function fetchFeedData(feed, opts = {}) {
     const T = opts.fast ? 7000 : 9000;
-    const xmlTasks = FEED_ROUTES.map(r => ({
+    const xmlTasks = feedRoutes().map(r => ({
         delay: r.delay,
         run: async () => {
             const res = await fetchWithTimeout(r.url(feed.url), T, { cache: 'no-store' });
