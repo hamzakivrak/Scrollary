@@ -610,7 +610,7 @@ function renderNextBatch(forceClear = false) {
                     <div class="source-badge" onclick="openSourceFilterModal(event)">${escapeHtml(art.source)} ${catText ? '• '+escapeHtml(catText) : ''}</div>
                     ${imgHtml}
                 </div>
-                <div class="news-content"><h3>${escapeHtml(art.title)}</h3><div class="meta"><span>🕒 ${dateStr}</span><span class="read-more">${t.readMore || 'Oku →'}</span></div></div>
+                <div class="news-content"><h3>${escapeHtml(art.title)}</h3><div class="meta"><span>🕒 ${dateStr}</span>${/news\.google\.com/.test(art.link || '') ? '<span class="gn-hint"></span>' : ''}<span class="read-more">${t.readMore || 'Oku →'}</span></div></div>
             </div>
         `;
 
@@ -630,6 +630,7 @@ function renderNextBatch(forceClear = false) {
             lastTap = now;
             tapTimer = setTimeout(() => { lastTap = 0; runTapAction(art, single); }, 300);
         };
+        const gh = wrapper.querySelector('.gn-hint'); if (gh) gh.textContent = gnHintText();
         grid.appendChild(wrapper);
     }); 
     displayedCount += nextBatch.length;
@@ -649,8 +650,16 @@ function getTapAction(kind) {
     const v = localStorage.getItem('tapAction_' + kind);
     return ['last', 'reader', 'embedded', 'browser', 'off'].includes(v) && !(kind === 'single' && v === 'off') ? v : TAP_DEFAULTS[kind];
 }
+// Google linkine dayanan kartlarda, ayarlardaki 'orijinal haber' (tarayıcıda aç) dokunuş sayısını ipucu olarak göster
+function gnHintText() {
+    if (getTapAction('double') === 'browser') return '👆👆 Çift dokun: orijinal haber';
+    if (getTapAction('single') === 'browser') return '👆 Dokun: orijinal haber';
+    return '';
+}
+function refreshGnHints() { const t = gnHintText(); document.querySelectorAll('.gn-hint').forEach(el => { el.textContent = t; }); }
 window.setTapAction = function (kind, value) {
     localStorage.setItem('tapAction_' + kind, value);
+    refreshGnHints();
     showToastGlobal('✔️ Kaydedildi', 1500);
 };
 function runTapAction(art, mode) {

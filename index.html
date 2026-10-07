@@ -20,7 +20,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics-compat.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=3.8">
+    <link rel="stylesheet" href="style.css?v=3.9">
     <style id="readerUiV2">
         /* ===== Haber penceresi v2: dar çubuklar, geniş okuma alanı ===== */
         #newsModal .modal-header{padding:6px 10px 0!important}
@@ -35,6 +35,9 @@
         #newsModal .iframe-banner .banner-actions{display:flex;gap:6px;flex:0 0 auto}
         #newsModal .iframe-banner .banner-link{width:30px;height:28px;padding:0!important;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;font-size:.9rem;text-decoration:none}
         #newsModal.rd-compact .modal-header{display:none}
+        .gn-hint{font-size:.66rem;font-weight:600;padding:2px 7px;border-radius:999px;background:rgba(139,92,246,.18);color:#c4b5fd;white-space:nowrap}
+        .gn-hint:empty{display:none}
+        .news-content .meta:has(.gn-hint:not(:empty)){flex-wrap:wrap;row-gap:4px}
         #aiFab{position:absolute;right:14px;bottom:16px;z-index:60;width:48px;height:48px;border-radius:50%;border:none;cursor:pointer;color:#fff;font-size:1.25rem;background:linear-gradient(135deg,#8b5cf6,#d946ef);box-shadow:0 6px 18px rgba(0,0,0,.45)}
         #aiFab:active{transform:scale(.94)}
     </style>
@@ -458,12 +461,12 @@ new MutationObserver(function(){if(m.style.display!=='flex'&&m.classList.contain
 (function(){var i=document.getElementById('workerUrlInput'),s=document.getElementById('workerUrlStatus');if(!i)return;var v='';try{v=localStorage.getItem('workerUrl')||'';}catch(e){}
 i.value=v;if(v&&s)s.textContent='✅ Kayıtlı: hızlı sunucu açık';})();
 </script>
-<script src="config.js?v=3.8"></script>
-<script src="auth.js?v=3.8"></script>
-<script src="api.js?v=3.8"></script>
-<script src="ai.js?v=3.8"></script>
-<script src="ui.js?v=3.8"></script>
-<script src="reader.js?v=3.8"></script>
-<script src="sesli-asistan.js?v=3.8"></script>
+<script src="config.js?v=3.9"></script>
+<script src="auth.js?v=3.9"></script>
+<script src="api.js?v=3.9"></script>
+<script src="ai.js?v=3.9"></script>
+<script src="ui.js?v=3.9"></script>
+<script src="reader.js?v=3.9"></script>
+<script src="sesli-asistan.js?v=3.9"></script>
 </body>
 </html>
