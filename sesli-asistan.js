@@ -56,6 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
         isVoiceActive = true;
         currentVoiceCmdId++;
         voiceHintCount = 0;
+        spokenLog.length = 0;                      // yeni oturum: önceki oturumun cümleleri sayılmasın
         try { window.speechSynthesis.cancel(); } catch (err) {}
         const sb = document.getElementById('voiceStopBtn');
         if (sb) sb.style.setProperty('display', 'none', 'important');
@@ -174,8 +175,10 @@ function sesliOkuAsync(metin, myCmdId, appendSubtitle = false) {
 
         // Döngü kırıcı: aynı cümle 20 sn içinde 3 kez söylendiyse bir şey ters gidiyordur, oturumu kapat
         const now = Date.now();
-        while (spokenLog.length && now - spokenLog[0].t > 20000) spokenLog.shift();
-        if (spokenLog.filter(x => x.text === metin).length >= 2) {
+        while (spokenLog.length && now - spokenLog[0].t > 30000) spokenLog.shift();
+        const lastTwo = spokenLog.slice(-2);
+        // Gerçek döngü: aynı cümle art arda 3. kez söylenmek üzere (araya başka bir cümle girmeden)
+        if (lastTwo.length === 2 && lastTwo.every(x => x.text === metin)) {
             if (typeof showToastGlobal === 'function') showToastGlobal('🎙️ Sesli asistan kendini tekrar ettiği için kapatıldı', 3000);
             endVoiceSession('loop');
             return resolve();
@@ -495,6 +498,7 @@ function startListening(myCmdId, delay = 450, followUp = false) {
 
 function endVoiceSession(reason) {
     const wasActive = isVoiceActive;
+    spokenLog.length = 0;
     isVoiceActive = false;
     currentVoiceCmdId++;
     try { window.speechSynthesis.cancel(); } catch (e) {}
