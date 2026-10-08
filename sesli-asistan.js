@@ -5,7 +5,12 @@ let lastVoiceCommand = "";
 let isVoiceActive = false;
 let currentVoiceCmdId = 0; 
 let currentListedArticles = []; 
-let subtitleTimeout = null; 
+let subtitleTimeout = null;
+let voiceRec = null, voiceMicBtn = null;
+let voiceListening = false, voiceHeard = false, voiceDeadline = 0;
+let voiceIdleTimer = null, voiceRestartTimer = null, currentUtter = null, voiceHintCount = 0;
+// Dinlemede hiçbir şey söylenmezse oturum kaç sn sonra kapansın (Ayarlar > Sesli Asistan). 0 = konuşma bitince tekrar dinleme yok
+function voiceIdleMs() { const v = parseInt(localStorage.getItem('voiceIdleSec'), 10); return isNaN(v) ? 6000 : v * 1000; } 
 
 document.addEventListener('DOMContentLoaded', () => {
     const micBtn = document.querySelector('.mic-fab');
@@ -18,14 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
         stopBtn.style.cssText = 'display:none; position:fixed; bottom:90px; right:20px; background:#e11d48; color:white; border:none; border-radius:30px; padding:12px 24px; font-weight:bold; font-size:1.1rem; z-index:999999; box-shadow:0 4px 15px rgba(0,0,0,0.6); cursor:pointer; transition:0.3s;';
         document.body.appendChild(stopBtn);
 
-        stopBtn.addEventListener('click', () => {
-            window.speechSynthesis.cancel();
-            stopBtn.style.setProperty('display', 'none', 'important');
-            isVoiceActive = false;
-            currentVoiceCmdId++; 
-            micBtn.classList.remove('listening');
-            hideVoiceSubtitle(0); 
-        });
+        stopBtn.addEventListener('click', () => { endVoiceSession('manual'); });
     }
 
     const hideOnInteraction = () => {
@@ -44,35 +42,50 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!SpeechRecognition) return;
 
     const recognition = new SpeechRecognition();
-    recognition.lang = 'tr-TR'; 
-    recognition.interimResults = false; 
+    recognition.lang = 'tr-TR';
+    recognition.interimResults = false;
     recognition.maxAlternatives = 1;
+    voiceRec = recognition; voiceMicBtn = micBtn;
 
     micBtn.addEventListener('click', (e) => {
         e.preventDefault();
+        if (isVoiceActive && voiceListening) { endVoiceSession('manual'); return; }   // dinlerken tekrar dokunmak = kapat
         isVoiceActive = true;
         currentVoiceCmdId++;
-        if(window.speechSynthesis.speaking) {
-            window.speechSynthesis.cancel();
-            document.getElementById('voiceStopBtn').style.setProperty('display', 'none', 'important');
-            hideVoiceSubtitle(0);
-        }
-        try { recognition.start(); } catch (err) { try { recognition.stop(); } catch (e2) {} }
-        micBtn.classList.add('listening'); 
+        voiceHintCount = 0;
+        try { window.speechSynthesis.cancel(); } catch (err) {}
+        const sb = document.getElementById('voiceStopBtn');
+        if (sb) sb.style.setProperty('display', 'none', 'important');
+        hideVoiceSubtitle(0);
+        clearVoiceHighlights();
+        startListening(currentVoiceCmdId, 0, false);
     });
 
+    recognition.onspeechstart = () => { voiceHeard = true; clearTimeout(voiceIdleTimer); };
+
     recognition.onresult = (event) => {
-        let komut = event.results[0][0].transcript.toLowerCase();
-        micBtn.classList.remove('listening'); 
-        processVoiceCommand(komut); 
+        voiceListening = false;
+        clearTimeout(voiceIdleTimer);
+        micBtn.classList.remove('listening');
+        const komut = String(event.results[0][0].transcript || '').toLowerCase();
+        if (komut.trim()) processVoiceCommand(komut);
     };
 
-    recognition.onspeechend = () => { recognition.stop(); micBtn.classList.remove('listening'); };
+    // Sonuç gelmeden tanıma kendiliğinden bittiyse (sessizlik) süre dolana kadar dinlemeyi sürdür
+    recognition.onend = () => {
+        if (!voiceListening || !isVoiceActive) return;
+        if (Date.now() >= voiceDeadline) { endVoiceSession('idle'); return; }
+        try { recognition.start(); } catch (e) {}
+    };
+
     recognition.onerror = (ev) => {
-        try { recognition.stop(); } catch (e) {}
+        if (ev.error === 'no-speech' || ev.error === 'aborted') return;   // onend / sessizlik zamanlayıcısı halleder
+        voiceListening = false;
+        clearTimeout(voiceIdleTimer);
         micBtn.classList.remove('listening');
-        const msg = { 'not-allowed': 'Mikrofon izni verilmedi. Tarayıcı ayarlarından izin verin.', 'service-not-allowed': 'Ses tanıma bu tarayıcıda kapalı.', 'no-speech': 'Ses algılanmadı, tekrar deneyin.', 'network': 'Ses tanıma için internet gerekli.', 'audio-capture': 'Mikrofon bulunamadı.' }[ev && ev.error];
+        const msg = { 'not-allowed': 'Mikrofon izni verilmedi. Tarayıcı ayarlarından izin verin.', 'service-not-allowed': 'Ses tanıma bu tarayıcıda kapalı.', 'audio-capture': 'Mikrofon bulunamadı.', 'network': 'Ses tanıma için internet bağlantısı gerekli.' }[ev.error];
         if (msg && typeof showToastGlobal === 'function') showToastGlobal('🎙️ ' + msg, 3500);
+        endVoiceSession('error');
     };
 });
 
@@ -145,34 +158,34 @@ function voiceErrorText(e) {
 function sesliOkuAsync(metin, myCmdId, appendSubtitle = false) {
     return new Promise((resolve) => {
         if (!isVoiceActive || myCmdId !== currentVoiceCmdId || !('speechSynthesis' in window)) return resolve();
-        
+
+        stopListening();                       // konuşurken mikrofon kapalı (kendi sesini duymasın)
         window.speechSynthesis.cancel();
-        showVoiceSubtitle(metin, appendSubtitle); 
+        showVoiceSubtitle(metin, appendSubtitle);
 
         const utterance = new SpeechSynthesisUtterance(metin);
         utterance.lang = 'tr-TR';
-        utterance.rate = 1.5; 
+        utterance.rate = 1.5;
+        currentUtter = utterance;
 
         const stopBtn = document.getElementById('voiceStopBtn');
-        stopBtn.style.setProperty('display', 'block', 'important');
+        if (stopBtn) stopBtn.style.setProperty('display', 'block', 'important');
 
-        utterance.onend = () => { 
-            stopBtn.style.setProperty('display', 'none', 'important'); 
-            hideVoiceSubtitle(5000); 
-            resolve(); 
+        const finish = (hideDelay) => {
+            if (currentUtter !== utterance) return resolve();   // yerini yeni konuşmaya bıraktı
+            if (stopBtn) stopBtn.style.setProperty('display', 'none', 'important');
+            hideVoiceSubtitle(hideDelay);
+            resolve();
         };
-        utterance.onerror = () => { 
-            stopBtn.style.setProperty('display', 'none', 'important'); 
-            hideVoiceSubtitle(0);
-            resolve(); 
-        };
+        utterance.onend = () => finish(5000);
+        utterance.onerror = () => finish(0);
 
         window.speechSynthesis.speak(utterance);
     });
 }
 
 // --- ANA İŞLEM DÖNGÜSÜ ---
-async function processVoiceCommand(komut) {
+async function processVoiceCommandInner(komut, preset) {
     let myCmdId = currentVoiceCmdId;
     if (!isVoiceActive) return;
     
@@ -191,8 +204,8 @@ async function processVoiceCommand(komut) {
     
     JSON FORMATI: {"intent":"search|detail|continue|general_list", "list_index": 1, "search_query":"", "ui_message":""}`;
 
-    let aiData;
-    try {
+    let aiData = preset || null;      // yerel komut ayrıştırıcı bulduysa yapay zekaya gitme
+    if (!aiData) try {
         const intentResult = await fetchFromGroq(intentSystemPrompt, komut, true);
         if(myCmdId !== currentVoiceCmdId) return;
         aiData = parseLooseJson(intentResult);
@@ -203,7 +216,9 @@ async function processVoiceCommand(komut) {
         return sesliOkuAsync(e.message === "ALL_KEYS_FAILED" ? voiceErrorText(e) : "Komutu anlayamadım, tekrar söyler misiniz?", myCmdId, false);
     }
 
-    if(typeof showToastGlobal === 'function') showToastGlobal("🤖 " + aiData.ui_message, 4000);
+    if (aiData.ui_message && typeof showToastGlobal === 'function') showToastGlobal("🤖 " + aiData.ui_message, 4000);
+
+    if (aiData.intent === "exit") { await finishByExit(myCmdId); return; }
 
     const searchInput = document.getElementById('searchInput');
 
@@ -291,6 +306,7 @@ async function processVoiceCommand(komut) {
             let cleanSummary = validSummaries[i].replace(/^\d+[\.\-\)]?\s*(Haber|Haber:|Sıra:)?\s*/i, '').trim();
             let finalSpokenText = `${i + 1}. Haber: ${cleanSummary}`;
 
+            highlightCard(currentListedArticles[i]);     // okunan kartı ekranda vurgula + kaydır
             let shouldAppend = (i > 0);
             await sesliOkuAsync(finalSpokenText, myCmdId, shouldAppend);
             
@@ -299,8 +315,12 @@ async function processVoiceCommand(komut) {
             }
         }
         
+        clearVoiceHighlights();
         if (myCmdId === currentVoiceCmdId) {
-            await sesliOkuAsync("Dinlemek istediğiniz haberin numarasını söyleyebilir veya devam et diyebilirsiniz.", myCmdId, true);
+            const hint = voiceHintCount++ === 0
+                ? "Detayını dinlemek istediğiniz haberin numarasını söyleyebilir, devam etmem için devam et diyebilirsiniz. Kapatmak için kapat demeniz yeterli."
+                : "Numara söyleyebilir, devam et ya da kapat diyebilirsiniz.";
+            await sesliOkuAsync(hint, myCmdId, true);
         }
 
     } catch (e) {
@@ -369,10 +389,13 @@ async function handleDeepResearch(article, listIndex, myCmdId) {
         if (myCmdId !== currentVoiceCmdId) return;
         voiceReadLinks.add(article.link); 
         
-        await sesliOkuAsync(res, myCmdId, false);
+        await readWithScroll(res, myCmdId);          // okurken ilgili paragrafı vurgulayıp kaydırır
+        clearVoiceHighlights();
 
-        if (myCmdId === currentVoiceCmdId && typeof closeModalSafe === 'function') {
-            setTimeout(() => { if (myCmdId === currentVoiceCmdId && isVoiceActive) closeModalSafe('newsModal'); }, 1000);
+        if (myCmdId === currentVoiceCmdId && isVoiceActive) {
+            if (typeof closeModalSafe === 'function') closeModalSafe('newsModal');   // ana ekrana kendiliğinden dön
+            await new Promise(r => setTimeout(r, 500));
+            await sesliOkuAsync("Başka isteğiniz var mı?", myCmdId, true);
         }
 
     } catch(e) { 
@@ -380,5 +403,142 @@ async function handleDeepResearch(article, listIndex, myCmdId) {
             await sesliOkuAsync(e && e.detail ? voiceErrorText(e) : "Haberin detaylarını özetlerken bir sorun oluştu.", myCmdId, false);
             setTimeout(() => { if (myCmdId === currentVoiceCmdId && isVoiceActive && typeof closeModalSafe === 'function') closeModalSafe('newsModal'); }, 1000);
         }
+    }
+}
+
+
+// ===================== SOHBET DÖNGÜSÜ, YEREL KOMUTLAR, OTOMATİK KAYDIRMA =====================
+
+function stopListening() {
+    voiceListening = false;
+    clearTimeout(voiceIdleTimer); clearTimeout(voiceRestartTimer);
+    if (voiceMicBtn) voiceMicBtn.classList.remove('listening');
+    try { if (voiceRec) voiceRec.abort(); } catch (e) {}
+}
+
+// Asistan konuşmayı bitirince mikrofonu yeniden açar. followUp=true: Ayarlar'daki sessizlik süresi uygulanır (0 ise tekrar dinlemez).
+function startListening(myCmdId, delay = 450, followUp = false) {
+    if (!isVoiceActive || myCmdId !== currentVoiceCmdId || !voiceRec) return;
+    let idle = voiceIdleMs();
+    if (followUp && !idle) { endVoiceSession('done'); return; }
+    if (!idle) idle = 8000;
+    clearTimeout(voiceRestartTimer);
+    voiceRestartTimer = setTimeout(() => {                 // kısa bekleme: asistanın kendi sesinin kuyruğunu duymasın
+        if (!isVoiceActive || myCmdId !== currentVoiceCmdId) return;
+        voiceListening = true; voiceHeard = false;
+        voiceDeadline = Date.now() + idle;
+        if (voiceMicBtn) voiceMicBtn.classList.add('listening');
+        clearTimeout(voiceIdleTimer);
+        voiceIdleTimer = setTimeout(() => {
+            if (isVoiceActive && voiceListening && !voiceHeard && myCmdId === currentVoiceCmdId) endVoiceSession('idle');
+        }, idle);
+        try { voiceRec.start(); } catch (e) {}
+    }, delay);
+}
+
+function endVoiceSession(reason) {
+    const wasActive = isVoiceActive;
+    isVoiceActive = false;
+    currentVoiceCmdId++;
+    try { window.speechSynthesis.cancel(); } catch (e) {}
+    stopListening();
+    const sb = document.getElementById('voiceStopBtn');
+    if (sb) sb.style.setProperty('display', 'none', 'important');
+    hideVoiceSubtitle(reason === 'idle' ? 1500 : 0);
+    clearVoiceHighlights();
+    if (wasActive && reason === 'idle' && typeof showToastGlobal === 'function') showToastGlobal('🎙️ Dinleme kapandı', 2000);
+}
+
+async function finishByExit(myCmdId) {
+    await sesliOkuAsync('Tamam, görüşmek üzere.', myCmdId, false);
+    const m = document.getElementById('newsModal');
+    if (m && m.style.display === 'flex' && typeof closeModalSafe === 'function') closeModalSafe('newsModal');
+    endVoiceSession('exit');
+}
+
+async function processVoiceCommand(komut) {
+    const id = currentVoiceCmdId;
+    if (!isVoiceActive) return;
+    stopListening();
+    const local = parseLocalIntent(komut);
+    try {
+        if (local && local.intent === 'exit') { await finishByExit(id); return; }
+        await processVoiceCommandInner(komut, local);
+    } catch (e) { console.warn('[sesli asistan]', e); }
+    if (isVoiceActive && id === currentVoiceCmdId) startListening(id, 450, true);   // konuşma bitti -> yine dinle
+}
+
+// ---- Yerel komut ayrıştırıcı: çıkış / devam / haber numarası (yapay zekaya gitmeden, hızlı ve kotasız) ----
+const VOICE_NUMS = { bir: 1, birinci: 1, ilk: 1, iki: 2, ikinci: 2, üç: 3, üçüncü: 3, dört: 4, dördüncü: 4, beş: 5, beşinci: 5, altı: 6, altıncı: 6, yedi: 7, yedinci: 7, sekiz: 8, sekizinci: 8, dokuz: 9, dokuzuncu: 9, on: 10, onuncu: 10 };
+const VOICE_FILLERS = new Set(['haber', 'haberi', 'haberin', 'numara', 'numaralı', 'numaralıyı', 'nolu', 'no', 'detay', 'detayı', 'detayını', 'detaylarını', 'oku', 'okur', 'musun', 'aç', 'ver', 'anlat', 'dinle', 'dinlemek', 'istiyorum', 'lütfen', 'tamam', 'evet', 'şunu', 'bunu', 'olanı', 'olan']);
+function vNorm(s) { return String(s).toLowerCase().replace(/[.,!?;:"“”'’()]/g, ' ').replace(/\s+/g, ' ').trim(); }
+
+function parseLocalIntent(raw) {
+    const t = vNorm(raw);
+    if (!t) return null;
+    const words = t.split(' ');
+    const strongExit = /(^| )(kapat|kapatabilirsin|kapatın|kapatır mısın|bitir|bitti|yeter|çık|çıkabilirsin|çıkar mısın|çıkış|sus|susabilirsin|kapan|görüşürüz|hoşça kal|istemiyorum)( |$)/;
+    const softExit = /^(tamam|evet tamam|hayır|yok|hayır teşekkürler|yok teşekkürler|teşekkürler|teşekkür ederim|sağ ol|sağol|gerek yok|başka bir şey yok|başka isteğim yok|hepsi bu|bu kadar|şimdilik bu kadar|tamam teşekkürler|tamam sağ ol)$/;
+    if ((words.length <= 6 && strongExit.test(t)) || softExit.test(t)) return { intent: 'exit' };
+
+    if (/^(tamam )?(devam( et| edelim| edin| et lütfen)?|sonraki( haber| haberler| haberleri)?|diğerleri|diğer haberler|başka( haber| haberler)?( var mı)?|sıradaki( haber| haberler)?)$/.test(t)) return { intent: 'continue', ui_message: 'Devam ediyorum' };
+
+    if (currentListedArticles.length) {
+        const rest = words.filter(w => !VOICE_FILLERS.has(w));
+        if (rest.length === 1) {
+            const w = rest[0].replace(/\.$/, '');
+            let n = /^\d{1,2}$/.test(w) ? parseInt(w, 10) : VOICE_NUMS[w];
+            if (!n) { const k = Object.keys(VOICE_NUMS).find(k => (/(nci|ncı|ncu|ncü)$/.test(k) || k === 'ilk') && w.startsWith(k)); if (k) n = VOICE_NUMS[k]; }   // ikinciyi, üçüncüyü, ilkini...
+            if (n >= 1 && n <= currentListedArticles.length) return { intent: 'detail', list_index: n, ui_message: n + '. haberin detayı' };
+        }
+    }
+    return null;
+}
+
+// ---- Vurgulama ve otomatik kaydırma ----
+function clearVoiceHighlights() { document.querySelectorAll('.voice-reading').forEach(e => e.classList.remove('voice-reading')); }
+
+function highlightCard(art) {
+    clearVoiceHighlights();
+    if (!art || !art.link) return;
+    try {
+        const el = document.querySelector('.swipe-wrapper[data-link="' + CSS.escape(art.link) + '"]');
+        if (el) { el.classList.add('voice-reading'); el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+    } catch (e) {}
+}
+
+function vStems(s) { return new Set(vNorm(s).split(' ').filter(w => w.length > 3).map(w => w.slice(0, 5))); }
+function bestParaIndex(sentence, paras, from) {
+    if (!paras.length) return -1;
+    const S = vStems(sentence);
+    if (!S.size) return from;
+    let best = -1, bs = 0;
+    paras.forEach((p, i) => {
+        const P = vStems(p.textContent);
+        let n = 0; S.forEach(w => { if (P.has(w)) n++; });
+        let sc = n / S.size + (i >= from ? 0.05 : 0);     // ilerlemeyi tercih et
+        if (sc > bs) { bs = sc; best = i; }
+    });
+    return bs >= 0.2 ? best : from;
+}
+
+// Özeti cümle cümle okur; her cümleye en çok benzeyen haber paragrafını vurgulayıp ekranda kaydırır
+async function readWithScroll(text, myCmdId) {
+    const box = document.getElementById('fullTextContainer');
+    const paras = box ? Array.from(box.querySelectorAll('.p-text')) : [];
+    const raw = (String(text).match(/[^.!?…]+[.!?…]*/g) || [String(text)]).map(x => x.trim()).filter(x => x.length > 1);
+    const chunks = [];
+    for (const x of raw) { if (chunks.length && chunks[chunks.length - 1].length < 40) chunks[chunks.length - 1] += ' ' + x; else chunks.push(x); }
+    let last = 0;
+    for (let i = 0; i < chunks.length; i++) {
+        if (!isVoiceActive || myCmdId !== currentVoiceCmdId) return;
+        const idx = bestParaIndex(chunks[i], paras, last);
+        if (idx >= 0) {
+            last = idx;
+            paras.forEach(p => p.classList.remove('voice-reading'));
+            paras[idx].classList.add('voice-reading');
+            try { paras[idx].scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+        }
+        await sesliOkuAsync(chunks[i], myCmdId, false);
     }
 }

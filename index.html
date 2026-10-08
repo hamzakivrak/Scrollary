@@ -20,7 +20,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics-compat.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=3.9">
+    <link rel="stylesheet" href="style.css?v=4.0">
     <style id="readerUiV2">
         /* ===== Haber penceresi v2: dar çubuklar, geniş okuma alanı ===== */
         #newsModal .modal-header{padding:6px 10px 0!important}
@@ -38,6 +38,8 @@
         .gn-hint{font-size:.66rem;font-weight:600;padding:2px 7px;border-radius:999px;background:rgba(139,92,246,.18);color:#c4b5fd;white-space:nowrap}
         .gn-hint:empty{display:none}
         .news-content .meta:has(.gn-hint:not(:empty)){flex-wrap:wrap;row-gap:4px}
+        .swipe-wrapper.voice-reading{outline:2px solid #8b5cf6;outline-offset:2px;border-radius:16px;box-shadow:0 0 0 5px rgba(139,92,246,.22)}
+        .p-text.voice-reading{background:rgba(139,92,246,.22);border-radius:8px;transition:background .3s}
         #aiFab{position:absolute;right:14px;bottom:16px;z-index:60;width:48px;height:48px;border-radius:50%;border:none;cursor:pointer;color:#fff;font-size:1.25rem;background:linear-gradient(135deg,#8b5cf6,#d946ef);box-shadow:0 6px 18px rgba(0,0,0,.45)}
         #aiFab:active{transform:scale(.94)}
     </style>
@@ -278,6 +280,21 @@
                 </details>
 
                 <details class="setting-item">
+                    <summary>🎙️ Sesli Asistan</summary>
+                    <div class="setting-detail">
+                        <label class="tap-label" for="voiceIdleSec">Konuşma bitince tekrar dinle; sessizlikte kapan</label>
+                        <select id="voiceIdleSec" class="tap-select" onchange="localStorage.setItem('voiceIdleSec', this.value)">
+                            <option value="0">Kapalı (tek komut, tekrar dinlemez)</option>
+                            <option value="4">4 saniye sessizlikte kapan</option>
+                            <option value="6">6 saniye sessizlikte kapan</option>
+                            <option value="8">8 saniye sessizlikte kapan</option>
+                            <option value="12">12 saniye sessizlikte kapan</option>
+                        </select>
+                        <p style="color: var(--text-muted); font-size: 0.8rem; margin: 8px 0 0;">Asistan konuşmasını bitirince mikrofon kendiliğinden açılır. "Kapat", "yeter", "çıkabilirsin" gibi ifadelerle ya da seçilen süre kadar sessiz kalırsan kapanır.</p>
+                    </div>
+                </details>
+
+                <details class="setting-item">
                     <summary>⚡ Hızlı Sunucu (Cloudflare Worker)</summary>
                     <div class="setting-detail">
                         <label class="tap-label" for="workerUrlInput">Worker adresi</label>
@@ -461,12 +478,15 @@ new MutationObserver(function(){if(m.style.display!=='flex'&&m.classList.contain
 (function(){var i=document.getElementById('workerUrlInput'),s=document.getElementById('workerUrlStatus');if(!i)return;var v='';try{v=localStorage.getItem('workerUrl')||'';}catch(e){}
 i.value=v;if(v&&s)s.textContent='✅ Kayıtlı: hızlı sunucu açık';})();
 </script>
-<script src="config.js?v=3.9"></script>
-<script src="auth.js?v=3.9"></script>
-<script src="api.js?v=3.9"></script>
-<script src="ai.js?v=3.9"></script>
-<script src="ui.js?v=3.9"></script>
-<script src="reader.js?v=3.9"></script>
-<script src="sesli-asistan.js?v=3.9"></script>
+<script>
+(function(){var s=document.getElementById('voiceIdleSec');if(!s)return;var v=null;try{v=localStorage.getItem('voiceIdleSec');}catch(e){}s.value=(v===null||v==='')?'6':v;})();
+</script>
+<script src="config.js?v=4.0"></script>
+<script src="auth.js?v=4.0"></script>
+<script src="api.js?v=4.0"></script>
+<script src="ai.js?v=4.0"></script>
+<script src="ui.js?v=4.0"></script>
+<script src="reader.js?v=4.0"></script>
+<script src="sesli-asistan.js?v=4.0"></script>
 </body>
 </html>
