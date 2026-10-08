@@ -9,6 +9,9 @@ let subtitleTimeout = null;
 let voiceRec = null, voiceMicBtn = null;
 let voiceListening = false, voiceHeard = false, voiceDeadline = 0;
 let voiceIdleTimer = null, voiceRestartTimer = null, currentUtter = null, voiceHintCount = 0;
+let voiceRecRunning = false;
+const spokenLog = [];   // asistanın son söyledikleri (yankı süzgeci ve döngü kırıcı için)
+const vSleep = (ms) => new Promise(r => setTimeout(r, ms));
 // Dinlemede hiçbir şey söylenmezse oturum kaç sn sonra kapansın (Ayarlar > Sesli Asistan). 0 = konuşma bitince tekrar dinleme yok
 function voiceIdleMs() { const v = parseInt(localStorage.getItem('voiceIdleSec'), 10); return isNaN(v) ? 6000 : v * 1000; } 
 
@@ -61,18 +64,22 @@ document.addEventListener('DOMContentLoaded', () => {
         startListening(currentVoiceCmdId, 0, false);
     });
 
+    recognition.onstart = () => { voiceRecRunning = true; };
     recognition.onspeechstart = () => { voiceHeard = true; clearTimeout(voiceIdleTimer); };
 
     recognition.onresult = (event) => {
+        const komut = String(event.results[0][0].transcript || '').toLowerCase();
+        // Asistan hâlâ konuşuyorsa ya da duyulan şey asistanın kendi cümlesiyse bu bir yankıdır: yok say, dinlemeye devam et
+        if (window.speechSynthesis.speaking || isEchoOfOwnVoice(komut)) { voiceHeard = false; return; }
         voiceListening = false;
         clearTimeout(voiceIdleTimer);
         micBtn.classList.remove('listening');
-        const komut = String(event.results[0][0].transcript || '').toLowerCase();
         if (komut.trim()) processVoiceCommand(komut);
     };
 
     // Sonuç gelmeden tanıma kendiliğinden bittiyse (sessizlik) süre dolana kadar dinlemeyi sürdür
     recognition.onend = () => {
+        voiceRecRunning = false;
         if (!voiceListening || !isVoiceActive) return;
         if (Date.now() >= voiceDeadline) { endVoiceSession('idle'); return; }
         try { recognition.start(); } catch (e) {}
@@ -155,33 +162,80 @@ function voiceErrorText(e) {
     return "Bağlantı sorunu yaşıyorum.";
 }
 
+// Mikrofon tamamen kapanana kadar bekle (Android'de tanıma açıkken ses sentezi bozuluyor / atlanıyor)
+async function waitRecEnd(maxMs = 600) {
+    const t0 = Date.now();
+    while (voiceRecRunning && Date.now() - t0 < maxMs) await vSleep(40);
+}
+
 function sesliOkuAsync(metin, myCmdId, appendSubtitle = false) {
-    return new Promise((resolve) => {
+    return new Promise(async (resolve) => {
         if (!isVoiceActive || myCmdId !== currentVoiceCmdId || !('speechSynthesis' in window)) return resolve();
 
-        stopListening();                       // konuşurken mikrofon kapalı (kendi sesini duymasın)
-        window.speechSynthesis.cancel();
+        // Döngü kırıcı: aynı cümle 20 sn içinde 3 kez söylendiyse bir şey ters gidiyordur, oturumu kapat
+        const now = Date.now();
+        while (spokenLog.length && now - spokenLog[0].t > 20000) spokenLog.shift();
+        if (spokenLog.filter(x => x.text === metin).length >= 2) {
+            if (typeof showToastGlobal === 'function') showToastGlobal('🎙️ Sesli asistan kendini tekrar ettiği için kapatıldı', 3000);
+            endVoiceSession('loop');
+            return resolve();
+        }
+        spokenLog.push({ text: metin, t: now });
+
+        stopListening();
+        await waitRecEnd(600);
+        if (!isVoiceActive || myCmdId !== currentVoiceCmdId) return resolve();
+
         showVoiceSubtitle(metin, appendSubtitle);
-
-        const utterance = new SpeechSynthesisUtterance(metin);
-        utterance.lang = 'tr-TR';
-        utterance.rate = 1.5;
-        currentUtter = utterance;
-
         const stopBtn = document.getElementById('voiceStopBtn');
         if (stopBtn) stopBtn.style.setProperty('display', 'block', 'important');
 
-        const finish = (hideDelay) => {
-            if (currentUtter !== utterance) return resolve();   // yerini yeni konuşmaya bıraktı
-            if (stopBtn) stopBtn.style.setProperty('display', 'none', 'important');
-            hideVoiceSubtitle(hideDelay);
-            resolve();
-        };
-        utterance.onend = () => finish(5000);
-        utterance.onerror = () => finish(0);
+        let superseded = false;
+        for (let attempt = 0; attempt < 3; attempt++) {
+            window.speechSynthesis.cancel();
+            await vSleep(90);                                   // cancel() hemen ardından speak() bazı Android sürümlerinde sesi yutuyor
+            if (!isVoiceActive || myCmdId !== currentVoiceCmdId) { superseded = true; break; }
 
-        window.speechSynthesis.speak(utterance);
+            const utterance = new SpeechSynthesisUtterance(metin);
+            utterance.lang = 'tr-TR';
+            utterance.rate = 1.5;
+            currentUtter = utterance;
+            const t0 = Date.now();
+            const how = await new Promise((res) => {
+                utterance.onend = () => res('end');
+                utterance.onerror = (ev) => res((ev && ev.error) || 'error');
+                window.speechSynthesis.speak(utterance);
+            });
+            if (currentUtter !== utterance) { superseded = true; break; }       // yerini yeni konuşmaya bıraktı
+            if (how === 'interrupted' || how === 'canceled') { superseded = true; break; }
+
+            // Beklenenden çok erken bittiyse ses atlanmıştır: yeniden dene
+            const elapsed = Date.now() - t0;
+            const expected = Math.max(700, metin.length * 45);
+            if (elapsed >= expected * 0.3) break;
+            await vSleep(350);
+        }
+
+        if (!superseded) {
+            if (stopBtn) stopBtn.style.setProperty('display', 'none', 'important');
+            hideVoiceSubtitle(5000);
+        }
+        resolve();
     });
+}
+
+// Asistanın kendi cümlesinin mikrofona karışıp komut sanılmasını önler
+function isEchoOfOwnVoice(text) {
+    const words = vNorm(text).split(' ').filter(Boolean);
+    if (words.length < 3) return false;
+    const now = Date.now();
+    const bag = new Set();
+    spokenLog.filter(x => now - x.t < 30000).forEach(x => vNorm(x.text).split(' ').forEach(w => { if (w.length > 2) bag.add(w.slice(0, 5)); }));
+    if (!bag.size) return false;
+    const sig = words.filter(w => w.length > 2);
+    if (!sig.length) return false;
+    const hit = sig.filter(w => bag.has(w.slice(0, 5))).length;
+    return hit / sig.length >= 0.8;
 }
 
 // --- ANA İŞLEM DÖNGÜSÜ ---
@@ -423,8 +477,10 @@ function startListening(myCmdId, delay = 450, followUp = false) {
     if (followUp && !idle) { endVoiceSession('done'); return; }
     if (!idle) idle = 8000;
     clearTimeout(voiceRestartTimer);
-    voiceRestartTimer = setTimeout(() => {                 // kısa bekleme: asistanın kendi sesinin kuyruğunu duymasın
+    const t0 = Date.now();
+    const arm = () => {                                    // asistan hâlâ konuşuyorsa bekle, sonra mikrofonu aç
         if (!isVoiceActive || myCmdId !== currentVoiceCmdId) return;
+        if ((window.speechSynthesis.speaking || window.speechSynthesis.pending) && Date.now() - t0 < 20000) { voiceRestartTimer = setTimeout(arm, 200); return; }
         voiceListening = true; voiceHeard = false;
         voiceDeadline = Date.now() + idle;
         if (voiceMicBtn) voiceMicBtn.classList.add('listening');
@@ -433,7 +489,8 @@ function startListening(myCmdId, delay = 450, followUp = false) {
             if (isVoiceActive && voiceListening && !voiceHeard && myCmdId === currentVoiceCmdId) endVoiceSession('idle');
         }, idle);
         try { voiceRec.start(); } catch (e) {}
-    }, delay);
+    };
+    voiceRestartTimer = setTimeout(arm, delay);
 }
 
 function endVoiceSession(reason) {
@@ -465,7 +522,7 @@ async function processVoiceCommand(komut) {
         if (local && local.intent === 'exit') { await finishByExit(id); return; }
         await processVoiceCommandInner(komut, local);
     } catch (e) { console.warn('[sesli asistan]', e); }
-    if (isVoiceActive && id === currentVoiceCmdId) startListening(id, 450, true);   // konuşma bitti -> yine dinle
+    if (isVoiceActive && id === currentVoiceCmdId) startListening(id, 900, true);   // konuşma bitti -> yine dinle
 }
 
 // ---- Yerel komut ayrıştırıcı: çıkış / devam / haber numarası (yapay zekaya gitmeden, hızlı ve kotasız) ----

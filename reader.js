@@ -109,6 +109,80 @@ async function searchPublisherUrl(art) {
 // Eski biçim yerelde çözülür; yeni (şifreli) biçim için birden çok yol yarıştırılır:
 // 1) (varsa) kendi çözücü adresin  2) Google batchexecute (doğrudan + proxy'ler)  3) Jina (gerçek tarayıcı, yönlendirmeyi takip eder)
 // Başarısız olursa null döner.
+
+// ---------- Yayıncının kendi RSS'inden eşleştirme (arama motorundan hızlı ve proxy'ye az bağımlı) ----------
+// Google RSS'indeki <source url> yayıncıyı verir. Yayıncının RSS'i (son ~30-50 haber) tek istekle indirilir,
+// başlıktaki anlamlı kelime kökleriyle eşleştirilir; eşleşen haberin gerçek linki (ve varsa tam metni) alınır.
+const PUB_FEED_MEM = {};
+function pubFeedMap() { try { return JSON.parse(localStorage.getItem('pubFeeds') || '{}'); } catch (e) { return {}; } }
+function pubFeedSave(m) { try { localStorage.setItem('pubFeeds', JSON.stringify(m)); } catch (e) {} }
+const stemSet = s => new Set(trNorm(s).split(' ').filter(w => w.length > 3).map(w => w.slice(0, 5)));
+
+function parseFeedItems(text) {
+    const x = new DOMParser().parseFromString(text, 'text/xml');
+    if (x.getElementsByTagName('parsererror').length) throw new Error('rss bozuk');
+    const nodes = [...x.getElementsByTagName('item'), ...x.getElementsByTagName('entry')];
+    const items = nodes.map(n => {
+        const g = t => { const e = n.getElementsByTagName(t)[0]; return e ? (e.textContent || '') : ''; };
+        let link = g('link').trim();
+        if (!link) { const le = n.getElementsByTagName('link')[0]; link = le ? (le.getAttribute('href') || '') : ''; }
+        const ce = n.getElementsByTagName('content:encoded')[0] || n.getElementsByTagName('encoded')[0] || n.getElementsByTagName('content')[0];
+        return { title: g('title').trim(), link, html: ce ? (ce.textContent || '') : g('description') };
+    }).filter(i => i.title && /^https?:/.test(i.link));
+    if (!items.length) throw new Error('rss boş');
+    return items;
+}
+function feedHtmlToParas(html) {
+    if (!html) return [];
+    const d = new DOMParser().parseFromString(html, 'text/html');
+    let ps = [...d.querySelectorAll('p')].map(p => p.textContent.replace(/\s+/g, ' ').trim()).filter(t => t.length >= 30);
+    if (ps.length < 2) ps = (d.body ? d.body.textContent : '').split(/\n+/).map(t => t.replace(/\s+/g, ' ').trim()).filter(t => t.length >= 30);
+    return ps;
+}
+async function getPubItems(origin, dom) {
+    const mem = PUB_FEED_MEM[dom];
+    if (mem && Date.now() - mem.t < 300000) return mem.items;
+    const map = pubFeedMap();
+    if (map[dom] === 0 && Date.now() - (map[dom + '_t'] || 0) < 86400000) throw new Error('rss yok');   // son 24 saatte denendi, yok
+    const tryUrl = async (u) => parseFeedItems(await fetchHtmlRace(u));
+    let items = null, used = typeof map[dom] === 'string' ? map[dom] : null;
+    if (used) { try { items = await tryUrl(used); } catch (e) { used = null; } }
+    if (!items) {
+        const cands = [];
+        try {
+            const d = new DOMParser().parseFromString(await fetchHtmlRace(origin), 'text/html');
+            [...d.querySelectorAll('link[rel~="alternate"][type*="rss"], link[rel~="alternate"][type*="atom"]')]
+                .map(l => { try { return new URL(l.getAttribute('href'), origin).href; } catch (e) { return null; } })
+                .filter(Boolean).sort((a, b) => a.length - b.length).forEach(u => cands.push(u));
+        } catch (e) {}
+        ['/rss', '/feed', '/rss.xml', '/feed.xml', '/rss/all'].forEach(p => cands.push(origin + p));
+        for (const u of [...new Set(cands)].slice(0, 6)) {
+            try { items = await tryUrl(u); used = u; break; } catch (e) {}
+        }
+    }
+    if (!items) { map[dom] = 0; map[dom + '_t'] = Date.now(); pubFeedSave(map); throw new Error('rss bulunamadı'); }
+    map[dom] = used; delete map[dom + '_t']; pubFeedSave(map);
+    PUB_FEED_MEM[dom] = { t: Date.now(), items };
+    return items;
+}
+async function matchViaPublisherFeed(art) {
+    if (!art || !art.title || !art.pubUrl) throw new Error('yayıncı yok');
+    const origin = new URL(art.pubUrl).origin;
+    const dom = new URL(origin).hostname.replace(/^www\./, '');
+    const items = await getPubItems(origin, dom);
+    const S = stemSet(gnSplitTitle(art.title).clean);
+    if (S.size < 2) throw new Error('başlık kısa');
+    let best = null, bs = 0, bn = 0;
+    for (const it of items) {
+        const P = stemSet(it.title);
+        let n = 0; S.forEach(w => { if (P.has(w)) n++; });
+        const sc = n / S.size;
+        if (sc > bs) { bs = sc; best = it; bn = n; }
+    }
+    if (!best || bs < 0.6 || bn < Math.min(3, S.size)) throw new Error('feed eşleşmedi');
+    return { url: best.link, paras: feedHtmlToParas(best.html) };
+}
+
 const gnInflight = {};
 function resolveGoogleNewsUrl(link, art) {
     const id = gnId(link);
@@ -170,8 +244,16 @@ async function resolveGoogleNewsUrlRaw(link, art, id) {
         return u;
     }});
 
-    // 4) Son çare: başlık + yayıncı adıyla arama motorunda gerçek haberi bul
-    if (art) tasks.push({ delay: art.pubUrl ? 0 : 900, run: () => searchPublisherUrl(art) });
+    // 4) Yayıncının kendi RSS'i: son haberleri tek istekle indirip başlık kelimeleriyle eşleştir
+    if (art && art.pubUrl) tasks.push({ delay: 0, run: async () => {
+        const hit = await matchViaPublisherFeed(art);
+        const ps = finalizeParas(hit.paras || [], art);
+        if (ps.length >= 2 && ps.join(' ').length >= 350) { READER_CACHE.set(art.link, { paras: ps, via: 'yayıncı RSS' }); }   // tam metin de geldiyse hazır
+        return hit.url;
+    }});
+
+    // 5) Son çare: başlık + yayıncı adıyla arama motorunda gerçek haberi bul (RSS eşleşmesine zaman tanı)
+    if (art) tasks.push({ delay: art.pubUrl ? 1500 : 900, run: () => searchPublisherUrl(art) });
 
     try { return gnRemember(id, await raceStaggered(tasks)); }
     catch (e) { console.warn('[GN çözümü başarısız]', e); return null; }
