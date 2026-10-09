@@ -20,7 +20,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics-compat.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=4.0">
+    <link rel="stylesheet" href="style.css?v=4.1">
     <style id="readerUiV2">
         /* ===== Haber penceresi v2: dar çubuklar, geniş okuma alanı ===== */
         #newsModal .modal-header{padding:6px 10px 0!important}
@@ -295,6 +295,15 @@
                 </details>
 
                 <details class="setting-item">
+                    <summary>🔍 Google çözüm tanısı</summary>
+                    <div class="setting-detail">
+                        <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0 0 8px;">Akıştaki ilk Google haberini baştan çözmeyi dener ve her adımın süresini/sonucunu listeler. Sonucun ekran görüntüsünü gönderirsen neyin takıldığını görürüm.</p>
+                        <button type="button" class="tap-select" style="cursor:pointer;" onclick="runGnDiagnostic()">▶ Testi çalıştır</button>
+                        <pre id="gnDiagOut" style="white-space:pre-wrap;word-break:break-word;font-size:.7rem;line-height:1.35;margin:10px 0 0;max-height:320px;overflow:auto;user-select:text;"></pre>
+                    </div>
+                </details>
+
+                <details class="setting-item">
                     <summary>⚡ Hızlı Sunucu (Cloudflare Worker)</summary>
                     <div class="setting-detail">
                         <label class="tap-label" for="workerUrlInput">Worker adresi</label>
@@ -481,12 +490,12 @@ i.value=v;if(v&&s)s.textContent='✅ Kayıtlı: hızlı sunucu açık';})();
 <script>
 (function(){var s=document.getElementById('voiceIdleSec');if(!s)return;var v=null;try{v=localStorage.getItem('voiceIdleSec');}catch(e){}s.value=(v===null||v==='')?'6':v;})();
 </script>
-<script src="config.js?v=4.0"></script>
-<script src="auth.js?v=4.0"></script>
-<script src="api.js?v=4.0"></script>
-<script src="ai.js?v=4.0"></script>
-<script src="ui.js?v=4.0"></script>
-<script src="reader.js?v=4.0"></script>
-<script src="sesli-asistan.js?v=4.0"></script>
+<script src="config.js?v=4.1"></script>
+<script src="auth.js?v=4.1"></script>
+<script src="api.js?v=4.1"></script>
+<script src="ai.js?v=4.1"></script>
+<script src="ui.js?v=4.1"></script>
+<script src="reader.js?v=4.1"></script>
+<script src="sesli-asistan.js?v=4.1"></script>
 </body>
 </html>

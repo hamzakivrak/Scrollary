@@ -103,7 +103,21 @@ async function searchPublisherUrl(art) {
         if (!hit) throw new Error('bing sonuç yok');
         return hit;
     };
-    return raceStaggered([{ delay: 0, run: ddg }, { delay: 1800, run: bing }]);
+    // Bing Haberler RSS: HTML kazımadan çok daha kararlı; her öğenin linkinde gerçek adres url= parametresiyle gelir
+    const bingNews = async () => {
+        const xml = await fetchHtmlRace('https://www.bing.com/news/search?format=rss&setlang=tr&q=' + encodeURIComponent(clean));
+        const x = new DOMParser().parseFromString(xml, 'text/xml');
+        const c = [...x.getElementsByTagName('item')].map(n => {
+            const t = (n.getElementsByTagName('title')[0] || {}).textContent || '';
+            const l = ((n.getElementsByTagName('link')[0] || {}).textContent || '').trim();
+            let h = l; try { h = new URL(l).searchParams.get('url') || l; } catch (e) {}
+            return { href: h, text: t };
+        }).filter(i => /^https?:/.test(i.href));
+        const hit = pickSearchResult(c, clean, domain, pub);
+        if (!hit) throw new Error('bing-haber sonuç yok (' + c.length + ' öğe)');
+        return hit;
+    };
+    return raceStaggered([tracedTask('ddg', 0, ddg), tracedTask('bing-haber-rss', 250, bingNews), tracedTask('bing', 1800, bing)]);
 }
 
 // Eski biçim yerelde çözülür; yeni (şifreli) biçim için birden çok yol yarıştırılır:
@@ -183,6 +197,17 @@ async function matchViaPublisherFeed(art) {
     return { url: best.link, paras: feedHtmlToParas(best.html) };
 }
 
+// Tanı için adım adım iz (Ayarlar > Google çözüm tanısı)
+window.GN_TRACE = [];
+let gnTraceT0 = Date.now();
+function gnT(step, status, ms, extra) { GN_TRACE.push({ at: Date.now() - gnTraceT0, step, status, ms, extra: String(extra == null ? '' : extra).slice(0, 90) }); if (GN_TRACE.length > 80) GN_TRACE.shift(); }
+function tracedTask(name, delay, run) {
+    return { delay, run: async () => {
+        const t = Date.now();
+        try { const v = await run(); gnT(name, 'OK', Date.now() - t, v); return v; }
+        catch (e) { gnT(name, 'HATA', Date.now() - t, e && e.message); throw e; }
+    }};
+}
 const gnInflight = {};
 function resolveGoogleNewsUrl(link, art) {
     const id = gnId(link);
@@ -192,6 +217,8 @@ function resolveGoogleNewsUrl(link, art) {
     return gnInflight[id];
 }
 async function resolveGoogleNewsUrlRaw(link, art, id) {
+    gnTraceT0 = Date.now(); GN_TRACE.length = 0;
+    gnT('başlangıç', '', 0, (workerBase() ? 'worker açık' : (workerDown() ? 'worker ulaşılamıyor' : 'worker yok')) + (art && art.pubUrl ? ' | yayıncı: ' + art.pubUrl : ' | yayıncı adresi YOK'));
     const local = decodeGoogleNewsUrl(link);
     if (local) return gnRemember(id, local);
     const gUrl = `https://news.google.com/rss/articles/${id}`;
@@ -199,61 +226,62 @@ async function resolveGoogleNewsUrlRaw(link, art, id) {
 
     // 1) İsteğe bağlı: window.GN_RESOLVER_URL = 'https://senin-worker.workers.dev/?url=' (config.js'e eklenir)
     const resolverBase = workerBase() ? workerBase() + '/resolve?url=' : window.GN_RESOLVER_URL;
-    if (resolverBase) tasks.push({ delay: 0, run: async () => {
+    if (resolverBase) tasks.push(tracedTask('worker', 0, async () => {
         const res = await fetchWithTimeout(resolverBase + encodeURIComponent(gUrl), 10000);
         if (!res.ok) throw new Error('http');
         const j = await res.json();
         if (!j.url || /google\./.test(j.url)) throw new Error('boş');
         return j.url;
-    }});
+    }));
 
     // 2) Google'ın kendi uç noktası: imza/zaman damgası sayfadan, sonra POST
-    tasks.push({ delay: workerBase() ? 2500 : 0, run: async () => {
+    tasks.push(tracedTask('google-imza+POST', workerBase() ? 2500 : 0, async () => {
         let page = '';
         for (const q of [`?hl=tr&gl=TR&ceid=TR:tr`, ``]) {
             try { page = await fetchHtmlRace(gUrl + q); if (/data-n-a-sg/.test(page)) break; } catch (e) {}
         }
         const sg = (page.match(/data-n-a-sg=["']([^"']+)["']/) || [])[1];
         const ts = (page.match(/data-n-a-ts=["']([^"']+)["']/) || [])[1];
+        gnT('google-sayfa', sg && ts ? 'OK' : 'HATA', 0, sg && ts ? 'imza alındı' : 'imza yok (sayfa ' + page.length + ' bayt' + (/consent/.test(page) ? ', onay duvarı' : '') + ')');
         if (!sg || !ts) throw new Error('imza yok');
         const args = `["garturlreq",[["X","X",["X","X"],null,null,1,1,"US:en",null,1,null,null,null,null,null,0,1],"X","X",1,[1,1,1],1,1,null,0,0,null,0],"${id}",${ts},"${sg}"]`;
         const body = 'f.req=' + encodeURIComponent(JSON.stringify([[['Fbv4je', args]]]));
         const endpoint = 'https://news.google.com/_/DotsSplashUi/data/batchexecute';
-        const post = (u, delay) => ({ delay, run: async () => {
+        const post = (u, delay, label) => tracedTask('POST ' + label, delay, async () => {
             const res = await fetchWithTimeout(u, 10000, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' }, body });
             if (!res.ok) throw new Error('http');
             const real = parseGnBatch(await res.text());
             if (!real) throw new Error('çözülemedi');
             return real;
-        }});
+        });
         return raceStaggered([
-            post(endpoint, 0),
-            post(`https://corsproxy.io/?url=${encodeURIComponent(endpoint)}`, 0),
-            post(`https://thingproxy.freeboard.io/fetch/${endpoint}`, 400),
-            post(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(endpoint)}`, 800)
+            post(endpoint, 0, 'doğrudan'),
+            post(`https://corsproxy.io/?url=${encodeURIComponent(endpoint)}`, 0, 'corsproxy'),
+            post(`https://thingproxy.freeboard.io/fetch/${endpoint}`, 400, 'thingproxy'),
+            post(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(endpoint)}`, 800, 'codetabs')
         ]);
-    }});
+    }));
 
     // 3) Jina: sayfayı gerçek tarayıcıyla açar, yönlendirmeyi takip eder; son adres data.url'de gelir
-    tasks.push({ delay: 2500, run: async () => {
+    tasks.push(tracedTask('jina', 2500, async () => {
         const res = await fetchWithTimeout('https://r.jina.ai/' + gUrl, 15000, { headers: { Accept: 'application/json' } });
         if (!res.ok) throw new Error('jina');
         const j = await res.json();
         const u = j && j.data && j.data.url;
         if (!u || /google\./.test(u)) throw new Error('jina boş');
         return u;
-    }});
+    }));
 
     // 4) Yayıncının kendi RSS'i: son haberleri tek istekle indirip başlık kelimeleriyle eşleştir
-    if (art && art.pubUrl) tasks.push({ delay: 0, run: async () => {
+    if (art && art.pubUrl) tasks.push(tracedTask('yayıncı-rss', 0, async () => {
         const hit = await matchViaPublisherFeed(art);
         const ps = finalizeParas(hit.paras || [], art);
         if (ps.length >= 2 && ps.join(' ').length >= 350) { READER_CACHE.set(art.link, { paras: ps, via: 'yayıncı RSS' }); }   // tam metin de geldiyse hazır
         return hit.url;
-    }});
+    }));
 
     // 5) Son çare: başlık + yayıncı adıyla arama motorunda gerçek haberi bul (RSS eşleşmesine zaman tanı)
-    if (art) tasks.push({ delay: art.pubUrl ? 1500 : 900, run: () => searchPublisherUrl(art) });
+    if (art) tasks.push(tracedTask('arama(ddg/bing)', art.pubUrl ? 1500 : 0, () => searchPublisherUrl(art)));
 
     try { return gnRemember(id, await raceStaggered(tasks)); }
     catch (e) { console.warn('[GN çözümü başarısız]', e); return null; }
@@ -392,13 +420,22 @@ function cleanMarkdown(text, hint) {
 }
 
 // ---------- Hızlı sunucu (Cloudflare Worker) ----------
-function workerBase() { try { return (localStorage.getItem('workerUrl') || window.SCROLLARY_WORKER || '').trim().replace(/\/+$/, ''); } catch (e) { return ''; } }
+function workerDown() { try { return Date.now() < parseInt(localStorage.getItem('workerDownUntil') || '0', 10); } catch (e) { return false; } }
+function workerBase() { if (workerDown()) return ''; try { return (localStorage.getItem('workerUrl') || window.SCROLLARY_WORKER || '').trim().replace(/\/+$/, ''); } catch (e) { return ''; } }
+// Açılışta Worker'a ulaşılıyor mu bak; ulaşılamıyorsa 10 dk boyunca hiç kullanma (yoksa her istek boşuna bekler)
+window.probeWorker = async function () {
+    let raw = ''; try { raw = (localStorage.getItem('workerUrl') || window.SCROLLARY_WORKER || '').trim().replace(/\/+$/, ''); } catch (e) {}
+    if (!raw) return;
+    try { const res = await fetchWithTimeout(raw + '/', 3500); if (!res.ok) throw new Error('http'); localStorage.removeItem('workerDownUntil'); }
+    catch (e) { try { localStorage.setItem('workerDownUntil', String(Date.now() + 600000)); } catch (e2) {} }
+};
+setTimeout(() => { try { window.probeWorker(); } catch (e) {} }, 0);
 window.saveWorkerUrl = function (v) {
     v = (v || '').trim().replace(/\/+$/, '');
     if (v && !/^https:\/\/[^\s]+$/.test(v)) { alert('Adres https:// ile başlamalı (örn. https://scrollary.kullanici.workers.dev)'); return; }
     try { v ? localStorage.setItem('workerUrl', v) : localStorage.removeItem('workerUrl'); } catch (e) {}
     const st = $id('workerUrlStatus'); if (st) st.textContent = v ? '⏳ Test ediliyor…' : 'Kapalı (ücretsiz proxy kullanılıyor)';
-    if (v) fetchWithTimeout(v + '/raw?url=' + encodeURIComponent('https://example.com'), 8000).then(x => { if (st) st.textContent = x.ok ? '✅ Hızlı sunucu çalışıyor' : '⚠️ Yanıt hatası: ' + x.status; }).catch(() => { if (st) st.textContent = '⚠️ Sunucuya ulaşılamadı'; });
+    if (v) fetchWithTimeout(v + '/raw?url=' + encodeURIComponent('https://example.com'), 8000).then(x => { if (x.ok) { try { localStorage.removeItem('workerDownUntil'); } catch (e) {} } if (st) st.textContent = x.ok ? '✅ Hızlı sunucu çalışıyor' : '⚠️ Yanıt hatası: ' + x.status; }).catch(() => { try { localStorage.setItem('workerDownUntil', String(Date.now() + 600000)); } catch (e) {} if (st) st.textContent = '⚠️ Bu ağdan sunucuya ulaşılamıyor (şimdilik kullanılmayacak)'; });
 };
 // Çözme + indirme + ayıklama tek istekte. Başarısızsa null (eski zincire düşülür).
 async function workerRead(url, hint) {
@@ -898,3 +935,32 @@ async function openModal(art) {
 document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && $id('newsModal') && $id('newsModal').style.display === 'flex') closeModalSafe('newsModal');
 });
+
+
+// ---------- Google çözüm tanısı (Ayarlar'dan çalışır; ekran görüntüsü gönderilebilir) ----------
+window.runGnDiagnostic = async function () {
+    const out = $id('gnDiagOut');
+    if (!out) return;
+    const lines = [];
+    const show = () => { out.textContent = lines.join('\n'); };
+    const arts = (typeof allArticles !== 'undefined' ? allArticles : []);
+    const a = arts.find(x => x && /news\.google\.com/.test(x.link));
+    if (!a) { out.textContent = 'Akışta Google Haberler kaynaklı haber yok.'; return; }
+    const id = gnId(a.link);
+    delete gnCache[id]; READER_CACHE.delete(a.link);
+    lines.push('Haber: ' + a.title.slice(0, 60), 'Yayıncı adresi: ' + (a.pubUrl || 'YOK'), 'Worker: ' + (workerBase() || (workerDown() ? 'ulaşılamıyor' : 'kapalı')), '⏳ çözülüyor…');
+    show();
+    const t0 = Date.now();
+    const real = await resolveGoogleNewsUrl(a.link, a);
+    lines.pop();
+    lines.push('Çözüm: ' + (real ? 'OK ' + real.slice(0, 70) : 'BAŞARISIZ') + ' (' + ((Date.now() - t0) / 1000).toFixed(1) + ' sn)', '--- adımlar ---');
+    GN_TRACE.forEach(s => lines.push('+' + (s.at / 1000).toFixed(1) + 's ' + s.step + ': ' + s.status + (s.ms ? ' ' + (s.ms / 1000).toFixed(1) + 'sn' : '') + (s.extra ? ' | ' + s.extra : '')));
+    show();
+    if (real) {
+        lines.push('--- metin çıkarma ---'); show();
+        const t1 = Date.now();
+        try { const hit = await extractArticle(real, a, true); lines.push('OK: ' + hit.paras.length + ' paragraf, yol: ' + hit.via + ' (' + ((Date.now() - t1) / 1000).toFixed(1) + ' sn)'); }
+        catch (e) { lines.push('HATA: ' + (e && e.message) + ' (' + ((Date.now() - t1) / 1000).toFixed(1) + ' sn)'); }
+        show();
+    }
+};

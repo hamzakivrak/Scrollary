@@ -45,6 +45,7 @@ const FEED_ROUTES = [
 
 function feedRoutes() {
     let wb = ''; try { wb = (localStorage.getItem('workerUrl') || window.SCROLLARY_WORKER || '').trim().replace(/\/+$/, ''); } catch (e) {}
+    try { if (Date.now() < parseInt(localStorage.getItem('workerDownUntil') || '0', 10)) wb = ''; } catch (e) {}
     if (!wb) return FEED_ROUTES;
     return [{ delay: 0, url: u => `${wb}/raw?url=${encodeURIComponent(u)}` }, ...FEED_ROUTES.map(r => ({ ...r, delay: Math.max(r.delay, 1200) }))];
 }
