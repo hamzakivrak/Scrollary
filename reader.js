@@ -95,7 +95,8 @@ async function searchPublisherUrl(art) {
     if (!art || !art.title) throw new Error('art yok');
     const { clean, pub } = gnSplitTitle(art.title);
     const domain = artDomain(art);
-    const q = domain ? `site:${domain} ${clean}` : `${clean} ${pub}`.trim();
+    const shortQ = clean.split(/\s+/).filter(w => w.length > 2).slice(0, 8).join(' ');   // uzun başlık + site: çoğu zaman 0 sonuç verir
+    const q = domain ? `site:${domain} ${shortQ}` : `${shortQ} ${pub}`.trim();
     const ddg = async () => {
         const html = await fetchHtmlRace('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(q));
         const d = new DOMParser().parseFromString(html, 'text/html');
@@ -113,7 +114,7 @@ async function searchPublisherUrl(art) {
     const bing = async () => {
         const html = await fetchHtmlRace('https://www.bing.com/search?setlang=tr&q=' + encodeURIComponent(q));
         const d = new DOMParser().parseFromString(html, 'text/html');
-        const c = [...d.querySelectorAll('li.b_algo h2 a')].map(a => {
+        const c = [...d.querySelectorAll('li.b_algo h2 a, #b_results h2 a')].map(a => {
             let h = a.getAttribute('href') || '';
             const m = h.match(/[?&]u=a1([^&]+)/);   // bing yönlendirmesi: base64
             if (m) { try { let b = m[1].replace(/-/g, '+').replace(/_/g, '/'); while (b.length % 4) b += '='; h = atob(b); } catch (e) {} }
@@ -126,9 +127,12 @@ async function searchPublisherUrl(art) {
     };
     // Bing Haberler RSS: HTML kazımadan çok daha kararlı; her öğenin linkinde gerçek adres url= parametresiyle gelir
     const bingNews = async () => {
-        const xml = await fetchHtmlRace('https://www.bing.com/news/search?format=rss&setlang=tr&q=' + encodeURIComponent(clean));
-        const x = new DOMParser().parseFromString(xml, 'text/xml');
-        const c = [...x.getElementsByTagName('item')].map(n => {
+        const xml = await fetchHtmlRace('https://www.bing.com/news/search?format=rss&setlang=tr&q=' + encodeURIComponent(shortQ + (pub ? ' ' + pub : '')));
+        const isHtml = /^\s*(<!doctype|<html)/i.test(xml);          // Bing çoğu zaman RSS yerine HTML sayfası döndürüyor
+        const x = isHtml ? null : new DOMParser().parseFromString(xml, 'text/xml');
+        const c = isHtml
+            ? [...new DOMParser().parseFromString(xml, 'text/html').querySelectorAll('a.title, a[class*="title"][href^="http"]')].map(a => ({ href: a.getAttribute('href') || '', text: a.textContent || '' })).filter(i => /^https?:/.test(i.href))
+            : [...x.getElementsByTagName('item')].map(n => {
             const t = (n.getElementsByTagName('title')[0] || {}).textContent || '';
             const l = ((n.getElementsByTagName('link')[0] || {}).textContent || '').trim();
             let h = l; try { h = new URL(l).searchParams.get('url') || l; } catch (e) {}
@@ -179,7 +183,7 @@ async function getPubItems(origin, dom) {
     const mem = PUB_FEED_MEM[dom];
     if (mem && Date.now() - mem.t < 300000) return mem.items;
     const map = pubFeedMap();
-    if (map[dom] === 0 && Date.now() - (map[dom + '_t'] || 0) < 86400000) throw new Error('rss yok');   // son 24 saatte denendi, yok
+    if (map[dom] === 0 && Date.now() - (map[dom + '_t'] || 0) < 600000) throw new Error('rss yok (10 dk içinde denendi)');   // son 24 saatte denendi, yok
     const tryUrl = async (u) => parseFeedItems(await fetchHtmlRace(u));
     let items = null, used = typeof map[dom] === 'string' ? map[dom] : null;
     if (used) { try { items = await tryUrl(used); } catch (e) { used = null; } }
@@ -191,10 +195,13 @@ async function getPubItems(origin, dom) {
                 .map(l => { try { return new URL(l.getAttribute('href'), origin).href; } catch (e) { return null; } })
                 .filter(Boolean).sort((a, b) => a.length - b.length).forEach(u => cands.push(u));
         } catch (e) {}
-        ['/rss', '/feed', '/rss.xml', '/feed.xml', '/rss/all'].forEach(p => cands.push(origin + p));
-        for (const u of [...new Set(cands)].slice(0, 6)) {
-            try { items = await tryUrl(u); used = u; break; } catch (e) {}
-        }
+        ['/rss', '/feed', '/rss.xml', '/feed.xml', '/rss/all', '/rss/haber.xml', '/rss/haberler', '/rss/son-dakika'].forEach(p => cands.push(origin + p));
+        const uniq = [...new Set(cands)].slice(0, 9);
+        try {
+            const got = await raceStaggered(uniq.map((u, k) => ({ delay: k * 350, run: async () => ({ u, items: await tryUrl(u) }) })));
+            items = got.items; used = got.u;
+            gnT('rss-bulundu', 'OK', 0, used.replace(/^https?:\/\//, ''));
+        } catch (e) { gnT('rss-aday', 'HATA', 0, uniq.length + ' adres denendi, RSS çıkmadı'); }
     }
     if (!items) { map[dom] = 0; map[dom + '_t'] = Date.now(); pubFeedSave(map); throw new Error('rss bulunamadı'); }
     map[dom] = used; delete map[dom + '_t']; pubFeedSave(map);
@@ -259,6 +266,7 @@ async function resolveGoogleNewsUrlRaw(link, art, id) {
 
     // 2) Google'ın kendi uç noktası: imza/zaman damgası sayfadan, sonra POST
     tasks.push(tracedTask('google-imza+POST', workerBase() ? 2500 : 0, async () => {
+        try { if (Date.now() < parseInt(localStorage.getItem('gnPageDownUntil') || '0', 10)) throw new Error('Google sayfası son denemelerde açılmadı (20 dk atlanır)'); } catch (e) { if (/Google sayfası/.test(e.message)) throw e; }
         let page = '';
         try {
             page = await raceStaggered([`?hl=tr&gl=TR&ceid=TR:tr`, `?hl=en-US&gl=US&ceid=US:en`].map((q, i) => ({ delay: i * 300, run: async () => {
@@ -269,6 +277,7 @@ async function resolveGoogleNewsUrlRaw(link, art, id) {
         } catch (e) {}
         const sg = (page.match(/data-n-a-sg=["']([^"']+)["']/) || [])[1];
         const ts = (page.match(/data-n-a-ts=["']([^"']+)["']/) || [])[1];
+        if (!page) { try { localStorage.setItem('gnPageDownUntil', String(Date.now() + 1200000)); } catch (e) {} }
         gnT('google-sayfa', sg && ts ? 'OK' : 'HATA', 0, sg && ts ? 'imza alındı' : 'imza yok (sayfa ' + page.length + ' bayt' + (/consent/.test(page) ? ', onay duvarı' : '') + ')');
         if (!sg || !ts) throw new Error('imza yok');
         const args = `["garturlreq",[["X","X",["X","X"],null,null,1,1,"US:en",null,1,null,null,null,null,null,0,1],"X","X",1,[1,1,1],1,1,null,0,0,null,0],"${id}",${ts},"${sg}"]`;
@@ -310,7 +319,7 @@ async function resolveGoogleNewsUrlRaw(link, art, id) {
     // 5) Son çare: başlık + yayıncı adıyla arama motorunda gerçek haberi bul (RSS eşleşmesine zaman tanı)
     if (art) tasks.push(tracedTask('arama(ddg/bing)', artDomain(art) ? 1500 : 0, () => searchPublisherUrl(art)));
 
-    try { return gnRemember(id, await Promise.race([raceStaggered(tasks), new Promise((_, rej) => setTimeout(() => rej(new Error('zaman aşımı (14 sn)')), 14000))])); }
+    try { return gnRemember(id, await Promise.race([raceStaggered(tasks), new Promise((_, rej) => setTimeout(() => rej(new Error('zaman aşımı (10 sn)')), 10000))])); }
     catch (e) { console.warn('[GN çözümü başarısız]', e); return null; }
 }
 
@@ -975,6 +984,7 @@ window.runGnDiagnostic = async function () {
     if (!a) { out.textContent = 'Akışta Google Haberler kaynaklı haber yok.'; return; }
     const id = gnId(a.link);
     delete gnCache[id]; READER_CACHE.delete(a.link);
+    try { localStorage.removeItem('gnPageDownUntil'); const pm = pubFeedMap(), dd = artDomain(a); delete pm[dd]; delete pm[dd + '_t']; pubFeedSave(pm); delete PUB_FEED_MEM[dd]; } catch (e) {}
     lines.push('Haber: ' + a.title.slice(0, 60), 'Yayıncı adresi: ' + (a.pubUrl || 'YOK'), 'Worker: ' + (workerBase() || (workerDown() ? 'ulaşılamıyor' : 'kapalı')));
     show();
     let wb0 = ''; try { wb0 = (localStorage.getItem('workerUrl') || '').trim().replace(/\/+$/, ''); } catch (e) {}
