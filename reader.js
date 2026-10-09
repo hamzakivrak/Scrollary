@@ -47,6 +47,26 @@ function parseGnBatch(text) {
 
 // ---------- Yayıncı sitesini arama motoruyla bulma (Google linki çözülemezse son çare) ----------
 const trNorm = s => (s || '').toLowerCase().replace(/[ıİ]/g, 'i').replace(/[^a-z0-9ğüşöçâîû\s]/gi, ' ').replace(/\s+/g, ' ').trim();
+const PUB_DOMAINS = {
+    'hürriyet':'hurriyet.com.tr','sözcü':'sozcu.com.tr','habertürk':'haberturk.com','cnn türk':'cnnturk.com','ntv':'ntv.com.tr','milliyet':'milliyet.com.tr',
+    'cumhuriyet':'cumhuriyet.com.tr','birgün':'birgun.net','evrensel':'evrensel.net','t24':'t24.com.tr','sabah':'sabah.com.tr','yeni şafak':'yenisafak.com',
+    'trt haber':'trthaber.com','anadolu ajansı':'aa.com.tr','diken':'diken.com.tr','medyascope':'medyascope.tv','bianet':'bianet.org','dünya':'dunya.com',
+    'ekonomim':'ekonomim.com','haber7':'haber7.com','takvim':'takvim.com.tr','star':'star.com.tr','akşam':'aksam.com.tr','yeni akit':'yeniakit.com.tr',
+    'karar':'karar.com','halk tv':'halktv.com.tr','tele1':'tele1.com.tr','euronews':'tr.euronews.com','dw':'dw.com','independent türkçe':'indyturk.com',
+    'gazete duvar':'gazeteduvar.com.tr','ensonhaber':'ensonhaber.com','internet haber':'internethaber.com','fanatik':'fanatik.com.tr','fotomaç':'fotomac.com.tr',
+    'sporx':'sporx.com','a haber':'ahaber.com.tr','haberler.com':'haberler.com','mynet':'mynet.com','cnn türk':'cnnturk.com','bbc türkçe':'bbc.com','sputnik türkiye':'anlatilaninotesi.com.tr'
+};
+let PUB_DOMAINS_N = null;
+// Yayıncı adresi: önce RSS'teki <source url>, yoksa başlığın sonundaki " - Evrensel.net" / " - Habertürk" ekinden
+function artDomain(art) {
+    try { if (art && art.pubUrl) return new URL(art.pubUrl).hostname.replace(/^www\./, ''); } catch (e) {}
+    const pub = ((art && art.title) ? gnSplitTitle(art.title).pub : '').trim();
+    if (!pub) return '';
+    const low = pub.toLowerCase();
+    if (/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(low)) return low.replace(/^www\./, '');
+    if (!PUB_DOMAINS_N) { PUB_DOMAINS_N = {}; Object.keys(PUB_DOMAINS).forEach(k => { PUB_DOMAINS_N[trNorm(k)] = PUB_DOMAINS[k]; }); }
+    return PUB_DOMAINS_N[trNorm(pub)] || '';
+}
 function gnSplitTitle(title) {
     const i = title.lastIndexOf(' - ');
     return i > 10 ? { clean: title.slice(0, i).trim(), pub: title.slice(i + 3).trim() } : { clean: title.trim(), pub: '' };
@@ -74,8 +94,7 @@ function pickSearchResult(cands, clean, domain, pub) {
 async function searchPublisherUrl(art) {
     if (!art || !art.title) throw new Error('art yok');
     const { clean, pub } = gnSplitTitle(art.title);
-    let domain = '';
-    try { if (art.pubUrl) domain = new URL(art.pubUrl).hostname.replace(/^www\./, ''); } catch (e) {}
+    const domain = artDomain(art);
     const q = domain ? `site:${domain} ${clean}` : `${clean} ${pub}`.trim();
     const ddg = async () => {
         const html = await fetchHtmlRace('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(q));
@@ -87,6 +106,7 @@ async function searchPublisherUrl(art) {
             return { href: h, text: a.textContent || '' };
         }).filter(x => /^https?:/.test(x.href));
         const hit = pickSearchResult(c, clean, domain, pub);
+        gnT('ddg-sayfa', c.length ? 'OK' : 'HATA', 0, html.length + ' bayt, ' + c.length + ' sonuç' + (c.length ? ' | ' + c.slice(0, 2).map(x => x.href.replace(/^https?:\/\//, '').slice(0, 28)).join(' ; ') : ' | ' + html.replace(/\s+/g, ' ').slice(0, 70)));
         if (!hit) throw new Error('ddg sonuç yok');
         return hit;
     };
@@ -100,6 +120,7 @@ async function searchPublisherUrl(art) {
             return { href: h, text: a.textContent || '' };
         }).filter(x => /^https?:/.test(x.href));
         const hit = pickSearchResult(c, clean, domain, pub);
+        gnT('bing-sayfa', c.length ? 'OK' : 'HATA', 0, html.length + ' bayt, ' + c.length + ' sonuç' + (c.length ? '' : ' | ' + html.replace(/\s+/g, ' ').slice(0, 70)));
         if (!hit) throw new Error('bing sonuç yok');
         return hit;
     };
@@ -114,6 +135,7 @@ async function searchPublisherUrl(art) {
             return { href: h, text: t };
         }).filter(i => /^https?:/.test(i.href));
         const hit = pickSearchResult(c, clean, domain, pub);
+        gnT('bing-haber-sayfa', c.length ? 'OK' : 'HATA', 0, xml.length + ' bayt, ' + c.length + ' öğe' + (c.length ? ' | ' + c.slice(0, 2).map(x => x.href.replace(/^https?:\/\//, '').slice(0, 28)).join(' ; ') : ' | ' + xml.replace(/\s+/g, ' ').slice(0, 70)));
         if (!hit) throw new Error('bing-haber sonuç yok (' + c.length + ' öğe)');
         return hit;
     };
@@ -180,9 +202,10 @@ async function getPubItems(origin, dom) {
     return items;
 }
 async function matchViaPublisherFeed(art) {
-    if (!art || !art.title || !art.pubUrl) throw new Error('yayıncı yok');
-    const origin = new URL(art.pubUrl).origin;
-    const dom = new URL(origin).hostname.replace(/^www\./, '');
+    if (!art || !art.title) throw new Error('yayıncı yok');
+    const dom = artDomain(art);
+    if (!dom) throw new Error('yayıncı alan adı bilinmiyor');
+    const origin = art.pubUrl ? new URL(art.pubUrl).origin : 'https://' + dom;
     const items = await getPubItems(origin, dom);
     const S = stemSet(gnSplitTitle(art.title).clean);
     if (S.size < 2) throw new Error('başlık kısa');
@@ -218,7 +241,7 @@ function resolveGoogleNewsUrl(link, art) {
 }
 async function resolveGoogleNewsUrlRaw(link, art, id) {
     gnTraceT0 = Date.now(); GN_TRACE.length = 0;
-    gnT('başlangıç', '', 0, (workerBase() ? 'worker açık' : (workerDown() ? 'worker ulaşılamıyor' : 'worker yok')) + (art && art.pubUrl ? ' | yayıncı: ' + art.pubUrl : ' | yayıncı adresi YOK'));
+    gnT('başlangıç', '', 0, (workerBase() ? 'worker açık' : (workerDown() ? 'worker ulaşılamıyor' : 'worker yok')) + (art && art.pubUrl ? ' | yayıncı: ' + art.pubUrl : ' | pubUrl yok, başlıktan: ' + (artDomain(art) || 'BULUNAMADI')));
     const local = decodeGoogleNewsUrl(link);
     if (local) return gnRemember(id, local);
     const gUrl = `https://news.google.com/rss/articles/${id}`;
@@ -227,7 +250,7 @@ async function resolveGoogleNewsUrlRaw(link, art, id) {
     // 1) İsteğe bağlı: window.GN_RESOLVER_URL = 'https://senin-worker.workers.dev/?url=' (config.js'e eklenir)
     const resolverBase = workerBase() ? workerBase() + '/resolve?url=' : window.GN_RESOLVER_URL;
     if (resolverBase) tasks.push(tracedTask('worker', 0, async () => {
-        const res = await fetchWithTimeout(resolverBase + encodeURIComponent(gUrl), 10000);
+        const res = await fetchWithTimeout(resolverBase + encodeURIComponent(gUrl), 12000);
         if (!res.ok) throw new Error('http');
         const j = await res.json();
         if (!j.url || /google\./.test(j.url)) throw new Error('boş');
@@ -237,9 +260,13 @@ async function resolveGoogleNewsUrlRaw(link, art, id) {
     // 2) Google'ın kendi uç noktası: imza/zaman damgası sayfadan, sonra POST
     tasks.push(tracedTask('google-imza+POST', workerBase() ? 2500 : 0, async () => {
         let page = '';
-        for (const q of [`?hl=tr&gl=TR&ceid=TR:tr`, ``]) {
-            try { page = await fetchHtmlRace(gUrl + q); if (/data-n-a-sg/.test(page)) break; } catch (e) {}
-        }
+        try {
+            page = await raceStaggered([`?hl=tr&gl=TR&ceid=TR:tr`, `?hl=en-US&gl=US&ceid=US:en`].map((q, i) => ({ delay: i * 300, run: async () => {
+                const p = await fetchHtmlRace(gUrl + q);
+                if (!/data-n-a-sg/.test(p)) throw new Error('imza yok');
+                return p;
+            }})));
+        } catch (e) {}
         const sg = (page.match(/data-n-a-sg=["']([^"']+)["']/) || [])[1];
         const ts = (page.match(/data-n-a-ts=["']([^"']+)["']/) || [])[1];
         gnT('google-sayfa', sg && ts ? 'OK' : 'HATA', 0, sg && ts ? 'imza alındı' : 'imza yok (sayfa ' + page.length + ' bayt' + (/consent/.test(page) ? ', onay duvarı' : '') + ')');
@@ -273,7 +300,7 @@ async function resolveGoogleNewsUrlRaw(link, art, id) {
     }));
 
     // 4) Yayıncının kendi RSS'i: son haberleri tek istekle indirip başlık kelimeleriyle eşleştir
-    if (art && art.pubUrl) tasks.push(tracedTask('yayıncı-rss', 0, async () => {
+    if (art && artDomain(art)) tasks.push(tracedTask('yayıncı-rss', 0, async () => {
         const hit = await matchViaPublisherFeed(art);
         const ps = finalizeParas(hit.paras || [], art);
         if (ps.length >= 2 && ps.join(' ').length >= 350) { READER_CACHE.set(art.link, { paras: ps, via: 'yayıncı RSS' }); }   // tam metin de geldiyse hazır
@@ -281,9 +308,9 @@ async function resolveGoogleNewsUrlRaw(link, art, id) {
     }));
 
     // 5) Son çare: başlık + yayıncı adıyla arama motorunda gerçek haberi bul (RSS eşleşmesine zaman tanı)
-    if (art) tasks.push(tracedTask('arama(ddg/bing)', art.pubUrl ? 1500 : 0, () => searchPublisherUrl(art)));
+    if (art) tasks.push(tracedTask('arama(ddg/bing)', artDomain(art) ? 1500 : 0, () => searchPublisherUrl(art)));
 
-    try { return gnRemember(id, await raceStaggered(tasks)); }
+    try { return gnRemember(id, await Promise.race([raceStaggered(tasks), new Promise((_, rej) => setTimeout(() => rej(new Error('zaman aşımı (14 sn)')), 14000))])); }
     catch (e) { console.warn('[GN çözümü başarısız]', e); return null; }
 }
 
@@ -948,8 +975,20 @@ window.runGnDiagnostic = async function () {
     if (!a) { out.textContent = 'Akışta Google Haberler kaynaklı haber yok.'; return; }
     const id = gnId(a.link);
     delete gnCache[id]; READER_CACHE.delete(a.link);
-    lines.push('Haber: ' + a.title.slice(0, 60), 'Yayıncı adresi: ' + (a.pubUrl || 'YOK'), 'Worker: ' + (workerBase() || (workerDown() ? 'ulaşılamıyor' : 'kapalı')), '⏳ çözülüyor…');
+    lines.push('Haber: ' + a.title.slice(0, 60), 'Yayıncı adresi: ' + (a.pubUrl || 'YOK'), 'Worker: ' + (workerBase() || (workerDown() ? 'ulaşılamıyor' : 'kapalı')));
     show();
+    let wb0 = ''; try { wb0 = (localStorage.getItem('workerUrl') || '').trim().replace(/\/+$/, ''); } catch (e) {}
+    if (wb0) {
+        const sec = t => ((Date.now() - t) / 1000).toFixed(1) + ' sn';
+        let tw = Date.now();
+        try { const x = await fetchWithTimeout(wb0 + '/', 6000); lines.push('Worker ana sayfa: ' + x.status + ' (' + sec(tw) + ')'); }
+        catch (e) { lines.push('Worker ana sayfa: ULAŞILAMIYOR (' + sec(tw) + ', ' + ((e && e.message) || e) + ')'); }
+        show(); tw = Date.now();
+        try { const x = await fetchWithTimeout(wb0 + '/resolve?url=' + encodeURIComponent(a.link), 25000); const tx = await x.text(); lines.push('Worker /resolve: ' + x.status + ' (' + sec(tw) + ') ' + tx.replace(/\s+/g, ' ').slice(0, 110)); }
+        catch (e) { lines.push('Worker /resolve: HATA (' + sec(tw) + ', ' + ((e && e.message) || e) + ')'); }
+        show();
+    }
+    lines.push('⏳ çözülüyor…'); show();
     const t0 = Date.now();
     const real = await resolveGoogleNewsUrl(a.link, a);
     lines.pop();

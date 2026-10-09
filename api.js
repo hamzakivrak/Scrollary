@@ -66,7 +66,7 @@ async function fetchFeedData(feed, opts = {}) {
     }));
     // Kendi backend'in (Render) uyuyor olabilir; yarışa katılır ama kimseyi bekletmez
     const backendTask = {
-        delay: 0,
+        delay: /news\.google\.com/.test(feed.url) ? 3500 : 0,   // Google RSS'ini kendimiz çekelim: yayıncı adresi (<source url>) backend'den gelmiyor
         run: async () => {
             const res = await fetchWithTimeout(`https://scrollary-api.onrender.com/api/fetch-news?url=${encodeURIComponent(feed.url)}`, 20000);
             if (!res.ok) throw new Error('backend');
