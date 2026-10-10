@@ -10,6 +10,7 @@ let voiceRec = null, voiceMicBtn = null;
 let voiceListening = false, voiceHeard = false, voiceDeadline = 0;
 let voiceIdleTimer = null, voiceRestartTimer = null, currentUtter = null, voiceHintCount = 0;
 let voiceRecRunning = false;
+let voiceBusy = false, lastCmdText = '', lastCmdAt = 0;   // bir komut işlenirken ikinci komut başlamasın
 const spokenLog = [];   // asistanın son söyledikleri (yankı süzgeci ve döngü kırıcı için)
 const vSleep = (ms) => new Promise(r => setTimeout(r, ms));
 // Dinlemede hiçbir şey söylenmezse oturum kaç sn sonra kapansın (Ayarlar > Sesli Asistan). 0 = konuşma bitince tekrar dinleme yok
@@ -54,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         if (isVoiceActive && voiceListening) { endVoiceSession('manual'); return; }   // dinlerken tekrar dokunmak = kapat
         isVoiceActive = true;
+        voiceBusy = false;
         currentVoiceCmdId++;
         voiceHintCount = 0;
         spokenLog.length = 0;                      // yeni oturum: önceki oturumun cümleleri sayılmasın
@@ -69,6 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
     recognition.onspeechstart = () => { voiceHeard = true; clearTimeout(voiceIdleTimer); };
 
     recognition.onresult = (event) => {
+        if (!voiceListening || voiceBusy) { vtrace('onresult yok sayıldı (dinlemiyor/meşgul)'); return; }   // Android aynı sonucu birden çok kez gönderebilir
         const komut = String(event.results[0][0].transcript || '').toLowerCase();
         // Asistan hâlâ konuşuyorsa ya da duyulan şey asistanın kendi cümlesiyse bu bir yankıdır: yok say, dinlemeye devam et
         if (window.speechSynthesis.speaking || isEchoOfOwnVoice(komut)) { voiceHeard = false; return; }
@@ -508,6 +511,7 @@ function startListening(myCmdId, delay = 450, followUp = false) {
 }
 
 function endVoiceSession(reason) {
+    voiceBusy = false;
     const wasActive = isVoiceActive;
     spokenLog.length = 0;
     isVoiceActive = false;
@@ -531,6 +535,14 @@ async function finishByExit(myCmdId) {
 async function processVoiceCommand(komut) {
     const id = currentVoiceCmdId;
     if (!isVoiceActive) return;
+    const nowT = Date.now();
+    if (voiceBusy || (komut === lastCmdText && nowT - lastCmdAt < 4000)) { vtrace('çift komut engellendi: ' + komut); return; }
+    voiceBusy = true; lastCmdText = komut; lastCmdAt = nowT;
+    vtrace('KOMUT: ' + komut);
+    try { await runVoiceCommand(komut, id); } finally { voiceBusy = false; }
+}
+
+async function runVoiceCommand(komut, id) {
     stopListening();
     const local = parseLocalIntent(komut);
     try {
