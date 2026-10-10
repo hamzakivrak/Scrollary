@@ -43,6 +43,83 @@ const FEED_ROUTES = [
     { delay: 2500, url: u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}` }
 ];
 
+// ---------- Arama sayfası kaynakları (Bing Haberler / DuckDuckGo) ----------
+// Google Haberler yönlendirme linki verir (çözülemiyor); bu kaynaklar doğrudan yayıncının gerçek linkini verir.
+function isSearchPageFeed(u) { return /^https:\/\/(www\.)?bing\.com\/news\/search/i.test(u || '') || /^https:\/\/html\.duckduckgo\.com\/html/i.test(u || ''); }
+
+function relTimeToDate(txt, fallbackMinAgo) {
+    const m = String(txt || '').toLowerCase().match(/(\d+)\s*(saniye|sn|dakika|dak|dk|saat|sa|gün|gun|hafta|hours|hour|hr|h|minutes|minute|mins|min|m|days|day|d|w)(?![a-zçğıöşü])/);
+    if (m) {
+        const n = parseInt(m[1], 10), u = m[2];
+        const mult = /^(saniye|sn)$/.test(u) ? 1 / 60 : /^(dakika|dak|dk|minutes|minute|mins|min|m)$/.test(u) ? 1 : /^(saat|sa|hours|hour|hr|h)$/.test(u) ? 60 : /^(gün|gun|days|day|d)$/.test(u) ? 1440 : /^(hafta|w)$/.test(u) ? 10080 : 0;
+        if (mult) return new Date(Date.now() - n * mult * 60000);
+    }
+    return new Date(Date.now() - fallbackMinAgo * 60000);
+}
+
+function searchArticle(feed, o, idx) {
+    const link = (o.link || '').trim();
+    let host = '', origin = '';
+    try { const u = new URL(link); host = u.hostname; origin = u.origin; } catch (e) { return null; }
+    if (!/^https?:/.test(link) || /(^|\.)(bing|duckduckgo|google)\.[a-z.]+$/i.test(host)) return null;
+    const title = htmlToText(o.title || '').trim();
+    if (title.length < 8) return null;
+    const date = o.date || new Date(Date.now() - idx * 90000);
+    const plain = htmlToText(o.snippet || '');
+    return {
+        title, link, image: o.image || '', content: '', pubUrl: origin,
+        description: plain.length > 220 ? plain.substring(0, 220) + '…' : plain,
+        source: feed.name, date, timestamp: date.getTime(),
+        categories: feed.cat ? [feed.cat] : []
+    };
+}
+
+function parseBingNewsDoc(doc, feed) {
+    const out = [], seen = new Set();
+    [...doc.querySelectorAll('.news-card, .newsitem, div[data-url][data-title]')].forEach((c, i) => {
+        const a = c.querySelector('a.title') || c.querySelector('a[href^="http"]');
+        const link = c.getAttribute('data-url') || (a ? a.getAttribute('href') : '') || '';
+        if (!link || seen.has(link)) return;
+        seen.add(link);
+        const title = c.getAttribute('data-title') || (a ? a.textContent : '');
+        const snip = (c.querySelector('.snippet') || {}).textContent || '';
+        const img = c.querySelector('img');
+        let image = img ? (img.getAttribute('src') || img.getAttribute('data-src') || '') : '';
+        if (/^data:/.test(image)) image = ''; else if (image.startsWith('/')) image = 'https://www.bing.com' + image;
+        const when = (c.querySelector('.source') || {}).textContent || '';
+        const art = searchArticle(feed, { link, title, snippet: snip, image, date: relTimeToDate(when, i * 2) }, i);
+        if (art) out.push(art);
+    });
+    return out;
+}
+
+function parseDdgDoc(doc, feed) {
+    const out = [], seen = new Set();
+    [...doc.querySelectorAll('.result, .web-result')].forEach((r, i) => {
+        if (r.classList && r.classList.contains('result--ad')) return;
+        const a = r.querySelector('a.result__a');
+        if (!a) return;
+        let h = a.getAttribute('href') || '';
+        const m = h.match(/[?&]uddg=([^&]+)/);
+        if (m) { try { h = decodeURIComponent(m[1]); } catch (e) {} }
+        if (h.startsWith('//')) h = 'https:' + h;
+        if (!h || seen.has(h)) return;
+        seen.add(h);
+        const art = searchArticle(feed, { link: h, title: a.textContent, snippet: (r.querySelector('.result__snippet') || {}).textContent || '' }, i);
+        if (art) out.push(art);
+    });
+    return out;
+}
+
+async function searchPageFeed(feed) {
+    try {
+        const html = await fetchHtmlRace(feed.url);          // reader.js: Worker + proxy yarışı
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const arts = /bing\.com/i.test(feed.url) ? parseBingNewsDoc(doc, feed) : parseDdgDoc(doc, feed);
+        return arts.slice(0, 40);
+    } catch (e) { return []; }
+}
+
 function feedRoutes() {
     let wb = ''; try { wb = (localStorage.getItem('workerUrl') || window.SCROLLARY_WORKER || '').trim().replace(/\/+$/, ''); } catch (e) {}
     try { if (Date.now() < parseInt(localStorage.getItem('workerDownUntil') || '0', 10)) wb = ''; } catch (e) {}
@@ -51,6 +128,7 @@ function feedRoutes() {
 }
 
 async function fetchFeedData(feed, opts = {}) {
+    if (isSearchPageFeed(feed.url)) return searchPageFeed(feed);
     const T = opts.fast ? 7000 : 9000;
     const xmlTasks = feedRoutes().map(r => ({
         delay: r.delay,

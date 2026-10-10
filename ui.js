@@ -318,6 +318,15 @@ function googleNewsFeedUrl(q) {
     return `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=${hl}&gl=${gl}&ceid=${gl}:${hl.split('-')[0]}`;
 }
 
+function searchLocale() {
+    let hl = currentRegion.toLowerCase(), gl = currentRegion.toUpperCase();
+    if (currentRegion === 'EN') { hl = 'en-US'; gl = 'US'; }
+    else if (currentRegion === 'ES') { hl = 'es'; gl = 'ES'; }
+    return { hl, gl, kl: gl.toLowerCase() + '-' + hl.split('-')[0] };
+}
+function bingNewsFeedUrl(q) { const l = searchLocale(); return `https://www.bing.com/news/search?q=${encodeURIComponent(q)}&qft=sortbydate%3D%221%22&setlang=${l.hl}&cc=${l.gl}`; }
+function ddgFeedUrl(q) { const l = searchLocale(); return `https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}&df=d&kl=${l.kl}`; }
+
 function highlightFeedChip(name) {
     const fl = document.getElementById('filterList');
     if (fl) fl.classList.add('show');
@@ -388,10 +397,28 @@ async function findRssFromUrl() {
         out.appendChild(b);
     };
 
-    // Konu araması -> Google Haberler
+    // Arama tabanlı kaynaklar: önce hangisi haber getiriyor sına, gerçek linkli olanları (Bing, DuckDuckGo) öne al, Google en sonda
+    const offerSearchFeeds = async (q, name) => {
+        const st = note('⏳ Haber taraması deneniyor...');
+        const count = async (url) => { try { return (await fetchFeedData({ name, url, cat: '' }, { fast: true })).length; } catch (e) { return 0; } };
+        const bingQs = q.startsWith('site:') ? [q, q.slice(5)] : [q];       // site: işe yaramazsa alan adının kendisiyle ara
+        const bingTry = await Promise.all(bingQs.map(x => count(bingNewsFeedUrl(x))));
+        const bi = bingTry.findIndex(n => n > 0);
+        const cands = [
+            { label: 'Bing Haberler (gerçek linkler)', url: bingNewsFeedUrl(bingQs[Math.max(bi, 0)]), n: bi >= 0 ? bingTry[bi] : 0 },
+            { label: 'DuckDuckGo (gerçek linkler)', url: ddgFeedUrl(q), n: await count(ddgFeedUrl(q)) },
+            { label: 'Google Haberler (yönlendirmeli link, geç açılır)', url: googleNewsFeedUrl(q), n: await count(googleNewsFeedUrl(q)) }
+        ];
+        st.remove();
+        const ok = cands.filter(c => c.n > 0);
+        if (ok.length) ok.forEach(c => addBtn(`${c.label} • ${c.n} haber`, name, c.url));
+        else { note('⚠️ Haber alınamadı. Yine de eklenebilir:', '#f59e0b'); addBtn('Google Haberler: ' + q, name, cands[2].url); }
+    };
+
+    // Konu araması
     if (!(raw.includes('.') && !/\s/.test(raw))) {
-        note('✅ Konu bulundu:', '#10b981');
-        addBtn('Google Haberler: ' + raw, raw, googleNewsFeedUrl(raw));
+        note('✅ Konu araması:', '#10b981');
+        await offerSearchFeeds(raw, raw);
         return;
     }
 
@@ -434,8 +461,8 @@ async function findRssFromUrl() {
         [...found.entries()].forEach(([u, v]) => addBtn(v.label, host, u));
     } else {
         note('⚠️ Sitede açık RSS bulunamadı.', '#f59e0b');
-        note('✅ Alternatif:', '#10b981');
-        addBtn('Haber Taraması (Google Haberler): ' + host, host, googleNewsFeedUrl('site:' + host));
+        note('✅ Alternatif haber taraması:', '#10b981');
+        await offerSearchFeeds('site:' + host, host);
     }
 }
 
