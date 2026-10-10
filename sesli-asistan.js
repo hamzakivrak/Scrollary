@@ -169,62 +169,76 @@ async function waitRecEnd(maxMs = 600) {
     while (voiceRecRunning && Date.now() - t0 < maxMs) await vSleep(40);
 }
 
+// Tanı kaydı: sorun olursa konsolda `VOICE_TRACE.join("\n")` ile görülebilir
+const VOICE_TRACE = [];
+function vtrace(m) { VOICE_TRACE.push(((Date.now() % 100000) / 1000).toFixed(1) + ' ' + m); if (VOICE_TRACE.length > 80) VOICE_TRACE.shift(); }
+window.VOICE_TRACE = VOICE_TRACE;
+
+// Tüm konuşmalar TEK sırada çalışır: iki konuşma asla üst üste binmez, birbirini iptal etmez.
+let speakChain = Promise.resolve();
 function sesliOkuAsync(metin, myCmdId, appendSubtitle = false) {
-    return new Promise(async (resolve) => {
-        if (!isVoiceActive || myCmdId !== currentVoiceCmdId || !('speechSynthesis' in window)) return resolve();
+    const p = speakChain.then(() => speakOne(metin, myCmdId, appendSubtitle));
+    speakChain = p.catch(() => {});
+    return p;
+}
 
-        // Döngü kırıcı: aynı cümle 20 sn içinde 3 kez söylendiyse bir şey ters gidiyordur, oturumu kapat
-        const now = Date.now();
-        while (spokenLog.length && now - spokenLog[0].t > 30000) spokenLog.shift();
-        const lastTwo = spokenLog.slice(-2);
-        // Gerçek döngü: aynı cümle art arda 3. kez söylenmek üzere (araya başka bir cümle girmeden)
-        if (lastTwo.length === 2 && lastTwo.every(x => x.text === metin)) {
-            if (typeof showToastGlobal === 'function') showToastGlobal('🎙️ Sesli asistan kendini tekrar ettiği için kapatıldı', 3000);
-            endVoiceSession('loop');
-            return resolve();
-        }
-        spokenLog.push({ text: metin, t: now });
+async function speakOne(metin, myCmdId, appendSubtitle) {
+    if (!isVoiceActive || myCmdId !== currentVoiceCmdId || !('speechSynthesis' in window)) return;
 
-        stopListening();
-        await waitRecEnd(600);
-        if (!isVoiceActive || myCmdId !== currentVoiceCmdId) return resolve();
+    // Gerçek kaçak döngü koruması (yalnızca çok hızlı art arda konuşma): 6 sn içinde 10+ konuşma
+    const now = Date.now();
+    while (spokenLog.length && now - spokenLog[0].t > 30000) spokenLog.shift();
+    if (spokenLog.filter(x => now - x.t < 6000).length >= 10) {
+        vtrace('KAÇAK DÖNGÜ: kapatılıyor');
+        if (typeof showToastGlobal === 'function') showToastGlobal('🎙️ Sesli asistan kontrolsüz tekrara girdi, kapatıldı', 3000);
+        endVoiceSession('loop');
+        return;
+    }
+    spokenLog.push({ text: metin, t: now });
+    vtrace('söyle: ' + metin.slice(0, 40));
 
-        showVoiceSubtitle(metin, appendSubtitle);
-        const stopBtn = document.getElementById('voiceStopBtn');
-        if (stopBtn) stopBtn.style.setProperty('display', 'block', 'important');
+    stopListening();
+    await waitRecEnd(600);
+    if (!isVoiceActive || myCmdId !== currentVoiceCmdId) return;
 
-        let superseded = false;
-        for (let attempt = 0; attempt < 3; attempt++) {
-            window.speechSynthesis.cancel();
-            await vSleep(90);                                   // cancel() hemen ardından speak() bazı Android sürümlerinde sesi yutuyor
-            if (!isVoiceActive || myCmdId !== currentVoiceCmdId) { superseded = true; break; }
+    showVoiceSubtitle(metin, appendSubtitle);
+    const stopBtn = document.getElementById('voiceStopBtn');
+    if (stopBtn) stopBtn.style.setProperty('display', 'block', 'important');
 
-            const utterance = new SpeechSynthesisUtterance(metin);
-            utterance.lang = 'tr-TR';
-            utterance.rate = 1.5;
-            currentUtter = utterance;
-            const t0 = Date.now();
-            const how = await new Promise((res) => {
-                utterance.onend = () => res('end');
-                utterance.onerror = (ev) => res((ev && ev.error) || 'error');
-                window.speechSynthesis.speak(utterance);
-            });
-            if (currentUtter !== utterance) { superseded = true; break; }       // yerini yeni konuşmaya bıraktı
-            if (how === 'interrupted' || how === 'canceled') { superseded = true; break; }
+    const synth = window.speechSynthesis;
+    let finished = false;
+    for (let attempt = 0; attempt < 3 && !finished; attempt++) {
+        try { synth.cancel(); } catch (e) {}
+        await vSleep(attempt ? 250 : 90);                       // cancel() hemen ardından speak() bazı Android sürümlerinde sesi yutuyor
+        if (!isVoiceActive || myCmdId !== currentVoiceCmdId) return;   // gerçekten iptal edildi (kapat / yeni komut)
 
-            // Beklenenden çok erken bittiyse ses atlanmıştır: yeniden dene
-            const elapsed = Date.now() - t0;
-            const expected = Math.max(700, metin.length * 45);
-            if (elapsed >= expected * 0.3) break;
-            await vSleep(350);
-        }
+        const utterance = new SpeechSynthesisUtterance(metin);
+        utterance.lang = 'tr-TR';
+        utterance.rate = 1.5;
+        currentUtter = utterance;
+        const t0 = Date.now();
+        const expected = Math.max(700, metin.length * 45);
+        const how = await new Promise((res) => {
+            let done = false;
+            const fin = (v) => { if (!done) { done = true; clearTimeout(guard); res(v); } };
+            // Bazı tarayıcılar onend göndermez: tahmini sürenin çok üstünde bekleyip bırak
+            const guard = setTimeout(() => fin('timeout'), expected * 4 + 8000);
+            utterance.onend = () => fin('end');
+            utterance.onerror = (ev) => fin((ev && ev.error) || 'error');
+            synth.speak(utterance);
+        });
+        const elapsed = Date.now() - t0;
+        vtrace('  sonuç=' + how + ' süre=' + elapsed + 'ms (beklenen ~' + expected + ')');
+        if (!isVoiceActive || myCmdId !== currentVoiceCmdId) return;
+        if (how === 'timeout') { try { synth.cancel(); } catch (e) {} finished = true; break; }
+        // 'interrupted' / çok erken bitiş: dışarıdan bir şey sesi kesti (geri tuşu, modal kapanması, Android) -> yeniden dene
+        if (how === 'end' && elapsed >= expected * 0.3) finished = true;
+    }
 
-        if (!superseded) {
-            if (stopBtn) stopBtn.style.setProperty('display', 'none', 'important');
-            hideVoiceSubtitle(5000);
-        }
-        resolve();
-    });
+    if (isVoiceActive && myCmdId === currentVoiceCmdId) {
+        if (stopBtn) stopBtn.style.setProperty('display', 'none', 'important');
+        hideVoiceSubtitle(5000);
+    }
 }
 
 // Asistanın kendi cümlesinin mikrofona karışıp komut sanılmasını önler
@@ -389,7 +403,8 @@ async function processVoiceCommandInner(komut, preset) {
 async function handleDeepResearch(article, listIndex, myCmdId) {
     if(typeof openModal === 'function') openModal(article);
     
-    sesliOkuAsync(`${listIndex}. haberin detaylarına iniyorum, lütfen bekleyin...`, myCmdId, false);
+    vtrace('detay başladı #' + listIndex);
+    sesliOkuAsync(`${listIndex}. haber açılıyor.`, myCmdId, false);   // sıraya girer, gerçek okumayla çakışmaz
 
     let fullText = "";
     let isDone = false;
@@ -418,12 +433,7 @@ async function handleDeepResearch(article, listIndex, myCmdId) {
             }
         }
         
-        if (seconds === 4 && !isDone) {
-            sesliOkuAsync("Ekrandaki metinleri analiz ediyorum...", myCmdId, false);
-        }
-        if (seconds === 8 && !isDone) {
-            sesliOkuAsync("Haberin ekrana düşmesini bekliyorum...", myCmdId, false);
-        }
+        if (seconds === 5 && !isDone) showVoiceSubtitle("Haber metni bekleniyor...", true);   // sesli değil: konuşmayı bölmesin
     }
 
     if (myCmdId !== currentVoiceCmdId || !isVoiceActive) return;
@@ -446,12 +456,13 @@ async function handleDeepResearch(article, listIndex, myCmdId) {
         if (myCmdId !== currentVoiceCmdId) return;
         voiceReadLinks.add(article.link); 
         
+        vtrace('özet hazır, okunuyor');
         await readWithScroll(res, myCmdId);          // okurken ilgili paragrafı vurgulayıp kaydırır
         clearVoiceHighlights();
 
         if (myCmdId === currentVoiceCmdId && isVoiceActive) {
             if (typeof closeModalSafe === 'function') closeModalSafe('newsModal');   // ana ekrana kendiliğinden dön
-            await new Promise(r => setTimeout(r, 500));
+            await new Promise(r => setTimeout(r, 900));   // geri/popstate işlemi bitsin (ses iptal etmesin)
             await sesliOkuAsync("Başka isteğiniz var mı?", myCmdId, true);
         }
 
