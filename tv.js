@@ -90,7 +90,7 @@
 
     const BAR = {
         feed: '<span><b>◄</b> Ayarlar</span><span><b>▲▼</b> Haber</span><span id="tvCount"></span><span><b>OK</b> Aç (2×: orijinal)</span><span><b>►</b> Filtreler</span>',
-        news: '<span><b>◄</b> Okuma modu</span><span><b>►</b> Orijinal</span><span><b>OK</b> ✨ Özetle</span><span><b>▲▼</b> Kaydır</span><span><b>GERİ</b> Kapat</span>',
+        news: '<span><b>◄</b> Okuma</span><span><b>►</b> Orijinal</span><span><b>OK</b> ✨ Özetle</span><span><b>▲▼</b> Kaydır</span><span><b>Ses +/−</b> Yazı boyutu</span><span><b>GERİ</b> Kapat</span>',
         ai:   '<span><b>▲▼</b> Kaydır</span><span><b>OK / GERİ</b> Özeti kapat</span>',
         menu: '<span><b>▲▼◄►</b> Gez</span><span><b>OK</b> Seç / aç</span><span><b>GERİ</b> Kapat</span>'
     };
@@ -208,14 +208,36 @@
     // Haber penceresinde ▲▼ = metni kaydır (orijinal site sade önizlemeyse onu)
     function scrollReader(dir) {
         const dy = dir === 'down' ? 340 : -340;
-        try {
-            const v = $('iframeView');
-            if (v && getComputedStyle(v).display !== 'none') {
-                const f = $('modalIframe');
-                if (f && f.contentWindow) { f.contentWindow.scrollBy({ top: dy, behavior: 'smooth' }); return; }
-            }
-        } catch (e) {}
+        const v = $('iframeView');
+        if (v && getComputedStyle(v).display !== 'none') {                  // ORİJİNAL SİTE sekmesi: çerçeveye mesaj gönder
+            const f = $('modalIframe');
+            try { if (f && f.contentWindow) f.contentWindow.postMessage({ tvScroll: dy }, '*'); } catch (e) {}
+            return;
+        }
         const body = $('modalBodyArea'); if (body) body.scrollBy({ top: dy, behavior: 'smooth' });
+    }
+
+    // Okuma bölümünde yazı boyutu (kumandada ses +/−): okuma metni ve orijinal site önizlemesi birlikte büyür/küçülür
+    let rz = 1;
+    try { rz = parseFloat(localStorage.getItem('tvReadZoom')) || 1; } catch (e) {}
+    window.tvApplyZoom = function () {
+        const rv = $('readerView'); if (rv) rv.style.zoom = String(rz);
+        const f = $('modalIframe');
+        try { if (f && f.contentWindow) f.contentWindow.postMessage({ tvZoom: rz }, '*'); } catch (e) {}
+    };
+    window.tvZoom = function (d) {
+        rz = Math.max(0.7, Math.min(2.2, Math.round((rz + d * 0.15) * 100) / 100));
+        try { localStorage.setItem('tvReadZoom', String(rz)); } catch (e) {}
+        window.tvApplyZoom();
+        if (typeof showToastGlobal === 'function') showToastGlobal('🔠 Yazı boyutu %' + Math.round(rz * 100), 1200);
+    };
+
+    function scrollAI(dir) {
+        const root = $('aiInlineResult'); if (!root) return;
+        const dy = dir === 'down' ? 320 : -320;
+        const els = [$('aiChatHistory'), ...root.querySelectorAll('*')].filter(Boolean);
+        const sc = els.find(n => { const o = getComputedStyle(n).overflowY; return (o === 'auto' || o === 'scroll') && n.scrollHeight > n.clientHeight + 4; });
+        (sc || $('aiChatHistory') || root).scrollBy({ top: dy, behavior: 'smooth' });
     }
 
     function openPanel() {
@@ -235,6 +257,10 @@
         const dir = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' }[k];
         const ov = overlayRoot();
 
+        if (ov && ov.id === 'newsModal' && !inText) {                       // okuma: yazı boyutu (ses +/−, + / −)
+            if (k === 'AudioVolumeUp' || k === 'VolumeUp' || k === '+' || k === '=') { e.preventDefault(); e.stopImmediatePropagation(); window.tvZoom(1); return; }
+            if (k === 'AudioVolumeDown' || k === 'VolumeDown' || k === '-') { e.preventDefault(); e.stopImmediatePropagation(); window.tvZoom(-1); return; }
+        }
         if (dir) {
             if (inText && (dir === 'left' || dir === 'right')) return;     // yazı alanında imleç hareketi
             e.preventDefault(); e.stopImmediatePropagation();
@@ -253,7 +279,7 @@
                 return;
             }
             if (ov.id === 'newsModal') {                                    // HABER PENCERESİ
-                if (aiOpen()) { const h = $('aiChatHistory'); if (h && (dir === 'up' || dir === 'down')) h.scrollBy({ top: dir === 'down' ? 320 : -320, behavior: 'smooth' }); return; }
+                if (aiOpen()) { if (dir === 'up' || dir === 'down') scrollAI(dir); return; }
                 if (dir === 'up' || dir === 'down') scrollReader(dir);
                 else if (dir === 'left') { const b = $('tabReader'); if (b) b.click(); }      // okuma modu
                 else { const b = $('tabWeb'); if (b) b.click(); }                              // orijinal görünüm
@@ -293,7 +319,7 @@
     }, true);
 
     // ---------- Başlat / izle ----------
-    let lastOv = null, raf = 0;
+    let lastOv = null, raf = 0, volCap = false;
     function sync() {
         raf = 0;
         const ov = overlayRoot();
@@ -301,6 +327,8 @@
         setBar(!ov ? 'feed' : ov.id === 'newsModal' ? (aiOpen() ? 'ai' : 'news') : 'menu');
         const w = $('controlsWrapper');
         if (w && w.classList.contains('collapsed') && document.body.classList.contains('tv-panel')) document.body.classList.remove('tv-panel');
+        const wantVol = !!ov && ov.id === 'newsModal';
+        if (wantVol !== volCap) { volCap = wantVol; try { if (window.AndroidTV && AndroidTV.volCapture) AndroidTV.volCapture(wantVol); } catch (e) {} if (wantVol) setTimeout(() => window.tvApplyZoom && window.tvApplyZoom(), 400); }
         if (ov !== lastOv) {
             document.querySelectorAll('.tv-focus').forEach(x => x.classList.remove('tv-focus'));
             if (ov && ov.id !== 'newsModal' && ov.id !== 'controlsWrapper') setTimeout(() => focusIn(ov), 120);

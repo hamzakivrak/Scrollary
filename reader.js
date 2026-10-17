@@ -830,7 +830,11 @@ window.addEventListener('message', async (e) => {
     setBanner('⚠️ Sayfa boş göründü — okuma modunu dene', { interactive: true, readerBtn: true });
 });
 
+// TV kumandası için: çerçevenin içi başka kökenli olduğundan kaydırma/yazı boyutu mesajla yapılır
+const TV_FRAME_JS = '<script>addEventListener("message",function(e){var d=e.data||{};try{if(d.tvScroll)window.scrollBy(0,d.tvScroll);if(d.tvZoom)document.documentElement.style.zoom=d.tvZoom}catch(x){}})<\/script>';
+
 function mountFrame(html, interactive) {
+    html = /<\/body>/i.test(html) ? html.replace(/<\/body>/i, () => TV_FRAME_JS + '</body>') : html + TV_FRAME_JS;
     const old = $id('modalIframe');
     const iframe = document.createElement('iframe');
     iframe.id = 'modalIframe'; iframe.className = 'modal-iframe';
@@ -838,6 +842,7 @@ function mountFrame(html, interactive) {
     iframe.setAttribute('sandbox', interactive ? 'allow-scripts allow-forms allow-popups' : 'allow-scripts allow-popups');   // sade modda sitenin scriptleri atılmış olur; sadece bizim boşluk kontrolü çalışır
     if (interactive) iframe.dataset.interactive = '1';
     iframe.srcdoc = html;
+    iframe.addEventListener('load', () => { if (window.tvApplyZoom) window.tvApplyZoom(); });
     old.parentNode.replaceChild(iframe, old);
     return iframe;
 }
