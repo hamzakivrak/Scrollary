@@ -1,0 +1,221 @@
+name: Android TV APK
+
+# Tek dosyalık kurulum: Android projesi bu dosyanın içinden otomatik üretilir.
+# Actions sekmesi > "Android TV APK" > Run workflow ile başlatın.
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Android projesini olustur
+        run: |
+          mkdir -p tvproj && cd tvproj
+          mkdir -p .
+          cat > settings.gradle <<'EOF_FILE'
+          pluginManagement {
+              repositories { google(); mavenCentral(); gradlePluginPortal() }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories { google(); mavenCentral() }
+          }
+          rootProject.name = "ScrollaryTV"
+          include(":app")
+          EOF_FILE
+          mkdir -p .
+          cat > build.gradle <<'EOF_FILE'
+          plugins {
+              id 'com.android.application' version '8.3.2' apply false
+          }
+          EOF_FILE
+          mkdir -p .
+          cat > gradle.properties <<'EOF_FILE'
+          org.gradle.jvmargs=-Xmx2048m
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
+          EOF_FILE
+          mkdir -p app
+          cat > app/build.gradle <<'EOF_FILE'
+          plugins {
+              id 'com.android.application'
+          }
+
+          // Uygulamanın açacağı adres. GitHub Actions bunu otomatik doldurur:
+          //   https://KULLANICI.github.io/DEPO/
+          // Elle vermek için:  gradle assembleDebug -PappUrl=https://adresin/
+          def appUrl = project.findProperty('appUrl') ?: 'https://KULLANICI.github.io/DEPO/'
+
+          android {
+              namespace 'com.scrollary.tv'
+              compileSdk 34
+
+              defaultConfig {
+                  applicationId 'com.scrollary.tv'
+                  minSdk 21
+                  targetSdk 34
+                  versionCode 1
+                  versionName '1.0'
+                  buildConfigField 'String', 'APP_URL', "\"${appUrl}\""
+              }
+              buildFeatures { buildConfig true }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+              buildTypes {
+                  release { minifyEnabled false }
+              }
+          }
+          EOF_FILE
+          mkdir -p app/src/main
+          cat > app/src/main/AndroidManifest.xml <<'EOF_FILE'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+              <!-- Android TV: dokunmatik ekran şart değil, leanback (TV) arayüzü destekli -->
+              <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+              <uses-feature android:name="android.software.leanback" android:required="false" />
+              <uses-feature android:name="android.hardware.microphone" android:required="false" />
+
+              <application
+                  android:allowBackup="true"
+                  android:icon="@drawable/banner"
+                  android:banner="@drawable/banner"
+                  android:label="Scrollary"
+                  android:usesCleartextTraffic="true"
+                  android:hardwareAccelerated="true"
+                  android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen">
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:configChanges="orientation|screenSize|keyboardHidden|keyboard|navigation|uiMode"
+                      android:screenOrientation="landscape">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                          <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF_FILE
+          mkdir -p app/src/main/java/com/scrollary/tv
+          cat > app/src/main/java/com/scrollary/tv/MainActivity.java <<'EOF_FILE'
+          package com.scrollary.tv;
+
+          import android.annotation.SuppressLint;
+          import android.app.Activity;
+          import android.graphics.Color;
+          import android.net.Uri;
+          import android.os.Bundle;
+          import android.view.KeyEvent;
+          import android.view.View;
+          import android.view.WindowManager;
+          import android.webkit.CookieManager;
+          import android.webkit.WebChromeClient;
+          import android.webkit.WebResourceError;
+          import android.webkit.WebResourceRequest;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+          import android.widget.Toast;
+
+          /** Scrollary'yi tam ekran bir WebView içinde açar. Arayüz/özellikler GitHub'daki web sürümünden gelir. */
+          public class MainActivity extends Activity {
+              private WebView web;
+
+              @SuppressLint("SetJavaScriptEnabled")
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+                  web = new WebView(this);
+                  web.setBackgroundColor(Color.parseColor("#0b1220"));
+                  setContentView(web);
+
+                  WebSettings s = web.getSettings();
+                  s.setJavaScriptEnabled(true);
+                  s.setDomStorageEnabled(true);
+                  s.setDatabaseEnabled(true);
+                  s.setMediaPlaybackRequiresUserGesture(false);
+                  s.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
+                  s.setCacheMode(WebSettings.LOAD_DEFAULT);
+                  s.setLoadWithOverviewMode(true);
+                  s.setUseWideViewPort(true);
+                  // Web uygulaması TV modunu bu işaretten anlar
+                  s.setUserAgentString(s.getUserAgentString() + " ScrollaryTV");
+                  CookieManager.getInstance().setAcceptCookie(true);
+                  CookieManager.getInstance().setAcceptThirdPartyCookies(web, true);
+
+                  web.setWebChromeClient(new WebChromeClient());
+                  web.setWebViewClient(new WebViewClient() {
+                      @Override
+                      public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) {
+                          String scheme = r.getUrl().getScheme();
+                          if ("http".equals(scheme) || "https".equals(scheme)) return false;   // her şey uygulama içinde açılsın
+                          return true;                                                          // intent:, market: vb. yok sayılır
+                      }
+
+                      @Override
+                      public void onReceivedError(WebView v, WebResourceRequest r, WebResourceError e) {
+                          if (r.isForMainFrame()) {
+                              Toast.makeText(MainActivity.this, "Bağlantı sorunu: internet / adres kontrol edilmeli", Toast.LENGTH_LONG).show();
+                          }
+                      }
+                  });
+
+                  String url = BuildConfig.APP_URL;
+                  web.loadUrl(url.contains("tv=1") ? url : url + (url.contains("?") ? "&" : "?") + "tv=1");
+                  web.requestFocus();
+              }
+
+              // Kumandadaki GERİ tuşu: önce web uygulamasındaki pencere/sayfa geri gelsin, kök ekranda uygulamadan çıkılsın
+              @Override
+              public boolean onKeyDown(int keyCode, KeyEvent event) {
+                  if (keyCode == KeyEvent.KEYCODE_BACK && web != null && web.canGoBack()) {
+                      web.goBack();
+                      return true;
+                  }
+                  return super.onKeyDown(keyCode, event);
+              }
+
+              @Override protected void onPause() { super.onPause(); if (web != null) web.onPause(); }
+              @Override protected void onResume() { super.onResume(); if (web != null) web.onResume(); }
+          }
+          EOF_FILE
+          mkdir -p app/src/main/res/drawable
+          cat > app/src/main/res/drawable/banner.xml <<'EOF_FILE'
+          <?xml version="1.0" encoding="utf-8"?>
+          <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+              <item><shape android:shape="rectangle"><solid android:color="#0B1220" /></shape></item>
+              <item android:gravity="bottom" android:height="12dp"><shape android:shape="rectangle"><solid android:color="#E11D48" /></shape></item>
+          </layer-list>
+          EOF_FILE
+
+      - name: APK derle
+        working-directory: tvproj
+        run: |
+          APP_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+          echo "Acilacak adres: $APP_URL"
+          gradle assembleDebug -PappUrl="$APP_URL" --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Scrollary-TV-apk
+          path: tvproj/app/build/outputs/apk/debug/app-debug.apk
