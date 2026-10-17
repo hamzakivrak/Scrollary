@@ -246,10 +246,15 @@ function popupRefresh() {
 
 function loadCustomFeeds() {
     const builtin = GLOBAL_RSS_DB[currentRegion] || GLOBAL_RSS_DB['EN'];
-    const saved = JSON.parse(localStorage.getItem('customRSSFeeds')) || [];
+    const savedAll = JSON.parse(localStorage.getItem('customRSSFeeds')) || [];
+    // Eski kayıtlarda dil etiketi yok: ilk açılışta o an seçili dile etiketlenir
+    let tagged = false;
+    savedAll.forEach(f => { if (f && !f.lang) { f.lang = currentRegion; tagged = true; } });
+    if (tagged) localStorage.setItem('customRSSFeeds', JSON.stringify(savedAll));
+    // Eklenen kaynak yalnızca eklendiği dilde görünür
+    const saved = savedAll.filter(f => f && f.lang === currentRegion);
     const builtinUrls = new Set(builtin.map(f => normFeedUrl(f.url)));
-    // Kullanıcının eklediği kaynaklar dil/bölge değişse de kaybolmaz
-    RSS_FEEDS = [...builtin, ...saved.filter(f => f && f.url && !builtinUrls.has(normFeedUrl(f.url)))];
+    RSS_FEEDS = [...builtin, ...saved.filter(f => f.url && !builtinUrls.has(normFeedUrl(f.url)))];
     const savedActive = JSON.parse(localStorage.getItem('activeSourcesList'));
     activeSources = (savedActive && savedActive.length > 0) ? savedActive : RSS_FEEDS.map(f => f.name);
     renderChips();
@@ -347,7 +352,7 @@ async function addDiscoveredRss(name, url) {
 
     loadCustomFeeds(); // RSS_FEEDS güncel olsun
     const saved = JSON.parse(localStorage.getItem('customRSSFeeds')) || [];
-    const exists = saved.find(f => normFeedUrl(f.url) === feedUrl) || RSS_FEEDS.find(f => normFeedUrl(f.url) === feedUrl);
+    const exists = saved.find(f => f.lang === currentRegion && normFeedUrl(f.url) === feedUrl) || RSS_FEEDS.find(f => normFeedUrl(f.url) === feedUrl);
     if (exists) {
         if (!activeSources.includes(exists.name)) { activeSources.push(exists.name); saveActiveSources(); }
         renderChips(); highlightFeedChip(exists.name); handleSearch(true);
