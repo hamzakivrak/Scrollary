@@ -30,7 +30,7 @@
     css.textContent = `
       body.tv-mode { overflow: hidden; }
       body.tv-mode .ambient-bg, body.tv-mode #pullToRefresh, body.tv-mode #mainHeader,
-      body.tv-mode .mic-fab, body.tv-mode #aiFab, body.tv-mode #scrollSpinner, body.tv-mode #endRefreshSpinner { display: none !important; }
+      body.tv-mode .mic-fab, body.tv-mode #scrollSpinner, body.tv-mode #endRefreshSpinner { display: none !important; }
       body.tv-mode .container { padding: 0 !important; margin: 0 !important; max-width: none !important; width: 100% !important; }
 
       /* Üst menü yalnızca ► ile açılan tam ekran panel olarak görünür */
@@ -48,31 +48,59 @@
       body.tv-mode .swipe-wrapper.tv-current .card-img-wrapper { position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; aspect-ratio: auto !important; }
       body.tv-mode .swipe-wrapper.tv-current .main-img { width: 100% !important; height: 100% !important; object-fit: cover !important; }
       body.tv-mode .swipe-wrapper.tv-current .fallback-logo { position: absolute; left: 50%; top: 38%; width: 22vh; height: 22vh; transform: translate(-50%, -50%); opacity: .5; object-fit: contain; }
-      body.tv-mode .swipe-wrapper.tv-current .source-badge { position: absolute !important; top: 24px; left: 4%; font-size: 1.15rem !important; padding: 8px 16px !important; z-index: 3; pointer-events: none; }
-      body.tv-mode .swipe-wrapper.tv-current .news-content { position: absolute !important; left: 0; right: 0; bottom: 0; padding: 90px 5% 64px !important; z-index: 2;
+      body.tv-mode .swipe-wrapper.tv-current .source-badge { position: absolute !important; top: 24px; left: 4%; font-size: 1.6rem !important; padding: 10px 22px !important; z-index: 3; pointer-events: none; }
+      body.tv-mode .swipe-wrapper.tv-current .news-content { position: absolute !important; left: 0; right: 0; bottom: 0; padding: 110px 5% 84px !important; z-index: 2;
           background: linear-gradient(transparent, rgba(0,0,0,.88) 45%, rgba(0,0,0,.96)) !important; }
-      body.tv-mode .swipe-wrapper.tv-current .news-content h3 { font-size: clamp(1.5rem, 4.2vh, 2.6rem) !important; line-height: 1.25 !important; display: block !important;
+      body.tv-mode .swipe-wrapper.tv-current .news-content h3 { font-size: clamp(1.9rem, 6.6vh, 3.8rem) !important; line-height: 1.25 !important; display: block !important;
           -webkit-line-clamp: unset !important; max-height: none !important; color: #fff !important; text-shadow: 0 2px 10px rgba(0,0,0,.8); }
-      body.tv-mode .swipe-wrapper.tv-current .meta { font-size: 1.05rem !important; margin-top: 14px; }
+      body.tv-mode .swipe-wrapper.tv-current .meta { font-size: 1.45rem !important; margin-top: 16px; }
 
-      body.tv-mode .modal-content { font-size: 1.12em; }
+      /* Yazılar ~2 kat: pencereler --z oranında büyütülür, boyutlar ekrana göre ters orantıyla ayarlanır */
+      body.tv-mode .modal-content { zoom: var(--z, 2); width: calc(94vw / var(--z, 2)) !important; max-width: calc(94vw / var(--z, 2)) !important;
+          height: calc(86vh / var(--z, 2)) !important; max-height: calc(86vh / var(--z, 2)) !important; }
+      body.tv-mode #newsModal .modal-content { width: calc(100vw / var(--z, 2)) !important; max-width: none !important; height: calc(100vh / var(--z, 2)) !important; max-height: none !important; border-radius: 0 !important; }
+      body.tv-mode #newsModal #modalBodyArea { padding-bottom: 70px; }
+      body.tv-mode #aiFab { width: 64px; height: 64px; font-size: 1.8rem; bottom: 70px; }
+      body.tv-mode.tv-panel #controlsWrapper { zoom: var(--z, 2); inset: auto !important; top: 0 !important; left: 0 !important;
+          width: calc(100vw / var(--z, 2)) !important; height: calc(100vh / var(--z, 2)) !important; padding: 8px 3% 70px !important; box-sizing: border-box; }
       body.tv-mode .tv-focus, body.tv-mode :focus-visible { outline: 4px solid #facc15 !important; outline-offset: 3px; border-radius: 12px; }
       body.tv-mode * { -webkit-tap-highlight-color: transparent; }
 
-      #tvBar { display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 2000; padding: 10px 4%; background: rgba(0,0,0,.72); color: #e2e8f0;
-          font: 600 1rem system-ui, sans-serif; justify-content: space-between; gap: 14px; }
+      #tvBar { display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 5000; padding: 10px 4%; background: rgba(0,0,0,.72); color: #e2e8f0;
+          font: 600 1.35rem system-ui, sans-serif; justify-content: space-between; gap: 14px; }
       body.tv-mode #tvBar { display: flex; }
-      body.tv-mode.tv-ov #tvBar, body.tv-mode.tv-panel #tvBar { display: none; }
-      #tvBar b { color: #facc15; }
+            #tvBar b { color: #facc15; }
     `;
     document.head.appendChild(css);
+    // Yazı büyütme oranı (varsayılan 2). Ekran çok dar görünüyorsa otomatik düşürülür. ?tvscale=1.5 ile değiştirilebilir.
+    try {
+        const qs = parseFloat(new URLSearchParams(location.search).get('tvscale'));
+        if (qs > 0) localStorage.setItem('tvScale', String(qs));
+        const want = parseFloat(localStorage.getItem('tvScale')) || 2;
+        const z = Math.max(1, Math.min(want, innerWidth / 560));
+        document.documentElement.style.setProperty('--z', String(z));
+    } catch (e) { document.documentElement.style.setProperty('--z', '2'); }
 
     function buildBar() {
         const bar = document.createElement('div');
         bar.id = 'tvBar';
-        bar.innerHTML = '<span><b>◄</b> Ayarlar</span><span><b>▲▼</b> Haber</span><span id="tvCount"></span><span><b>OK</b> Aç (2×: orijinal)</span><span><b>►</b> Filtreler</span>';
         document.body.appendChild(bar);
+        setBar('feed');
     }
+
+    const BAR = {
+        feed: '<span><b>◄</b> Ayarlar</span><span><b>▲▼</b> Haber</span><span id="tvCount"></span><span><b>OK</b> Aç (2×: orijinal)</span><span><b>►</b> Filtreler</span>',
+        news: '<span><b>◄</b> Okuma modu</span><span><b>►</b> Orijinal</span><span><b>OK</b> ✨ Özetle</span><span><b>▲▼</b> Kaydır</span><span><b>GERİ</b> Kapat</span>',
+        ai:   '<span><b>▲▼</b> Kaydır</span><span><b>OK / GERİ</b> Özeti kapat</span>',
+        menu: '<span><b>▲▼◄►</b> Gez</span><span><b>OK</b> Seç / aç</span><span><b>GERİ</b> Kapat</span>'
+    };
+    let barKind = '';
+    function setBar(kind) { const b = $('tvBar'); if (b && kind !== barKind) { b.innerHTML = BAR[kind]; barKind = kind; if (kind === 'feed') refreshCount(); } }
+    function refreshCount() {
+        const l = cards(), i = curIndex(); const total = (typeof filteredArticles !== 'undefined' && filteredArticles.length) || l.length;
+        const cnt = $('tvCount'); if (cnt && l.length) cnt.textContent = (i + 1) + ' / ' + total;
+    }
+    const aiOpen = () => { const a = $('aiInlineResult'); return !!a && getComputedStyle(a).display !== 'none'; };
 
     // ---------- Tek kart yönetimi ----------
     let curLink = null, lastUpTap = 0;
@@ -88,7 +116,7 @@
         l[i].classList.add('tv-current');
         curLink = l[i].dataset.link;
         const total = (typeof filteredArticles !== 'undefined' && filteredArticles.length) || l.length;
-        const cnt = $('tvCount'); if (cnt) cnt.textContent = (i + 1) + ' / ' + total;
+        refreshCount();
         if (allowMore && i >= l.length - 3) loadMore();
     }
     function ensureCurrent() {
@@ -108,7 +136,16 @@
         if (document.body.classList.contains('tv-panel') && w && !w.classList.contains('collapsed')) return w;
         return null;
     }
-    const visible = (el) => { const r = el.getBoundingClientRect(); return r.width > 4 && r.height > 4 && getComputedStyle(el).visibility !== 'hidden'; };
+    const visible = (el) => {
+        const r = el.getBoundingClientRect();
+        if (!(r.width > 4 && r.height > 4) || getComputedStyle(el).visibility === 'hidden') return false;
+        // Kapalı <details> içindeki öğeler (tarayıcı boyut bildirse de) görünmez sayılır; yalnızca <summary> başlığı görünür
+        for (let d = el.closest('details'); d; d = d.parentElement && d.parentElement.closest('details')) {
+            if (!d.open && !(el.tagName === 'SUMMARY' && el.parentElement === d)) return false;
+        }
+        try { if (el.checkVisibility && !el.checkVisibility({ checkVisibilityCSS: true, contentVisibilityAuto: true })) return false; } catch (e) {}
+        return true;
+    };
 
     function candidates(root) {
         const sel = 'button, a[href], select, input:not([type=hidden]), textarea, summary, [role=button], .chip, .c-tab, [onclick]';
@@ -148,7 +185,11 @@
             const ok = dir === 'down' ? dy > 6 : dir === 'up' ? dy < -6 : dir === 'right' ? dx > 6 : dx < -6;
             if (!ok) continue;
             const vert = dir === 'up' || dir === 'down';
-            const s = (vert ? Math.abs(dy) : Math.abs(dx)) + (vert ? Math.abs(dx) : Math.abs(dy)) * 2.2;
+            // Kenar boşluğuna göre skor: geniş öğelerde (yazı kutusu, başlık) merkez uzaklığı yanıltmasın
+            const main = Math.max(0, dir === 'down' ? b.top - a.bottom : dir === 'up' ? a.top - b.bottom : dir === 'right' ? b.left - a.right : a.left - b.right);
+            const gap = vert ? Math.max(0, Math.max(a.left, b.left) - Math.min(a.right, b.right)) : Math.max(0, Math.max(a.top, b.top) - Math.min(a.bottom, b.bottom));
+            const off = vert ? Math.abs(dx) : Math.abs(dy);
+            const s = main + (gap + off * 0.25) * 3;
             if (s < bs) { bs = s; best = el; }
         }
         if (best) { setFocus(best); return true; }
@@ -212,7 +253,10 @@
                 return;
             }
             if (ov.id === 'newsModal') {                                    // HABER PENCERESİ
-                if (dir === 'up' || dir === 'down') scrollReader(dir); else move(dir, ov);
+                if (aiOpen()) { const h = $('aiChatHistory'); if (h && (dir === 'up' || dir === 'down')) h.scrollBy({ top: dir === 'down' ? 320 : -320, behavior: 'smooth' }); return; }
+                if (dir === 'up' || dir === 'down') scrollReader(dir);
+                else if (dir === 'left') { const b = $('tabReader'); if (b) b.click(); }      // okuma modu
+                else { const b = $('tabWeb'); if (b) b.click(); }                              // orijinal görünüm
                 return;
             }
             if (!move(dir, ov) && (dir === 'up' || dir === 'down')) scrollOverlay(dir, ov);   // AYARLAR / FİLTRE: öğeden öğeye
@@ -226,6 +270,12 @@
                 if (c) { e.preventDefault(); e.stopImmediatePropagation(); c.click(); }
                 return;
             }
+            if (ov.id === 'newsModal') {                                    // OK: özetle (özet açıksa kapat)
+                e.preventDefault(); e.stopImmediatePropagation();
+                if (aiOpen()) { if (typeof closeAIResult === 'function') closeAIResult(); }
+                else if (typeof askAIFromWeb === 'function') askAIFromWeb();
+                return;
+            }
             const el = curFocus(ov);
             if (!el) return;
             if (el.tagName === 'SELECT' || inText) return;                  // açılır liste / yazı alanı kendi işini yapsın
@@ -237,7 +287,8 @@
         if (k === 'Escape' || k === 'GoBack' || k === 'BrowserBack' || (k === 'Backspace' && !inText)) {
             if (!ov) return;
             e.preventDefault();
-            if (ov.id === 'controlsWrapper') history.back(); else if (typeof closeModalSafe === 'function') closeModalSafe(ov.id);
+            if (ov.id === 'newsModal' && aiOpen() && typeof closeAIResult === 'function') closeAIResult();
+            else if (ov.id === 'controlsWrapper') history.back(); else if (typeof closeModalSafe === 'function') closeModalSafe(ov.id);
         }
     }, true);
 
@@ -247,6 +298,7 @@
         raf = 0;
         const ov = overlayRoot();
         document.body.classList.toggle('tv-ov', !!ov && ov.id !== 'controlsWrapper');
+        setBar(!ov ? 'feed' : ov.id === 'newsModal' ? (aiOpen() ? 'ai' : 'news') : 'menu');
         const w = $('controlsWrapper');
         if (w && w.classList.contains('collapsed') && document.body.classList.contains('tv-panel')) document.body.classList.remove('tv-panel');
         if (ov !== lastOv) {
