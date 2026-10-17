@@ -2,11 +2,11 @@
 let readerToken = 0;
 const originalState = { art: null, loaded: false, html: null, link: null };
 const READER_CACHE = new Map();
-try { localStorage.removeItem('readerCacheV1'); (JSON.parse(localStorage.getItem('readerCacheV2')) || []).forEach(([k, v]) => READER_CACHE.set(k, v)); } catch (e) {}
+try { localStorage.removeItem('readerCacheV1'); (JSON.parse(localStorage.getItem('readerCacheV3')) || []).forEach(([k, v]) => READER_CACHE.set(k, v)); } catch (e) {}
 const $id = id => document.getElementById(id);
 
 function persistReaderCache() {
-    try { localStorage.setItem('readerCacheV2', JSON.stringify([...READER_CACHE.entries()].slice(-30))); } catch (e) {}
+    try { localStorage.setItem('readerCacheV3', JSON.stringify([...READER_CACHE.entries()].slice(-30))); } catch (e) {}
 }
 
 // ---------- Yardımcılar ----------
@@ -377,11 +377,22 @@ function hintWords(hint) {
     return set;
 }
 
+// "&ouml; &uuml; &#246;" gibi HTML varlıklarını gerçek karaktere çevirir (çift kodlanmış metinler için)
+let _entTA = null;
+function decodeEntitiesText(t) {
+    if (!t || t.indexOf('&') < 0) return t;
+    try {
+        if (!_entTA) _entTA = document.createElement('textarea');
+        for (let i = 0; i < 2 && t.indexOf('&') >= 0; i++) { _entTA.innerHTML = t.replace(/</g, '&lt;'); const d = _entTA.value; if (d === t) break; t = d; }
+    } catch (e) {}
+    return t;
+}
+
 function finalizeParas(texts, hint) {
     const seen = new Set();
     let list = [];
     for (let s of texts) {
-        s = (s || '').replace(/\s+/g, ' ').trim();
+        s = decodeEntitiesText(s || '').replace(/\s+/g, ' ').trim();
         if (!s || seen.has(s)) continue;
         seen.add(s); list.push(s);
     }
