@@ -127,6 +127,7 @@ jobs:
           import android.view.View;
           import android.view.WindowManager;
           import android.webkit.CookieManager;
+          import android.webkit.JavascriptInterface;
           import android.webkit.WebChromeClient;
           import android.webkit.WebResourceError;
           import android.webkit.WebResourceRequest;
@@ -138,6 +139,7 @@ jobs:
           /** Scrollary'yi tam ekran bir WebView içinde açar. Arayüz/özellikler GitHub'daki web sürümünden gelir. */
           public class MainActivity extends Activity {
               private WebView web;
+              private volatile boolean volCapture = false;   // haber penceresi açıkken ses tuşları yazı boyutunu değiştirir
 
               @SuppressLint("SetJavaScriptEnabled")
               @Override
@@ -162,6 +164,11 @@ jobs:
                   s.setUserAgentString(s.getUserAgentString() + " ScrollaryTV");
                   CookieManager.getInstance().setAcceptCookie(true);
                   CookieManager.getInstance().setAcceptThirdPartyCookies(web, true);
+
+                  web.addJavascriptInterface(new Object() {
+                      @JavascriptInterface
+                      public void volCapture(boolean on) { volCapture = on; }
+                  }, "AndroidTV");
 
                   web.setWebChromeClient(new WebChromeClient());
                   web.setWebViewClient(new WebViewClient() {
@@ -188,6 +195,10 @@ jobs:
               // Kumandadaki GERİ tuşu: önce web uygulamasındaki pencere/sayfa geri gelsin, kök ekranda uygulamadan çıkılsın
               @Override
               public boolean onKeyDown(int keyCode, KeyEvent event) {
+                  if (volCapture && web != null && (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN)) {
+                      web.evaluateJavascript("window.tvZoom&&tvZoom(" + (keyCode == KeyEvent.KEYCODE_VOLUME_UP ? 1 : -1) + ")", null);
+                      return true;
+                  }
                   if (keyCode == KeyEvent.KEYCODE_BACK && web != null && web.canGoBack()) {
                       web.goBack();
                       return true;
