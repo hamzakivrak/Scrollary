@@ -91,7 +91,7 @@ const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 // Döndürür: metin. Hata olursa Türkçe, GERÇEK sebebi söyleyen bir Error fırlatır.
 // opts: { temperature, maxTokens, json (JSON modu), models (sıra) }
-async function groqChat(messages, { temperature = 0.5, maxTokens = 2048, json = false, models = GROQ_MODELS } = {}) {
+async function groqOnly(messages, { temperature = 0.5, maxTokens = 2048, json = false, models = GROQ_MODELS } = {}) {
     const keys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
     if (!keys.length) throw new Error('API anahtarı eksik. Ayarlardan Groq anahtarı ekleyin.');
     let lastReason = 'Bilinmeyen hata';
@@ -143,6 +143,110 @@ async function groqChat(messages, { temperature = 0.5, maxTokens = 2048, json = 
         if (badKeys >= keys.length) break;   // tüm anahtarlar geçersizse model değiştirmek işe yaramaz
     }
     throw new Error(lastReason);
+}
+
+
+// ==========================================
+// GEMINI (yedek sağlayıcı) + ORTAK GİRİŞ
+// Önce Groq anahtarları denenir; hepsi tükenirse/başarısız olursa Gemini anahtarlarına geçilir
+// (yalnızca Gemini anahtarı varsa doğrudan Gemini kullanılır).
+// ==========================================
+const GEMINI_MODELS = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest'];
+const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/';
+const getGroqKeys = () => { try { return JSON.parse(localStorage.getItem('groqApiKeys')) || []; } catch (e) { return []; } };
+const getGeminiKeys = () => { try { return JSON.parse(localStorage.getItem('geminiApiKeys')) || []; } catch (e) { return []; } };
+const allAIKeys = () => getGroqKeys().concat(getGeminiKeys());
+
+// OpenAI tarzı mesajları Gemini biçimine çevirir
+function toGeminiPayload(messages, { temperature, maxTokens, json }) {
+    const sys = messages.filter(m => m.role === 'system').map(m => m.content).join('\n\n');
+    const contents = messages.filter(m => m.role !== 'system').map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: String(m.content) }] }));
+    if (!contents.length) contents.push({ role: 'user', parts: [{ text: sys || '.' }] });
+    const body = { contents, generationConfig: { temperature, maxOutputTokens: maxTokens + 1500 } };   // +1500: düşünme belirteçleri yanıtı yutmasın
+    if (sys && messages.some(m => m.role !== 'system')) body.systemInstruction = { parts: [{ text: sys }] };
+    if (json) body.generationConfig.responseMimeType = 'application/json';
+    return body;
+}
+
+async function geminiChat(messages, { temperature = 0.5, maxTokens = 2048, json = false } = {}) {
+    const keys = getGeminiKeys();
+    if (!keys.length) throw new Error('API anahtarı eksik. Ayarlardan Groq veya Gemini anahtarı ekleyin.');
+    let lastReason = 'Bilinmeyen hata', badKeys = 0;
+    for (const model of GEMINI_MODELS) {
+        let modelGone = false;
+        for (const key of keys) {
+            try {
+                const res = await fetchWithTimeout(`${GEMINI_BASE}${model}:generateContent`, 30000, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+                    body: JSON.stringify(toGeminiPayload(messages, { temperature, maxTokens, json }))
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const parts = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
+                    const text = parts.filter(p => !p.thought).map(p => p.text || '').join('').trim();
+                    if (text) return text;
+                    lastReason = 'Gemini boş yanıt döndürdü'; continue;
+                }
+                let detail = ''; try { detail = ((await res.json()).error || {}).message || ''; } catch (e) {}
+                console.warn('[Gemini]', model, res.status, detail);
+                if (res.status === 429) lastReason = 'Gemini kotası doldu (429).';
+                else if (res.status === 401 || res.status === 403 || (res.status === 400 && /API key|API_KEY/i.test(detail))) { lastReason = 'Gemini API anahtarı geçersiz.'; badKeys++; }
+                else if (res.status === 404) { lastReason = `Model kullanılamıyor: ${model}`; modelGone = true; break; }
+                else lastReason = `Gemini sunucu hatası (${res.status}) ${detail}`.trim();
+            } catch (e) {
+                lastReason = e.name === 'AbortError' ? 'Zaman aşımı, tekrar deneyin.' : 'Bağlantı hatası (internet/engelleyici?).';
+            }
+        }
+        if (badKeys >= keys.length) break;
+        if (modelGone) continue;
+    }
+    throw new Error(lastReason);
+}
+
+// Tüm yapay zeka istekleri buradan geçer (adı geriye uyum için groqChat kaldı)
+async function groqChat(messages, opts = {}) {
+    const hasGroq = getGroqKeys().length > 0, hasGem = getGeminiKeys().length > 0;
+    if (!hasGroq && !hasGem) throw new Error('API anahtarı eksik. Ayarlardan Groq veya Gemini anahtarı ekleyin.');
+    let groqErr = null;
+    if (hasGroq) {
+        try { return await groqOnly(messages, opts); }
+        catch (e) { groqErr = e; if (!hasGem) throw e; console.warn('[AI] Groq başarısız, Gemini deneniyor:', e.message); }
+    }
+    try { return await geminiChat(messages, opts); }
+    catch (e) { throw new Error(groqErr ? `${groqErr.message} | ${e.message}` : e.message); }
+}
+
+// Anahtar metin dosyasından içe aktarma: "gsk_..." ve "AIza..." satırlarını türüne göre ayırır (başlık satırları isteğe bağlı)
+function parseKeysFromText(text) {
+    const out = { groq: [], gemini: [] };
+    const re = /(gsk_[A-Za-z0-9]{20,}|AIza[0-9A-Za-z_\-]{30,})/g;
+    let m;
+    while ((m = re.exec(String(text || '')))) { const k = m[1]; const list = k.startsWith('gsk_') ? out.groq : out.gemini; if (!list.includes(k)) list.push(k); }
+    return out;
+}
+function importKeysFromText(text) {
+    const found = parseKeysFromText(text);
+    let addG = 0, addM = 0, dup = 0;
+    const g = getGroqKeys(), m = getGeminiKeys();
+    found.groq.forEach(k => { if (g.includes(k)) dup++; else { g.push(k); addG++; } });
+    found.gemini.forEach(k => { if (m.includes(k)) dup++; else { m.push(k); addM++; } });
+    localStorage.setItem('groqApiKeys', JSON.stringify(g));
+    localStorage.setItem('geminiApiKeys', JSON.stringify(m));
+    return { addG, addM, dup, total: found.groq.length + found.gemini.length };
+}
+function importKeysFile(input) {
+    const f = input && input.files && input.files[0];
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+        const r = importKeysFromText(rd.result);
+        loadGroqKeys();
+        if (!r.total) { alert('Dosyada geçerli anahtar bulunamadı. Groq anahtarları gsk_ ile, Gemini anahtarları AIza ile başlamalı.'); }
+        else showToastGlobal(`✅ ${r.addG} Groq + ${r.addM} Gemini anahtarı eklendi` + (r.dup ? ` (${r.dup} zaten vardı)` : ''), 4000);
+        input.value = '';
+    };
+    rd.readAsText(f);
 }
 
 // ==========================================
@@ -205,7 +309,7 @@ async function getAIResponseWithHistory(query) {
     const historyDiv = document.getElementById('aiChatHistory');
     const sendBtn = document.getElementById('aiChatSendBtn');
     
-    const apiKeys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
+    const apiKeys = allAIKeys();
     if (apiKeys.length === 0) {
         historyDiv.insertAdjacentHTML('beforeend', `<div class="ai-msg assistant" style="background: var(--danger);">⚠️ API anahtarı eksik. Ayarlardan Groq API anahtarı ekleyin.</div>`);
         return;
@@ -261,7 +365,7 @@ function closeAIResult() {
 async function attemptToFindMissingTextWithAI(art, textContainer) {
     textContainer.innerHTML = `<div class="loading-pulse" style="padding: 20px; text-align: center; color: var(--accent);">⚠️ Sitenin güvenlik duvarı aşılamadı.<br><br>🤖 Yapay zeka bu haberin tam metnini internet hafızasından bulmaya çalışıyor...</div>`;
     
-    const apiKeys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
+    const apiKeys = allAIKeys();
     if (apiKeys.length === 0) {
         textContainer.innerHTML = `<div class="status-msg">⚠️ Metni AI ile tamamlamak için Ayarlar'dan API anahtarı eklemelisiniz.</div>`;
         return;
@@ -296,55 +400,60 @@ async function attemptToFindMissingTextWithAI(art, textContainer) {
 // ==========================================
 
 function loadGroqKeys() {
-    const keys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
+    const groq = getGroqKeys(), gem = getGeminiKeys();
     const listDiv = document.getElementById('groqKeysList');
     if (!listDiv) return;
-    
+
     listDiv.innerHTML = '';
-    if (keys.length === 0) {
+    if (!groq.length && !gem.length) {
         listDiv.innerHTML = '<div style="font-size: 0.85rem; color: #ef4444; padding: 10px; background: rgba(239, 68, 68, 0.1); border-radius: 8px; border: 1px dashed #ef4444;">⚠️ Henüz bir API anahtarı eklenmedi. Yapay zeka özellikleri çalışmayacaktır.</div>';
         return;
     }
-    
-    keys.forEach((key, index) => {
-        const maskedKey = key.substring(0, 6) + '••••••••••••••••' + key.substring(key.length - 4);
-        listDiv.innerHTML += `
-            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 10px 15px; border-radius: 8px; border: 1px solid var(--surface-light);">
-                <span style="font-family: monospace; color: #a7f3d0; font-size: 0.9rem;">${maskedKey}</span>
-                <button onclick="removeGroqKey(${index})" style="background: rgba(239, 68, 68, 0.2); color: var(--danger); border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: bold; pointer-events: auto;">Sil</button>
-            </div>
-        `;
-    });
+    const row = (label, key, prov, index) => {
+        const masked = key.substring(0, 6) + '••••••••••••••••' + key.substring(key.length - 4);
+        return `
+            <div style="display: flex; justify-content: space-between; align-items: center; gap:8px; background: rgba(255,255,255,0.05); padding: 10px 15px; border-radius: 8px; border: 1px solid var(--surface-light);">
+                <span style="font-size:0.75rem; font-weight:bold; color:#fff; background:${prov === 'groq' ? '#f97316' : '#3b82f6'}; padding:2px 8px; border-radius:10px;">${label}</span>
+                <span style="flex:1; font-family: monospace; color: #a7f3d0; font-size: 0.9rem;">${masked}</span>
+                <button onclick="removeAIKey('${prov}', ${index})" style="background: rgba(239, 68, 68, 0.2); color: var(--danger); border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: bold; pointer-events: auto;">Sil</button>
+            </div>`;
+    };
+    groq.forEach((k, i) => { listDiv.innerHTML += row('Groq', k, 'groq', i); });
+    gem.forEach((k, i) => { listDiv.innerHTML += row('Gemini', k, 'gemini', i); });
 }
 
+// Tek anahtar ekleme: türü ön ekinden anlaşılır (gsk_ = Groq, AIza = Gemini)
 function addGroqKey() {
     const input = document.getElementById('newGroqKeyInput');
     const newKey = input.value.trim();
     if (!newKey) return;
-    
-    if (!newKey.startsWith('gsk_')) {
-        alert("Lütfen geçerli bir Groq API anahtarı girin (gsk_ ile başlamalıdır).");
+
+    const isGroq = newKey.startsWith('gsk_'), isGem = /^AIza/.test(newKey);
+    if (!isGroq && !isGem) {
+        alert("Anahtar tanınmadı. Groq anahtarı gsk_ ile, Gemini anahtarı AIza ile başlamalıdır.");
         return;
     }
-
-    const keys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
+    const store = isGroq ? 'groqApiKeys' : 'geminiApiKeys';
+    const keys = JSON.parse(localStorage.getItem(store)) || [];
     if (!keys.includes(newKey)) {
         keys.push(newKey);
-        localStorage.setItem('groqApiKeys', JSON.stringify(keys));
+        localStorage.setItem(store, JSON.stringify(keys));
         input.value = '';
         loadGroqKeys();
-        showToastGlobal("✅ Groq API Anahtarı eklendi!", 3000);
+        showToastGlobal(isGroq ? "✅ Groq API anahtarı eklendi!" : "✅ Gemini API anahtarı eklendi!", 3000);
     } else {
         alert("Bu anahtar zaten ekli!");
     }
 }
 
-function removeGroqKey(index) {
-    let keys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
+function removeAIKey(provider, index) {
+    const store = provider === 'gemini' ? 'geminiApiKeys' : 'groqApiKeys';
+    let keys = JSON.parse(localStorage.getItem(store)) || [];
     keys.splice(index, 1);
-    localStorage.setItem('groqApiKeys', JSON.stringify(keys));
+    localStorage.setItem(store, JSON.stringify(keys));
     loadGroqKeys();
 }
+function removeGroqKey(index) { removeAIKey('groq', index); }
 
 async function findRssWithAI() {
     const topicInput = document.getElementById('aiRssTopic');
@@ -356,7 +465,7 @@ async function findRssWithAI() {
         return;
     }
 
-    const apiKeys = JSON.parse(localStorage.getItem('groqApiKeys')) || [];
+    const apiKeys = allAIKeys();
     if (apiKeys.length === 0) {
         alert("Lütfen Ayarlar menüsünden geçerli bir Groq API anahtarı ekleyin.");
         return;

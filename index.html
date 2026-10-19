@@ -20,7 +20,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics-compat.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=5.1">
+    <link rel="stylesheet" href="style.css?v=5.2">
     <style id="readerUiV2">
         /* ===== Haber penceresi v2: dar çubuklar, geniş okuma alanı ===== */
         #newsModal .modal-header{padding:6px 10px 0!important}
@@ -214,12 +214,16 @@
                 </details>
 
                 <details class="setting-item" id="aiSettingsSection">
-                    <summary>🤖 Yapay Zeka (Groq) Ayarları</summary>
+                    <summary>🤖 Yapay Zeka (Groq / Gemini) Ayarları</summary>
                     <div class="setting-detail" style="user-select: auto;">
-                        <p style="color: var(--text-muted); font-size: 0.85rem; margin:0 0 10px 0;">Haber özetleri için kendi Groq API anahtarlarınızı ekleyin. Birden fazla eklerseniz, birinin kotası dolduğunda sistem otomatik olarak diğerine geçer.</p>
+                        <p style="color: var(--text-muted); font-size: 0.85rem; margin:0 0 10px 0;">Haber özetleri için kendi <b>Groq</b> (gsk_…) ve/veya <b>Gemini</b> (AIza…) API anahtarlarınızı ekleyin. Anahtar türü otomatik anlaşılır. Önce Groq denenir; kotası dolarsa ya da hata verirse sıradaki anahtara, Groq bitince Gemini'ye geçilir.</p>
                         <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                            <input type="password" id="newGroqKeyInput" placeholder="gsk_ ile başlayan anahtarınız..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--surface-light); background: rgba(0,0,0,0.3); color: white; outline: none; font-family: monospace;">
+                            <input type="password" id="newGroqKeyInput" placeholder="gsk_… (Groq) veya AIza… (Gemini)" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--surface-light); background: rgba(0,0,0,0.3); color: white; outline: none; font-family: monospace;">
                             <button onclick="addGroqKey()" style="background: var(--accent); color: white; border: none; border-radius: 8px; padding: 0 15px; font-weight: bold; cursor: pointer; pointer-events: auto;">Ekle</button>
+                        </div>
+                        <div style="margin-bottom: 12px; padding: 10px 12px; background: rgba(255,255,255,0.04); border: 1px dashed var(--surface-light); border-radius: 8px;">
+                            <div style="font-size:0.8rem; color: var(--text-muted); margin-bottom:8px;">📄 Anahtarları metin (.txt) dosyasından toplu yükle. Dosyada gsk_ veya AIza ile başlayan anahtarlar alt alta olabilir; "groq" / "gemini" başlık satırları isteğe bağlıdır.</div>
+                            <label style="display:inline-block; background: var(--accent); color:#fff; padding:10px 16px; border-radius:8px; font-weight:bold; cursor:pointer;">📂 Dosya seç<input type="file" accept=".txt,text/plain" onchange="importKeysFile(this)" style="display:none;"></label>
                         </div>
                         <div id="groqKeysList" style="display: flex; flex-direction: column; gap: 8px;">
                             </div>
@@ -490,13 +494,13 @@ i.value=v;if(v&&s)s.textContent='✅ Kayıtlı: hızlı sunucu açık';})();
 <script>
 (function(){var s=document.getElementById('voiceIdleSec');if(!s)return;var v=null;try{v=localStorage.getItem('voiceIdleSec');}catch(e){}s.value=(v===null||v==='')?'6':v;})();
 </script>
-<script src="config.js?v=5.1"></script>
-<script src="auth.js?v=5.1"></script>
-<script src="api.js?v=5.1"></script>
-<script src="ai.js?v=5.1"></script>
-<script src="ui.js?v=5.1"></script>
-<script src="reader.js?v=5.1"></script>
-<script src="sesli-asistan.js?v=5.1"></script>
-<script src="tv.js?v=5.1"></script>
+<script src="config.js?v=5.2"></script>
+<script src="auth.js?v=5.2"></script>
+<script src="api.js?v=5.2"></script>
+<script src="ai.js?v=5.2"></script>
+<script src="ui.js?v=5.2"></script>
+<script src="reader.js?v=5.2"></script>
+<script src="sesli-asistan.js?v=5.2"></script>
+<script src="tv.js?v=5.2"></script>
 </body>
 </html>
