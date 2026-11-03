@@ -69,7 +69,7 @@
       #tvBar { display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 5000; padding: 10px 4%; background: rgba(0,0,0,.72); color: #e2e8f0;
           font: 600 1.35rem system-ui, sans-serif; justify-content: space-between; gap: 14px; }
       body.tv-mode #tvBar { display: flex; }
-            #tvBar b { color: #facc15; }
+      #tvBar b { color: #facc15; }
     `;
     document.head.appendChild(css);
     // Yazı büyütme oranı (varsayılan 2). Ekran çok dar görünüyorsa otomatik düşürülür. ?tvscale=1.5 ile değiştirilebilir.
@@ -90,7 +90,7 @@
 
     const BAR = {
         feed: '<span><b>◄</b> Ayarlar</span><span><b>▲▼</b> Haber</span><span id="tvCount"></span><span><b>OK</b> Aç (2×: orijinal)</span><span><b>►</b> Filtreler</span>',
-        news: '<span><b>◄</b> Okuma</span><span><b>►</b> Orijinal</span><span><b>OK</b> ✨ Özetle</span><span><b>▲▼</b> Kaydır</span><span><b>Ses +/−</b> Yazı boyutu</span><span><b>GERİ</b> Kapat</span>',
+        news: '<span><b>◄</b> Okuma</span><span><b>►</b> Orijinal</span><span><b>OK</b> Yazı boyutu</span><span><b>2×OK</b> ✨ Özet</span><span><b>▲▼</b> Kaydır</span><span><b>GERİ</b> Kapat</span>',
         ai:   '<span><b>▲▼</b> Kaydır</span><span><b>OK / GERİ</b> Özeti kapat</span>',
         menu: '<span><b>▲▼◄►</b> Gez</span><span><b>OK</b> Seç / aç</span><span><b>GERİ</b> Kapat</span>'
     };
@@ -115,7 +115,6 @@
         l.forEach(c => c.classList.remove('tv-current'));
         l[i].classList.add('tv-current');
         curLink = l[i].dataset.link;
-        const total = (typeof filteredArticles !== 'undefined' && filteredArticles.length) || l.length;
         refreshCount();
         if (allowMore && i >= l.length - 3) loadMore();
     }
@@ -217,19 +216,36 @@
         const body = $('modalBodyArea'); if (body) body.scrollBy({ top: dy, behavior: 'smooth' });
     }
 
-    // Okuma bölümünde yazı boyutu (kumandada ses +/−): okuma metni ve orijinal site önizlemesi birlikte büyür/küçülür
-    let rz = 1;
-    try { rz = parseFloat(localStorage.getItem('tvReadZoom')) || 1; } catch (e) {}
+    // Okuma bölümünde yazı boyutu: varsayılan %50 (0.5).
+    // Kumandada ses +/− VEYA OK tek tık (kademe değişimi) ile büyür/küçülür.
+    const ZOOM_STEPS = [0.5, 0.65, 0.8, 1.0];
+    let rz = 0.5;
+    try {
+        if (!localStorage.getItem('tvReadZoomV2')) {
+            localStorage.setItem('tvReadZoom', '0.5');
+            localStorage.setItem('tvReadZoomV2', '1');
+        }
+        rz = parseFloat(localStorage.getItem('tvReadZoom')) || 0.5;
+    } catch (e) {}
+
     window.tvApplyZoom = function () {
         const rv = $('readerView'); if (rv) rv.style.zoom = String(rz);
         const f = $('modalIframe');
         try { if (f && f.contentWindow) f.contentWindow.postMessage({ tvZoom: rz }, '*'); } catch (e) {}
     };
     window.tvZoom = function (d) {
-        rz = Math.max(0.7, Math.min(2.2, Math.round((rz + d * 0.15) * 100) / 100));
+        rz = Math.max(0.4, Math.min(2.2, Math.round((rz + d * 0.15) * 100) / 100));
         try { localStorage.setItem('tvReadZoom', String(rz)); } catch (e) {}
         window.tvApplyZoom();
         if (typeof showToastGlobal === 'function') showToastGlobal('🔠 Yazı boyutu %' + Math.round(rz * 100), 1200);
+    };
+    window.tvCycleZoom = function () {
+        let idx = ZOOM_STEPS.findIndex(s => Math.abs(s - rz) < 0.08);
+        idx = (idx + 1) % ZOOM_STEPS.length;
+        rz = ZOOM_STEPS[idx];
+        try { localStorage.setItem('tvReadZoom', String(rz)); } catch (e) {}
+        window.tvApplyZoom();
+        if (typeof showToastGlobal === 'function') showToastGlobal('🔠 Yazı boyutu %' + Math.round(rz * 100) + ' (2×OK: ✨ Özet)', 1400);
     };
 
     function scrollAI(dir) {
@@ -249,7 +265,24 @@
         setTimeout(() => focusIn(w), 200);
     }
 
-    // ---------- Tuşlar ----------
+    // ---------- OK tuşu: Mi Stick ses kombinasyonu (OK basılıyken Ses +/−) ve Tek/Çift tık ayrımı ----------
+    let okDownAt = 0;
+    let okUsedCombo = false;
+    let okSingleTimer = null;
+    let lastOkTapAt = 0;
+    const isOkKey = (k) => k === 'Enter' || k === 'NumpadEnter' || k === ' ' || k === 'MediaPlayPause';
+    const isVolUpKey = (k) => k === 'AudioVolumeUp' || k === 'VolumeUp' || k === '+' || k === '=';
+    const isVolDownKey = (k) => k === 'AudioVolumeDown' || k === 'VolumeDown' || k === '-';
+
+    // Orijinal tvZoom çağrıldığında (APK MainActivity.java onKeyDown üzerinden gelse bile) OK basılıysa kombo say
+    const origTvZoom = window.tvZoom;
+    window.tvZoom = function (d) {
+        okUsedCombo = true;
+        if (okSingleTimer) { clearTimeout(okSingleTimer); okSingleTimer = null; }
+        lastOkTapAt = 0;
+        return origTvZoom(d);
+    };
+
     document.addEventListener('keydown', (e) => {
         if (e.ctrlKey || e.altKey || e.metaKey) return;
         const t = e.target, k = e.key;
@@ -258,8 +291,20 @@
         const ov = overlayRoot();
 
         if (ov && ov.id === 'newsModal' && !inText) {                       // okuma: yazı boyutu (ses +/−, + / −)
-            if (k === 'AudioVolumeUp' || k === 'VolumeUp' || k === '+' || k === '=') { e.preventDefault(); e.stopImmediatePropagation(); window.tvZoom(1); return; }
-            if (k === 'AudioVolumeDown' || k === 'VolumeDown' || k === '-') { e.preventDefault(); e.stopImmediatePropagation(); window.tvZoom(-1); return; }
+            if (isVolUpKey(k)) {
+                e.preventDefault(); e.stopImmediatePropagation();
+                okUsedCombo = true;
+                if (okSingleTimer) { clearTimeout(okSingleTimer); okSingleTimer = null; }
+                window.tvZoom(1);
+                return;
+            }
+            if (isVolDownKey(k)) {
+                e.preventDefault(); e.stopImmediatePropagation();
+                okUsedCombo = true;
+                if (okSingleTimer) { clearTimeout(okSingleTimer); okSingleTimer = null; }
+                window.tvZoom(-1);
+                return;
+            }
         }
         if (dir) {
             if (inText && (dir === 'left' || dir === 'right')) return;     // yazı alanında imleç hareketi
@@ -289,17 +334,21 @@
             return;
         }
 
-        if (k === 'Enter' || k === 'NumpadEnter' || k === ' ' || k === 'MediaPlayPause') {
+        if (isOkKey(k)) {
+            if (ov && ov.id === 'newsModal' && !inText) {
+                // Haber penceresinde OK işlemi keyup'ta yapılır:
+                // Böylece Mi Stick'te OK basılı tutulup Ses +/− basıldığında AI özeti yanlışlıkla açılmaz!
+                e.preventDefault(); e.stopImmediatePropagation();
+                if (!e.repeat && !okDownAt) {
+                    okDownAt = Date.now();
+                    okUsedCombo = false;
+                }
+                return;
+            }
             if (e.repeat) { e.preventDefault(); return; }
             if (!ov) {                                                      // kart: tek/çift basış mantığı kartın kendi onclick'inde
                 const c = document.querySelector('#newsGrid .swipe-wrapper.tv-current .news-card');
                 if (c) { e.preventDefault(); e.stopImmediatePropagation(); c.click(); }
-                return;
-            }
-            if (ov.id === 'newsModal') {                                    // OK: özetle (özet açıksa kapat)
-                e.preventDefault(); e.stopImmediatePropagation();
-                if (aiOpen()) { if (typeof closeAIResult === 'function') closeAIResult(); }
-                else if (typeof askAIFromWeb === 'function') askAIFromWeb();
                 return;
             }
             const el = curFocus(ov);
@@ -315,6 +364,51 @@
             e.preventDefault();
             if (ov.id === 'newsModal' && aiOpen() && typeof closeAIResult === 'function') closeAIResult();
             else if (ov.id === 'controlsWrapper') history.back(); else if (typeof closeModalSafe === 'function') closeModalSafe(ov.id);
+        }
+    }, true);
+
+    document.addEventListener('keyup', (e) => {
+        if (e.ctrlKey || e.altKey || e.metaKey) return;
+        const t = e.target, k = e.key;
+        if (!isOkKey(k)) return;
+        const inText = t && (t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && !/^(checkbox|radio|button|submit)$/.test(t.type)));
+        const ov = overlayRoot();
+        if (!ov || ov.id !== 'newsModal' || inText) {
+            okDownAt = 0; okUsedCombo = false;
+            return;
+        }
+        e.preventDefault(); e.stopImmediatePropagation();
+        const heldMs = okDownAt ? (Date.now() - okDownAt) : 0;
+        const wasCombo = okUsedCombo;
+        okDownAt = 0;
+        okUsedCombo = false;
+
+        // OK basılı tutulup Ses +/− yapıldıysa veya uzun basıldıysa (550ms+) bırakınca hiçbir şey tetikleme
+        if (wasCombo || heldMs > 550) return;
+
+        // Yapay zeka özeti açıksa tek OK ile kapat
+        if (aiOpen()) {
+            if (okSingleTimer) { clearTimeout(okSingleTimer); okSingleTimer = null; }
+            lastOkTapAt = 0;
+            if (typeof closeAIResult === 'function') closeAIResult();
+            return;
+        }
+
+        // Çift OK (420ms içinde 2. basış) -> Yapay zeka özetini aç
+        // Tek OK -> Yazı boyutunu kademeli değiştir (%50 -> %65 -> %80 -> %100 -> %50)
+        const now = Date.now();
+        if (now - lastOkTapAt < 420) {
+            if (okSingleTimer) { clearTimeout(okSingleTimer); okSingleTimer = null; }
+            lastOkTapAt = 0;
+            if (typeof askAIFromWeb === 'function') askAIFromWeb();
+        } else {
+            lastOkTapAt = now;
+            if (okSingleTimer) clearTimeout(okSingleTimer);
+            okSingleTimer = setTimeout(() => {
+                okSingleTimer = null;
+                lastOkTapAt = 0;
+                window.tvCycleZoom();
+            }, 420);
         }
     }, true);
 
@@ -339,6 +433,7 @@
     function start() {
         document.body.classList.add('tv-mode');
         buildBar();
+        window.tvApplyZoom();
         const grid = $('newsGrid');
         if (grid) new MutationObserver(() => setTimeout(ensureCurrent, 0)).observe(grid, { childList: true });
         new MutationObserver(() => { if (!raf) raf = requestAnimationFrame(sync); }).observe(document.body, { attributes: true, subtree: true, attributeFilter: ['style', 'class'] });
