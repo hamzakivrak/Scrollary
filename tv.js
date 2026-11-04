@@ -15,10 +15,15 @@
 
     // TV'de kart açılışı: Tek OK = Okuma Modu (veri çekilemezse otomatik Orijinal Siteye geçer)
     // Çift OK (2×OK) = API yüklüyse doğrudan TV'de rahat okunur Yapay Zeka Özeti (yoksa Orijinal Site)
+    // Varsayılan olarak Okunan Haberler Gizlensin (kullanıcı Ayarlar'dan kapatabilir)
     try {
         localStorage.setItem('tapAction_single', 'reader');
         localStorage.setItem('tapAction_double', 'off');
         localStorage.setItem('tvTapMigratedV2', '1');
+        if (localStorage.getItem('tvHideReadPref') === null) {
+            localStorage.setItem('tvHideReadPref', '1');
+            localStorage.setItem('hideReadArticles', 'true');
+        }
     } catch (e) {}
 
     const $ = (id) => document.getElementById(id);
@@ -44,7 +49,7 @@
 
       body.tv-mode #newsGrid { display: block !important; padding: 0 !important; margin: 0 !important; height: 100vh; width: 100%; position: relative; background: #0b1220; }
       body.tv-mode #newsGrid .swipe-wrapper { display: none !important; animation: none !important; transition: none !important; }
-      body.tv-mode #newsGrid .swipe-wrapper.tv-current { display: block !important; width: 100vw; height: 100vh; margin: 0 !important; padding: 0 !important; transform: none !important; animation: none !important; transition: none !important; }
+      body.tv-mode #newsGrid .swipe-wrapper.tv-current { display: block !important; width: 100vw; height: 100vh; margin: 0 !important; padding: 0 !important; transform: none !important; animation: none !important; transition: none !important; opacity: 1 !important; }
       body.tv-mode .swipe-bg { display: none !important; }
       body.tv-mode .swipe-wrapper.tv-current .news-card { position: relative !important; width: 100% !important; height: 100vh !important; margin: 0 !important; border-radius: 0 !important;
           display: block !important; background: #0b1220 !important; overflow: hidden; border: 0 !important; animation: none !important; transition: none !important; }
@@ -59,7 +64,7 @@
           -webkit-line-clamp: unset !important; max-height: none !important; color: #facc15 !important; text-shadow: 0 2px 12px rgba(0,0,0,.9); margin: 0 0 10px 0 !important; }
       body.tv-mode .swipe-wrapper.tv-current .meta { font-size: 1.25rem !important; margin-top: 8px; opacity: 0.85; }
 
-      /* Sağ üst köşe durum rozeti: metin çekiliyor / tam metin / çekilemedi bilgisi */
+      /* Sağ üst köşe durum rozeti: metin çekiliyor / tam metin / çekilemedi / özet hazır bilgisi */
       .tv-fetch-badge {
           position: absolute;
           top: 26px;
@@ -86,9 +91,8 @@
           border-color: rgba(52, 211, 153, 0.4);
       }
 
-      /* ===== KART ÜZERİNDE AŞAĞIDAN YUKARIYA AKAN VE ÜSTTE SİLİKLEŞEN METİN PENCERESİ =====
-         mask-image ile üst sınırda (kartın ortalarına doğru) metin yumuşakça silikleşerek kaybolur,
-         alttan yeni cümleler toplu halde yukarı doğru kayarak gelir. */
+      /* ===== KART ÜZERİNDE AŞAĞIDAN YUKARIYA VE YATAY AKAN METİN PENCERESİ =====
+         --ticker-scale hem yukarı kaymada (.tv-vscroll-sentence) hem yatay kaymada (.tv-ticker-track) doğrudan etkilidir! */
       .tv-card-reader {
           display: block;
           width: 100%;
@@ -96,7 +100,7 @@
           box-sizing: border-box;
       }
 
-      /* Dikey (Aşağıdan Yukarıya) Akış Modu - Varsayılan ve Önerilen */
+      /* 1) Dikey (Aşağıdan Yukarıya) Akış Modu */
       .tv-vscroll-viewport {
           position: relative;
           width: 100%;
@@ -104,22 +108,24 @@
           overflow: hidden;
           padding: 0 10px;
           box-sizing: border-box;
-          /* En üst satır kartın ortalarına yaklaştığında yumuşakça silikleşsin, en alttan yeni satırlar da yumuşakça belirmeye başlasın */
           -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.25) 14%, rgba(0,0,0,1) 34%, rgba(0,0,0,1) 88%, rgba(0,0,0,0.2) 100%);
           mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.25) 14%, rgba(0,0,0,1) 34%, rgba(0,0,0,1) 88%, rgba(0,0,0,0.2) 100%);
       }
       .tv-vscroll-track {
           display: flex;
           flex-direction: column;
-          gap: 18px;
-          /* İlk cümle pencerenin alt-orta kısmından başlasın, son cümle tamamen yukarı çıkana kadar kaysın */
+          gap: calc(18px * var(--ticker-scale, 1));
           padding-top: 20vh;
           padding-bottom: 34vh;
           will-change: transform;
           animation: tvVerticalRoll var(--ticker-dur, 35s) linear infinite;
+          zoom: var(--ticker-scale, 1);
       }
       .tv-vscroll-sentence {
-          font: 600 calc(clamp(1.55rem, 3.9vh, 2.35rem) * var(--ticker-scale, 1))/1.42 system-ui, sans-serif;
+          font-size: clamp(1.55rem, 3.9vh, 2.35rem) !important;
+          font-weight: 600 !important;
+          line-height: 1.42 !important;
+          font-family: system-ui, sans-serif;
           color: #f8fafc;
           text-shadow: 0 2px 10px rgba(0, 0, 0, 0.95);
           padding-left: 16px;
@@ -133,7 +139,7 @@
           100% { transform: translate3d(0, calc(-100% + 22vh), 0); }
       }
 
-      /* Yatay (Sağdan Sola) Akış Modu - Ayarlar'dan seçilirse kullanılabilir */
+      /* 2) Yatay (Sağdan Sola) Akış Modu */
       .tv-ticker-wrap {
           position: relative;
           width: 100%;
@@ -149,10 +155,14 @@
           display: inline-block;
           white-space: nowrap;
           padding-left: 100%;
-          font: 600 calc(clamp(1.68rem, 4.25vh, 2.56rem) * var(--ticker-scale, 1))/1.35 system-ui, sans-serif;
+          font-size: clamp(1.68rem, 4.25vh, 2.56rem) !important;
+          font-weight: 600 !important;
+          line-height: 1.35 !important;
+          font-family: system-ui, sans-serif;
           color: #f8fafc;
           will-change: transform;
           animation: tvTickerScroll var(--ticker-dur, 35s) linear infinite;
+          zoom: var(--ticker-scale, 1);
       }
       .tv-ticker-track .tv-sep {
           color: #facc15;
@@ -288,7 +298,111 @@
         } catch (e) { return false; }
     }
 
-    // ---------- Ayarlar Menüsüne "📺 TV Kayar Metin & Otomasyon" Enjeksiyonu ----------
+    // ---------- Mükerrer (Tekrarlanan) Haberleri ve Okunan Haberleri Filtreleme ----------
+    const seenReadLinks = new Set();
+    try {
+        (JSON.parse(localStorage.getItem('tvSeenReadLinks') || '[]')).forEach(u => seenReadLinks.add(u));
+    } catch (e) {}
+
+    function isHideReadEnabled() {
+        return localStorage.getItem('tvHideReadPref') !== '0';
+    }
+
+    function markLinkAsRead(link) {
+        if (!link) return;
+        seenReadLinks.add(link);
+        try {
+            const arr = [...seenReadLinks].slice(-500);
+            localStorage.setItem('tvSeenReadLinks', JSON.stringify(arr));
+            // ui.js'nin kendi okundu listesine de işle
+            if (typeof readArticles !== 'undefined' && Array.isArray(readArticles) && !readArticles.includes(link)) {
+                readArticles.push(link);
+                localStorage.setItem('readArticles', JSON.stringify(readArticles.slice(-500)));
+            }
+        } catch (e) {}
+    }
+
+    // Başlık normalleştirme ve kelime benzerliği (aynı haberin tekrar tekrar düşmesini yakalar)
+    function normHeadline(title) {
+        return String(title || '')
+            .replace(/\s+-\s+[^-]+$/, '') // sondaki " - Kaynak Adı" kısmını at
+            .toLocaleLowerCase('tr')
+            .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    function isDuplicateTitle(normA, normB) {
+        if (!normA || !normB) return false;
+        if (normA === normB) return true;
+        if (normA.length > 22 && normB.length > 22) {
+            if (normA.slice(0, 32) === normB.slice(0, 32)) return true;
+        }
+        const wordsA = normA.split(' ').filter(w => w.length > 3);
+        const wordsB = new Set(normB.split(' ').filter(w => w.length > 3));
+        if (wordsA.length < 4 || wordsB.size < 4) return false;
+        let common = 0;
+        for (const w of wordsA) {
+            if (wordsB.has(w)) common++;
+        }
+        return (common / Math.min(wordsA.length, wordsB.size)) >= 0.72;
+    }
+
+    // Hem veri dizilerini (allArticles / filteredArticles) hem de DOM'daki kartları mükerrer ve okunmuşlardan temizler
+    function deduplicateAndFilterFeed() {
+        const hideRead = isHideReadEnabled();
+        // 1) Veri dizilerini temizle (sonraki renderNextBatch çağrılarında kopyalar hiç gelmesin)
+        const cleanArray = (arr) => {
+            if (!Array.isArray(arr) || !arr.length) return;
+            const keptNorms = [];
+            const seenLinks = new Set();
+            for (let i = 0; i < arr.length; i++) {
+                const a = arr[i];
+                if (!a || !a.link) continue;
+                // Şu an ekranda açık olan haberi silme, geçtikten sonra gizlensin
+                if (a.link === curLink) {
+                    seenLinks.add(a.link);
+                    keptNorms.push(normHeadline(a.title));
+                    continue;
+                }
+                if (seenLinks.has(a.link)) { arr.splice(i, 1); i--; continue; }
+                if (hideRead && seenReadLinks.has(a.link)) { arr.splice(i, 1); i--; continue; }
+                const nh = normHeadline(a.title);
+                if (nh && keptNorms.some(existing => isDuplicateTitle(nh, existing))) {
+                    arr.splice(i, 1); i--; continue;
+                }
+                seenLinks.add(a.link);
+                if (nh) keptNorms.push(nh);
+            }
+        };
+        try {
+            if (typeof allArticles !== 'undefined') cleanArray(allArticles);
+            if (typeof filteredArticles !== 'undefined') cleanArray(filteredArticles);
+        } catch (e) {}
+
+        // 2) DOM içindeki mevcut kartları da temizle
+        const domCards = cards();
+        const domNorms = [];
+        const domLinks = new Set();
+        for (const c of domCards) {
+            const link = c.dataset.link || '';
+            const h3 = c.querySelector('h3');
+            const nh = normHeadline(h3 ? h3.textContent : '');
+            if (link === curLink) {
+                domLinks.add(link);
+                if (nh) domNorms.push(nh);
+                continue;
+            }
+            if ((link && domLinks.has(link)) || (hideRead && link && seenReadLinks.has(link)) || (nh && domNorms.some(ex => isDuplicateTitle(nh, ex)))) {
+                c.remove();
+                continue;
+            }
+            if (link) domLinks.add(link);
+            if (nh) domNorms.push(nh);
+        }
+    }
+
+    // ---------- Ayarlar Menüsüne "📺 TV Akan Metin & Otomasyon" Enjeksiyonu ----------
     window.tvSetTickerDir = function (dirVal) {
         try {
             localStorage.setItem('tvTickerDir', String(dirVal));
@@ -303,9 +417,19 @@
         try {
             localStorage.setItem('tvTickerSpeed', String(speedVal));
             if (typeof showToastGlobal === 'function') {
-                showToastGlobal('⚡ Akan metin hızı güncellendi', 1200);
+                showToastGlobal('⚡ Yukarı / yatay kayma hızı güncellendi', 1200);
             }
         } catch (e) {}
+        // Açık olan karttaki hem dikey (.tv-vscroll-track) hem yatay (.tv-ticker-track) animasyon süresini anında güncelle
+        const track = document.querySelector('#newsGrid .swipe-wrapper.tv-current .tv-vscroll-track, #newsGrid .swipe-wrapper.tv-current .tv-ticker-track');
+        if (track && track.dataset.chars) {
+            const totalChars = parseInt(track.dataset.chars, 10) || 200;
+            const isHorizontal = localStorage.getItem('tvTickerDir') === 'horizontal';
+            const multiplier = parseFloat(speedVal) || 1.0;
+            const baseFactor = isHorizontal ? 0.117 : 0.095;
+            const sec = Math.max(8, Math.round((totalChars * baseFactor) / multiplier));
+            track.style.setProperty('--ticker-dur', sec + 's');
+        }
         if (!overlayRoot()) attachCardLiveTickerAndReader(true);
     };
 
@@ -318,6 +442,10 @@
                 showToastGlobal('🔠 Akan metin boyutu güncellendi', 1200);
             }
         } catch (e) {}
+        // Hem yukarı kayan hem yatay kayan elemanlara anında uygula
+        document.querySelectorAll('.tv-vscroll-track, .tv-ticker-track').forEach(el => {
+            el.style.zoom = String(s);
+        });
     };
 
     window.tvSetAutoAdvance = function (val) {
@@ -330,6 +458,22 @@
         if (!overlayRoot()) attachCardLiveTickerAndReader(true);
     };
 
+    window.tvSetHideRead = function (val) {
+        try {
+            localStorage.setItem('tvHideReadPref', String(val));
+            const boolVal = val === '1';
+            localStorage.setItem('hideReadArticles', boolVal ? 'true' : 'false');
+            const chk1 = $('showReadMain'); if (chk1) chk1.checked = boolVal;
+            const chk2 = $('showReadPopup'); if (chk2) chk2.checked = boolVal;
+            if (typeof toggleReadVisibility === 'function') {
+                try { toggleReadVisibility(boolVal); } catch (e) {}
+            }
+            if (typeof showToastGlobal === 'function') {
+                showToastGlobal(boolVal ? '👁️ Okunan haberler gizlenecek' : '👁️ Okunan haberler de gösterilecek', 1400);
+            }
+        } catch (e) {}
+    };
+
     function injectTvSettings() {
         const modalBody = document.querySelector('#settingsModal .modal-body');
         if (!modalBody || document.getElementById('tvSettingsDetail')) return;
@@ -337,6 +481,12 @@
         const curSpeed = localStorage.getItem('tvTickerSpeed') || '1.0';
         const curScale = localStorage.getItem('tvTickerScale') || '1.0';
         const curAuto = localStorage.getItem('tvAutoAdvance') !== '0' ? '1' : '0';
+        const curHideRead = localStorage.getItem('tvHideReadPref') !== '0' ? '1' : '0';
+
+        // Ana uygulamanın okunanları gizle onay kutularını da varsayılanımızla eşitle
+        const chk1 = $('showReadMain'); if (chk1) chk1.checked = (curHideRead === '1');
+        const chk2 = $('showReadPopup'); if (chk2) chk2.checked = (curHideRead === '1');
+
         const details = document.createElement('details');
         details.className = 'setting-item';
         details.id = 'tvSettingsDetail';
@@ -350,23 +500,33 @@
                 </select>
                 <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Aşağıdan yukarıya modunda cümleler alt alta görünür ve kartın ortasına yükseldikçe yumuşakça silikleşir.</p>
 
-                <label class="tap-label" for="tvTickerScaleSelect">Akan Metin Yazı Boyutu</label>
+                <label class="tap-label" for="tvTickerSpeedSelect">Yukarı / Yatay Metin Kayma Hızı</label>
+                <select id="tvTickerSpeedSelect" class="tap-select" onchange="window.tvSetTickerSpeed(this.value)">
+                    <option value="0.6">🐌 Çok Yavaş (%60)</option>
+                    <option value="0.8">🐢 Yavaş (%80)</option>
+                    <option value="1.0">⚡ Normal / Varsayılan (%100)</option>
+                    <option value="1.25">🚀 Hızlı (%125)</option>
+                    <option value="1.5">🏎️ Çok Hızlı (%150)</option>
+                    <option value="1.85">⚡⚡ Süper Hızlı (%185)</option>
+                </select>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Hem aşağıdan yukarıya hem de sağdan sola akan metnin kayma hızını ayarlar.</p>
+
+                <label class="tap-label" for="tvTickerScaleSelect">Akan Metin Yazı Boyutu (Yukarı & Yatay)</label>
                 <select id="tvTickerScaleSelect" class="tap-select" onchange="window.tvSetTickerScale(this.value)">
                     <option value="0.8">Küçük (%80)</option>
                     <option value="1.0">Normal / Varsayılan (%100 - +%25 Büyütülmüş)</option>
                     <option value="1.2">Büyük (%120)</option>
                     <option value="1.4">Çok Büyük (%140)</option>
+                    <option value="1.6">Dev Boyut (%160)</option>
                 </select>
-                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Kartın üzerindeki akan metnin yazı büyüklüğünü ayarlar.</p>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Hem yukarı kayan cümlelerin hem de yatay bandın yazı büyüklüğünü değiştirir.</p>
 
-                <label class="tap-label" for="tvTickerSpeedSelect">Kart Üzerindeki Metin Akma Hızı</label>
-                <select id="tvTickerSpeedSelect" class="tap-select" onchange="window.tvSetTickerSpeed(this.value)">
-                    <option value="0.75">🐢 Yavaş (%75)</option>
-                    <option value="1.0">⚡ Normal / Varsayılan (%100 - %10 Hızlı)</option>
-                    <option value="1.25">🚀 Hızlı (%125)</option>
-                    <option value="1.5">🏎️ Çok Hızlı (%150)</option>
+                <label class="tap-label" for="tvHideReadSelect">Okunan Haberleri Gizle</label>
+                <select id="tvHideReadSelect" class="tap-select" onchange="window.tvSetHideRead(this.value)">
+                    <option value="1">👁️ Açık / Varsayılan (Okunanlar tekrar düşmesin)</option>
+                    <option value="0">👁️‍🗨️ Kapalı (Tüm haberler tekrar görünsün)</option>
                 </select>
-                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Ana ekrandaki kartların üzerinde akan haber metninin akış hızını belirler.</p>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">İzlediğiniz veya okuduğunuz haberlerin akışta tekrar karşınıza çıkmasını engeller.</p>
 
                 <label class="tap-label" for="tvAutoAdvanceSelect">Otomatik Sonraki Habere Geçiş</label>
                 <select id="tvAutoAdvanceSelect" class="tap-select" onchange="window.tvSetAutoAdvance(this.value)">
@@ -377,14 +537,11 @@
             </div>
         `;
         modalBody.prepend(details);
-        const selDir = document.getElementById('tvTickerDirSelect');
-        if (selDir) selDir.value = curDir;
-        const selScale = document.getElementById('tvTickerScaleSelect');
-        if (selScale) selScale.value = curScale;
-        const selSpeed = document.getElementById('tvTickerSpeedSelect');
-        if (selSpeed) selSpeed.value = curSpeed;
-        const selAuto = document.getElementById('tvAutoAdvanceSelect');
-        if (selAuto) selAuto.value = curAuto;
+        const selDir = document.getElementById('tvTickerDirSelect'); if (selDir) selDir.value = curDir;
+        const selSpeed = document.getElementById('tvTickerSpeedSelect'); if (selSpeed) selSpeed.value = curSpeed;
+        const selScale = document.getElementById('tvTickerScaleSelect'); if (selScale) selScale.value = curScale;
+        const selHide = document.getElementById('tvHideReadSelect'); if (selHide) selHide.value = curHideRead;
+        const selAuto = document.getElementById('tvAutoAdvanceSelect'); if (selAuto) selAuto.value = curAuto;
     }
 
     // ---------- Ana Ekranda Kart Üzerinde Aşağıdan Yukarıya (veya Yatay) Akan Haber Metni & Otomatik Geçiş ----------
@@ -393,10 +550,21 @@
 
     function advanceToNextCard() {
         if (overlayRoot() || aiOpen()) return;
+        const prevLink = curLink;
         const l = cards();
         if (!l.length) return;
         const nextIdx = (curIndex() + 1 >= l.length) ? 0 : (curIndex() + 1);
         showCard(nextIdx, true);
+        // Geçilen kartı okundu olarak işaretle ve gizleme açıksa DOM'dan kaldır ki tekrar düşmesin
+        if (prevLink && prevLink !== curLink) {
+            markLinkAsRead(prevLink);
+            if (isHideReadEnabled()) {
+                document.querySelectorAll('#newsGrid .swipe-wrapper').forEach(w => {
+                    if (w.dataset.link === prevLink && !w.classList.contains('tv-current')) w.remove();
+                });
+                refreshCount();
+            }
+        }
     }
 
     function stopCardTicker() {
@@ -419,7 +587,6 @@
             for (const s of sents) {
                 const trimmed = s.trim();
                 if (!trimmed) continue;
-                // Çok kısa cümleleri yanındakiyle birleştir, normal cümleleri tek satır/blok olarak bırak
                 if (cur && (cur.length + trimmed.length) > 155) {
                     out.push(cur);
                     cur = trimmed;
@@ -432,8 +599,12 @@
         return out.filter(p => p.length >= 12);
     }
 
+    // Aynı haber için hem kartta hem 2×OK'ta ortak kullanılan tekil metin çekme sözü (Promise):
+    // Böylece aynı haberin metni asla iki kere indirilmez!
+    const inflightArticleFetch = new Map();
+
     async function fetchArticleParasForPeek(art) {
-        if (!art) return { ok: false, paras: [] };
+        if (!art || !art.link) return { ok: false, paras: [] };
         if (typeof READER_CACHE !== 'undefined' && READER_CACHE.has(art.link)) {
             const c = READER_CACHE.get(art.link);
             if (c && Array.isArray(c.paras) && c.paras.length) return { ok: true, paras: c.paras };
@@ -442,31 +613,89 @@
             const fp = typeof finalizeParas === 'function'
                 ? finalizeParas(art.content.split('\n\n'), art)
                 : splitIntoSentences(art.content);
-            if (fp.length >= 2) return { ok: true, paras: fp };
+            if (fp.length >= 2) {
+                if (typeof READER_CACHE !== 'undefined') READER_CACHE.set(art.link, { paras: fp, via: 'rss' });
+                return { ok: true, paras: fp };
+            }
         }
-        try {
-            let url = art.link;
-            if (typeof workerBase === 'function' && workerBase() && typeof workerRead === 'function') {
-                const w = await workerRead(url, art);
-                if (w && Array.isArray(w.paras) && w.paras.length >= 2) {
-                    if (typeof workerRemember === 'function') workerRemember(url, w);
-                    if (typeof READER_CACHE !== 'undefined') READER_CACHE.set(art.link, { paras: w.paras, via: 'hızlı sunucu' });
-                    return { ok: true, paras: w.paras };
+        if (inflightArticleFetch.has(art.link)) {
+            return inflightArticleFetch.get(art.link);
+        }
+
+        const p = (async () => {
+            try {
+                let url = art.link;
+                if (typeof workerBase === 'function' && workerBase() && typeof workerRead === 'function') {
+                    const w = await workerRead(url, art);
+                    if (w && Array.isArray(w.paras) && w.paras.length >= 2) {
+                        if (typeof workerRemember === 'function') workerRemember(url, w);
+                        if (typeof READER_CACHE !== 'undefined') READER_CACHE.set(art.link, { paras: w.paras, via: 'hızlı sunucu' });
+                        return { ok: true, paras: w.paras };
+                    }
                 }
-            }
-            if (/news\.google\.com/.test(url) && typeof resolveGoogleNewsUrl === 'function') {
-                const real = await resolveGoogleNewsUrl(url, art);
-                if (real) url = real;
-            }
-            if (!/news\.google\.com/.test(url) && typeof extractArticle === 'function') {
-                const res = await extractArticle(url, art, false);
-                if (res && Array.isArray(res.paras) && res.paras.length) {
-                    if (typeof READER_CACHE !== 'undefined') READER_CACHE.set(art.link, res);
-                    return { ok: true, paras: res.paras };
+                if (/news\.google\.com/.test(url) && typeof resolveGoogleNewsUrl === 'function') {
+                    const real = await resolveGoogleNewsUrl(url, art);
+                    if (real) url = real;
                 }
+                if (!/news\.google\.com/.test(url) && typeof extractArticle === 'function') {
+                    const res = await extractArticle(url, art, false);
+                    if (res && Array.isArray(res.paras) && res.paras.length) {
+                        if (typeof READER_CACHE !== 'undefined') READER_CACHE.set(art.link, res);
+                        return { ok: true, paras: res.paras };
+                    }
+                }
+            } catch (e) {}
+            return { ok: false, paras: [] };
+        })();
+
+        inflightArticleFetch.set(art.link, p);
+        p.finally(() => inflightArticleFetch.delete(art.link));
+        return p;
+    }
+
+    // ---------- Süper Hızlı Yapay Zeka Özetleyici (Önbellekli + GROQ_MODELS_FAST) ----------
+    const AI_SUMMARY_CACHE = new Map(); // link -> hazır HTML özet
+
+    async function getFastAISummaryHtml(art) {
+        if (!art) throw new Error('Haber bulunamadı');
+        if (AI_SUMMARY_CACHE.has(art.link)) return AI_SUMMARY_CACHE.get(art.link);
+
+        // Kart üzerinde zaten çekilmiş olan tam metni doğrudan READER_CACHE'den al (yeniden indirme yapma!)
+        let bodyText = '';
+        if (typeof READER_CACHE !== 'undefined' && READER_CACHE.has(art.link)) {
+            const c = READER_CACHE.get(art.link);
+            if (c && Array.isArray(c.paras) && c.paras.length) {
+                bodyText = c.paras.join('\n');
             }
-        } catch (e) {}
-        return { ok: false, paras: [] };
+        }
+        // Eğer henüz inmemiş ama şu an iniyorsa en fazla 600ms bekle, gelmezse eldeki başlık+özetle hemen özetle!
+        if (!bodyText && inflightArticleFetch.has(art.link)) {
+            try {
+                const res = await Promise.race([
+                    inflightArticleFetch.get(art.link),
+                    new Promise(r => setTimeout(() => r({ ok: false, paras: [] }), 600))
+                ]);
+                if (res && res.ok && res.paras.length) bodyText = res.paras.join('\n');
+            } catch (e) {}
+        }
+        if (!bodyText) {
+            bodyText = `BAŞLIK: ${art.title || ''}\nÖZET: ${(art.description || '').replace(/<[^>]*>/g, ' ')}`;
+        } else {
+            bodyText = `BAŞLIK: ${art.title || ''}\nTAM METİN:\n${bodyText.substring(0, 5500)}`;
+        }
+
+        const systemPrompt = typeof getAIPrompt === 'function' ? getAIPrompt('chatAssistant') : '';
+        const messages = [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `[HABER METNİ]:\n${bodyText}\n\nBu haberi TV ekranında hızlıca okunabilecek şekilde özetle ve en önemli noktaları maddeler halinde yaz.` }
+        ];
+
+        // groqChat çağrısında GROQ_MODELS_FAST (20b hızlı model ilk sırada) ve maxTokens: 900 kullanarak süreyi yarı yarıya düşür
+        const fastModels = (typeof GROQ_MODELS_FAST !== 'undefined') ? GROQ_MODELS_FAST : undefined;
+        const raw = await groqChat(messages, { temperature: 0.4, maxTokens: 900, models: fastModels });
+        const cleanHtml = String(raw || '').replace(/```html/g, '').replace(/```/g, '').trim();
+        if (cleanHtml) AI_SUMMARY_CACHE.set(art.link, cleanHtml);
+        return cleanHtml;
     }
 
     // Kart açılır açılmaz veya haberden geri çıkıldığında akan metin alanını kurar
@@ -499,9 +728,13 @@
             art = { link: w.dataset.link || '', title: h3 ? h3.textContent.trim() : '', description: '' };
         }
 
+        // Bu haber ekranda görüntülendiği için okundu olarak kaydet
+        if (art.link) markLinkAsRead(art.link);
+
         const myToken = ++tickerToken;
         const autoAdvanceEnabled = localStorage.getItem('tvAutoAdvance') !== '0';
         const isHorizontal = localStorage.getItem('tvTickerDir') === 'horizontal';
+        const curScale = parseFloat(localStorage.getItem('tvTickerScale')) || 1.0;
 
         // Sağ üst köşede ufak durum rozeti
         const badge = document.createElement('div');
@@ -523,14 +756,15 @@
             tickerWrap.className = 'tv-ticker-wrap';
             trackEl = document.createElement('div');
             trackEl.className = 'tv-ticker-track';
+            trackEl.style.zoom = String(curScale);
             tickerWrap.appendChild(trackEl);
             readerWrap.appendChild(tickerWrap);
         } else {
-            // VARSAYILAN: Aşağıdan yukarıya cümle cümle akan ve kartın ortasına doğru silikleşen pencere
             const vViewport = document.createElement('div');
             vViewport.className = 'tv-vscroll-viewport';
             trackEl = document.createElement('div');
             trackEl.className = 'tv-vscroll-track';
+            trackEl.style.zoom = String(curScale);
             vViewport.appendChild(trackEl);
             readerWrap.appendChild(vViewport);
         }
@@ -546,9 +780,8 @@
             const totalChars = list.join(' ').length;
             trackEl.dataset.chars = String(totalChars);
             const multiplier = parseFloat(localStorage.getItem('tvTickerSpeed')) || 1.0;
-            // Dikey akışta göz aynı anda birkaç satırı rahatça takip ettiği için doğal okuma hızı (~0.095 sn/karakter), yatayda ~0.117 sn/karakter
             const baseFactor = isHorizontal ? 0.117 : 0.095;
-            const sec = Math.max(11, Math.round((totalChars * baseFactor) / multiplier));
+            const sec = Math.max(8, Math.round((totalChars * baseFactor) / multiplier));
             trackEl.style.setProperty('--ticker-dur', sec + 's');
             trackEl.style.animation = 'none';
             void trackEl.offsetWidth;
@@ -566,7 +799,7 @@
             }, 15000);
         }
 
-        // Arka planda tam haber metnini çek
+        // Arka planda tam haber metnini çek (ve bir sonraki haberi de şimdiden ısıt)
         fetchArticleParasForPeek(art).then(res => {
             if (myToken !== tickerToken) return;
             if (res.ok && res.paras.length) {
@@ -601,6 +834,17 @@
             badge.className = 'tv-fetch-badge warn';
             badge.textContent = '⚠️ Metin çekilemedi (15 sn sonra sıradaki)';
         });
+
+        // Ekstra iyileştirme: Sıradaki (bir sonraki) haberin metnini de 2 sn sonra arka planda sessizce hazırla ki geçince hiç beklemesin!
+        setTimeout(() => {
+            if (myToken !== tickerToken) return;
+            const l = cards();
+            const nextCard = l[curIndex() + 1];
+            if (nextCard && nextCard.dataset.link && typeof filteredArticles !== 'undefined') {
+                const nextArt = filteredArticles.find(a => a && a.link === nextCard.dataset.link);
+                if (nextArt) fetchArticleParasForPeek(nextArt).catch(() => {});
+            }
+        }, 2000);
     }
 
     function ensureCardTickerPresent() {
@@ -611,7 +855,7 @@
         }
     }
 
-    // ---------- Tek kart yönetimi (Yeni haber düştüğünde en başa atmayı ve titremeyi engelleyen korumalı yapı) ----------
+    // ---------- Tek kart yönetimi (Mükerrer ve okunmuş haberleri filtreleyen, titremesiz yapı) ----------
     let curLink = null, lastUpTap = 0;
     let savedActiveCardClone = null;
 
@@ -627,6 +871,7 @@
     }
 
     function showCard(i, allowMore) {
+        deduplicateAndFilterFeed();
         const l = cards(); if (!l.length) return;
         if (i >= l.length) i = 0;
         i = Math.max(0, Math.min(l.length - 1, i));
@@ -639,22 +884,34 @@
             return;
         }
 
+        const prevLink = curLink;
         stopCardTicker();
         l.forEach(c => c.classList.remove('tv-current'));
         target.classList.add('tv-current');
         curLink = target.dataset.link;
+
+        // Önceki karttan ayrıldığımızda okunanları gizle açıksa önceki kartı akıştan kaldır
+        if (prevLink && prevLink !== curLink) {
+            markLinkAsRead(prevLink);
+            if (isHideReadEnabled()) {
+                l.forEach(c => { if (c.dataset.link === prevLink && c !== target) c.remove(); });
+            }
+        }
+
         savedActiveCardClone = target.cloneNode(true);
         savedActiveCardClone.querySelectorAll('.tv-card-reader, .tv-fetch-badge').forEach(el => el.remove());
 
         refreshCount();
         attachCardLiveTickerAndReader(true);
-        if (allowMore && i >= l.length - 3) loadMore();
+        if (allowMore && curIndex() >= cards().length - 3) loadMore();
     }
 
     function ensureCurrent() {
         const grid = $('newsGrid');
+        if (!grid) return;
+        deduplicateAndFilterFeed();
         const l = cards();
-        if (!l.length || !grid) return;
+        if (!l.length) return;
 
         const activeNow = document.querySelectorAll('#newsGrid .swipe-wrapper.tv-current');
         if (activeNow.length === 1 && (!curLink || activeNow[0].dataset.link === curLink)) {
@@ -673,6 +930,7 @@
                     let guard = 0;
                     while (!match && typeof displayedCount !== 'undefined' && displayedCount <= posInFiltered && guard++ < 15) {
                         try { renderNextBatch(); } catch (e) { break; }
+                        deduplicateAndFilterFeed();
                         match = cards().find(c => c.dataset.link === curLink);
                     }
                 }
@@ -697,9 +955,8 @@
         showCard(0, false);
     }
 
-    // ---------- Veri Çekilemezse Otomatik Orijinal Siteye Yönlendirme + AI Özeti Üstte Başlatma ----------
+    // ---------- Veri Çekilemezse Otomatik Orijinal Siteye Yönlendirme ----------
     let autoSwitchedLink = '';
-    let wantDirectAISummary = false;
 
     function watchReaderFallbackAndAI() {
         const box = $('fullTextContainer');
@@ -707,14 +964,6 @@
             new MutationObserver(() => {
                 const nm = $('newsModal');
                 if (!nm || nm.style.display !== 'flex') return;
-
-                if (wantDirectAISummary && !box.querySelector('.loading-pulse')) {
-                    wantDirectAISummary = false;
-                    if (typeof askAIFromWeb === 'function') {
-                        askAIFromWeb();
-                        setTimeout(() => { window.tvApplyZoom(); sync(); }, 80);
-                    }
-                }
 
                 const failEl = box.querySelector('.reader-fail');
                 if (failEl && !aiOpen()) {
@@ -790,20 +1039,35 @@
         setTimeout(() => { closingGuard = false; }, 120);
 
         const nm = $('newsModal');
-        if (nm && nm.style.display === 'flex' && aiOpen()) {
+        const ai = aiOpen();
+
+        // 1) Eğer Yapay Zeka Özeti açıksa:
+        //    - Ana ekrandan 2×OK ile doğrudan açıldıysa (directAiEntry = true) hem AI özetini hem newsModal'ı tek seferde kapatıp ana karta dön!
+        //    - Okuma ekranı içinden 2×OK ile açıldıysa sadece AI özetini kapatıp okuma ekranına dön!
+        if (ai) {
             if (typeof closeAIResult === 'function') closeAIResult();
             else { const a = $('aiInlineResult'); if (a) { a.classList.remove('show'); a.style.display = 'none'; } }
-            if (!directAiEntry) {
+
+            if (!directAiEntry && nm && nm.style.display === 'flex') {
                 try { history.pushState({ tvGuard: 1 }, ''); } catch (e) {}
                 setTimeout(sync, 30);
                 return true;
             }
             directAiEntry = false;
+            if (nm) {
+                nm.style.display = 'none';
+                const idx = openStack.lastIndexOf('newsModal');
+                if (idx !== -1) openStack.splice(idx, 1);
+            }
+            try { history.pushState({ tvGuard: 1 }, ''); } catch (e) {}
+            setTimeout(() => { sync(); attachCardLiveTickerAndReader(true); }, 30);
+            setTimeout(() => { ensureCardTickerPresent(); }, 180);
+            return true;
         }
 
         const top = overlayRoot();
         if (!top) {
-            setTimeout(() => { sync(); ensureCardTickerPresent(); }, 30);
+            setTimeout(() => { sync(); attachCardLiveTickerAndReader(true); }, 30);
             return false;
         }
 
@@ -820,7 +1084,6 @@
             top.style.display = 'none';
             if (id === 'newsModal') {
                 directAiEntry = false;
-                wantDirectAISummary = false;
                 if (typeof window.speechSynthesis !== 'undefined') window.speechSynthesis.cancel();
                 if (typeof hideTooltip === 'function') hideTooltip();
                 const iframe = $('modalIframe');
@@ -835,7 +1098,7 @@
         if (openStack.length > 0 || fromPopState) {
             try { history.pushState({ tvGuard: 1 }, ''); } catch (e) {}
         }
-        setTimeout(() => { sync(); ensureCardTickerPresent(); }, 30);
+        setTimeout(() => { sync(); attachCardLiveTickerAndReader(true); }, 30);
         setTimeout(() => { ensureCardTickerPresent(); }, 180);
         return true;
     }
@@ -845,7 +1108,11 @@
             e.stopImmediatePropagation();
             closeTopmostOverlay(true);
         } else {
-            setTimeout(() => { sync(); ensureCardTickerPresent(); }, 40);
+            // ui.js pencereyi bizden önce kapattıysa bile aiInlineResult açık kalmış olabilir; kesin olarak temizle ve kayar metni başlat!
+            const aiEl = $('aiInlineResult');
+            if (aiEl) { aiEl.classList.remove('show'); aiEl.style.display = 'none'; }
+            directAiEntry = false;
+            setTimeout(() => { sync(); attachCardLiveTickerAndReader(true); }, 40);
             setTimeout(() => { ensureCardTickerPresent(); }, 200);
         }
     }, true);
@@ -998,7 +1265,7 @@
         setTimeout(() => focusIn(w), 200);
     }
 
-    // ---------- Ana Ekranda Haberi Açma (Tek OK = Okuma + Otomatik Yönlendirme, Çift OK = Direkt AI Özeti) ----------
+    // ---------- Ana Ekranda Haberi Açma (Tek OK = Okuma, Çift OK = Yeniden Metin Çekmeden Anında Hızlı AI Özeti!) ----------
     function findCurrentArticleObj() {
         const w = document.querySelector('#newsGrid .swipe-wrapper.tv-current');
         const link = (w && w.dataset.link) || curLink;
@@ -1018,7 +1285,6 @@
         stopCardTicker();
         ensureHistoryGuard();
         directAiEntry = false;
-        wantDirectAISummary = false;
         autoSwitchedLink = '';
         const art = findCurrentArticleObj();
         if (art && typeof openModal === 'function') {
@@ -1029,14 +1295,19 @@
         }
     }
 
-    function openCurrentCardAISummary() {
+    // 2×OK ile Doğrudan Yapay Zeka Özeti:
+    // openModal(art) çağırıp haberi ve iframe'i baştan indirmeye ÇALIŞMAZ!
+    // Kart üzerinde zaten çekilmiş olan metni (READER_CACHE) doğrudan hızlı modele (GROQ_MODELS_FAST) gönderir.
+    async function openCurrentCardAISummary(fromInsideModal) {
         stopCardTicker();
         ensureHistoryGuard();
-        autoSwitchedLink = '';
-        const art = findCurrentArticleObj();
+        const art = (fromInsideModal && typeof originalState !== 'undefined' && originalState.art)
+            ? originalState.art
+            : findCurrentArticleObj();
+
         if (!hasAIKey()) {
             if (typeof showToastGlobal === 'function') showToastGlobal('⚠️ API anahtarı yok, orijinal site açılıyor...', 2200);
-            openCurrentCardReader();
+            if (!fromInsideModal) openCurrentCardReader();
             setTimeout(() => {
                 window.__frameNow = true;
                 window.__frameMode = 'web-sade';
@@ -1045,32 +1316,42 @@
             return;
         }
 
-        directAiEntry = true;
-        wantDirectAISummary = true;
-        if (art && typeof openModal === 'function') {
-            openModal(art);
-        } else {
-            const c = document.querySelector('#newsGrid .swipe-wrapper.tv-current .news-card');
-            if (c) c.click();
+        directAiEntry = !fromInsideModal;
+
+        // newsModal kapalıysa sadece kabuk olarak aç (ağ isteği veya iframe yüklemesi başlatmadan!)
+        const nm = $('newsModal');
+        if (nm && nm.style.display !== 'flex') {
+            if (art && $('modalSource')) $('modalSource').innerText = art.source || 'Haber Özeti';
+            if (typeof openModalSafe === 'function') openModalSafe('newsModal');
+            else nm.style.display = 'flex';
         }
+
         const aiModal = $('aiInlineResult');
         const historyDiv = $('aiChatHistory');
-        if (aiModal && historyDiv) {
-            historyDiv.innerHTML = '<div class="ai-msg assistant loading">🤖 Haber analiz ediliyor, özet hazırlanıyor...</div>';
+        if (!aiModal || !historyDiv) return;
+
+        aiModal.scrollTop = 0;
+        aiModal.classList.add('show');
+        aiModal.style.display = 'block';
+        window.tvApplyZoom();
+        sync();
+
+        // Eğer bu haberin özeti daha önce çıkarıldıysa 0 saniyede (anında) ekrana bas!
+        if (art && AI_SUMMARY_CACHE.has(art.link)) {
+            historyDiv.innerHTML = `<div class="ai-msg assistant">${AI_SUMMARY_CACHE.get(art.link)}</div>`;
             aiModal.scrollTop = 0;
-            aiModal.classList.add('show');
-            aiModal.style.display = 'block';
-            window.tvApplyZoom();
-            sync();
+            return;
         }
-        setTimeout(() => {
-            if (wantDirectAISummary) {
-                wantDirectAISummary = false;
-                if (historyDiv) historyDiv.innerHTML = '';
-                if (typeof askAIFromWeb === 'function') askAIFromWeb();
-                setTimeout(() => { window.tvApplyZoom(); sync(); }, 60);
-            }
-        }, 1400);
+
+        historyDiv.innerHTML = '<div class="ai-msg assistant loading">⚡ Özet hazırlanıyor...</div>';
+        try {
+            const cleanHtml = await getFastAISummaryHtml(art);
+            historyDiv.innerHTML = `<div class="ai-msg assistant">${cleanHtml}</div>`;
+            aiModal.scrollTop = 0;
+            window.tvApplyZoom();
+        } catch (err) {
+            historyDiv.innerHTML = `<div class="ai-msg assistant">⚠️ ${escapeHtml((err && err.message) || 'Özet alınamadı')}</div>`;
+        }
     }
 
     // ---------- OK tuşu: Mi Stick ses kombinasyonu (OK basılıyken Ses +/−) ve Tek/Çift tık ayrımı ----------
@@ -1182,7 +1463,7 @@
         const inText = t && (t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && !/^(checkbox|radio|button|submit)$/.test(t.type)));
         const ov = overlayRoot();
 
-        // 1) ANA EKRAN (Haber Kartları): Tek OK = Okuma Modu, 2×OK = Direkt AI Özeti
+        // 1) ANA EKRAN (Haber Kartları): Tek OK = Okuma Modu, 2×OK = Yeniden İndirmeden Direkt Hızlı AI Özeti
         if (!ov && !inText) {
             e.preventDefault(); e.stopImmediatePropagation();
             const heldMs = okDownAt ? (Date.now() - okDownAt) : 0;
@@ -1195,7 +1476,7 @@
             if (now - lastFeedOkAt < 420) {
                 if (feedOkTimer) { clearTimeout(feedOkTimer); feedOkTimer = null; }
                 lastFeedOkAt = 0;
-                openCurrentCardAISummary();
+                openCurrentCardAISummary(false);
             } else {
                 lastFeedOkAt = now;
                 if (feedOkTimer) clearTimeout(feedOkTimer);
@@ -1226,13 +1507,9 @@
             if (okSingleTimer) { clearTimeout(okSingleTimer); okSingleTimer = null; }
             lastOkTapAt = 0;
             if (aiOpen()) {
-                if (typeof closeAIResult === 'function') closeAIResult();
-                setTimeout(sync, 20);
+                closeTopmostOverlay(false);
             } else {
-                ensureHistoryGuard();
-                directAiEntry = false;
-                if (typeof askAIFromWeb === 'function') askAIFromWeb();
-                setTimeout(() => { window.tvApplyZoom(); sync(); }, 50);
+                openCurrentCardAISummary(true);
             }
         } else {
             lastOkTapAt = now;
@@ -1277,6 +1554,10 @@
             document.querySelectorAll('.tv-focus').forEach(x => x.classList.remove('tv-focus'));
             if (ov && ov.id !== 'newsModal' && ov.id !== 'controlsWrapper') setTimeout(() => focusIn(ov), 120);
             if (!ov) {
+                // newsModal kapandığında içinde açık kalan aiInlineResult varsa kesin olarak kapat ki kayar metni engellemesin!
+                const aiEl = $('aiInlineResult');
+                if (aiEl) { aiEl.classList.remove('show'); aiEl.style.display = 'none'; }
+                directAiEntry = false;
                 try { document.activeElement && document.activeElement.blur(); } catch (e) {}
                 attachCardLiveTickerAndReader(true);
             }
