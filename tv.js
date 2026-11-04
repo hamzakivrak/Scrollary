@@ -64,7 +64,8 @@
       body.tv-mode .swipe-wrapper.tv-current .source-badge {
           position: absolute !important;
           top: 14px !important;
-          left: 3% !important;
+          left: 50% !important;
+          transform: translateX(-50%) !important;
           font-size: 0.72rem !important;
           font-weight: 400 !important;
           letter-spacing: 0.04em !important;
@@ -84,7 +85,7 @@
           background: linear-gradient(transparent 0%, rgba(7, 11, 20, 0.72) 22%, rgba(7, 11, 20, 0.94) 55%, rgba(7, 11, 20, 0.98) 100%) !important;
           display: flex !important; flex-direction: column !important; justify-content: flex-end !important; box-sizing: border-box !important; }
       body.tv-mode .swipe-wrapper.tv-current .news-content h3 { font-size: clamp(1.75rem, 5.2vh, 3.0rem) !important; line-height: 1.24 !important; display: block !important;
-          -webkit-line-clamp: unset !important; max-height: none !important; color: #facc15 !important; text-shadow: 0 2px 12px rgba(0,0,0,.9); margin: 0 0 10px 0 !important; }
+          -webkit-line-clamp: unset !important; max-height: none !important; color: #facc15 !important; text-shadow: 0 2px 12px rgba(0,0,0,.9); margin: 0 0 18px 0 !important; }
       body.tv-mode .swipe-wrapper.tv-current .meta { font-size: 1.1rem !important; margin-top: 8px; opacity: 0.8; }
 
       /* Sağ üst köşe durum rozeti: kaynak etiketiyle uyumlu zarif ve ince görünüm */
@@ -132,7 +133,7 @@
       .tv-vscroll-viewport {
           position: relative;
           width: 100%;
-          height: 34vh;
+          height: 46vh;
           overflow: hidden;
           padding: 0 10px;
           box-sizing: border-box;
@@ -143,8 +144,8 @@
           display: flex;
           flex-direction: column;
           gap: calc(18px * var(--ticker-scale, 1));
-          padding-top: 20vh;
-          padding-bottom: 34vh;
+          padding-top: 28vh;
+          padding-bottom: 46vh;
           will-change: transform;
           animation: tvVerticalRoll var(--ticker-dur, 35s) linear infinite;
           zoom: var(--ticker-scale, 1);
@@ -164,7 +165,7 @@
       }
       @keyframes tvVerticalRoll {
           0%   { transform: translate3d(0, 0, 0); }
-          100% { transform: translate3d(0, calc(-100% + 22vh), 0); }
+          100% { transform: translate3d(0, calc(-100% + 30vh), 0); }
       }
 
       /* 2) Yatay (Sağdan Sola) Akış Modu */
@@ -848,7 +849,7 @@
             art = { link: w.dataset.link || '', title: h3 ? h3.textContent.trim() : '', description: '' };
         }
 
-        if (art.link) markLinkAsRead(art.link);
+        // Haber 'okundu' işareti kart gösterilirken değil, karttan ayrılırken (showCard / advanceToNextCard) konur
 
         const myToken = ++tickerToken;
         const autoAdvanceEnabled = localStorage.getItem('tvAutoAdvance') !== '0';
@@ -913,7 +914,7 @@
         function scheduleNextCardAdvance(secDuration) {
             if (!autoAdvanceEnabled) return;
             clearTimeout(autoAdvanceTimer);
-            const advanceDelayMs = (secDuration * 1000) + 1200;
+            const advanceDelayMs = (secDuration * 2 * 1000) + 1200; // metin kart üzerinde 2 kez tamamen aksın, sonra sıradaki habere geç
             autoAdvanceTimer = setTimeout(() => {
                 if (myToken !== tickerToken || overlayRoot() || aiOpen()) return;
                 advanceToNextCard();
@@ -933,7 +934,7 @@
                 autoAdvanceTimer = setTimeout(() => {
                     if (myToken !== tickerToken || overlayRoot() || aiOpen()) return;
                     advanceToNextCard();
-                }, 15000);
+                }, wantAiOnCard ? 25000 : 15000); // AI özeti beklenirken biraz daha sabırlı ol
             }
 
             if (wantAiOnCard) {
@@ -964,7 +965,7 @@
                             }
                         }
                         badge.className = 'tv-fetch-badge warn';
-                        badge.textContent = '⚠️ Metin çekilemedi (15 sn sonra sıradaki)';
+                        badge.textContent = '⚠️ Metin çekilemedi (birazdan sıradaki)';
                     });
                 });
             } else {
@@ -984,11 +985,11 @@
                         }
                     }
                     badge.className = 'tv-fetch-badge warn';
-                    badge.textContent = '⚠️ Metin çekilemedi (15 sn sonra sıradaki)';
+                    badge.textContent = '⚠️ Metin çekilemedi (birazdan sıradaki)';
                 }).catch(() => {
                     if (myToken !== tickerToken) return;
                     badge.className = 'tv-fetch-badge warn';
-                    badge.textContent = '⚠️ Metin çekilemedi (15 sn sonra sıradaki)';
+                    badge.textContent = '⚠️ Metin çekilemedi (birazdan sıradaki)';
                 });
             }
         }
