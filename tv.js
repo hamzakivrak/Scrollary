@@ -143,27 +143,29 @@
           border-color: rgba(192, 132, 252, 0.4);
       }
 
-      body.tv-mode .swipe-wrapper.tv-current .news-content { position: absolute !important; left: 0; right: 0; bottom: 0; padding: 90px 4% 64px !important; z-index: 2;
-          background: linear-gradient(transparent 0%, rgba(7, 11, 20, 0.78) 24%, rgba(7, 11, 20, 0.96) 55%, rgba(7, 11, 20, 0.99) 100%) !important;
+      /* Haber başlığı alanı %50 küçültüldü, kazanılan tüm alan akan metin penceresine verildi */
+      body.tv-mode .swipe-wrapper.tv-current .news-content { position: absolute !important; left: 0; right: 0; bottom: 0; padding: 48px 4% 58px !important; z-index: 2;
+          background: linear-gradient(transparent 0%, rgba(7, 11, 20, 0.78) 16%, rgba(7, 11, 20, 0.95) 45%, rgba(7, 11, 20, 0.99) 100%) !important;
           display: flex !important; flex-direction: column !important; justify-content: flex-end !important; box-sizing: border-box !important; }
-      body.tv-mode .swipe-wrapper.tv-current .news-content h3 { font-size: clamp(1.75rem, 5.2vh, 3.0rem) !important; line-height: 1.24 !important; display: block !important;
-          -webkit-line-clamp: unset !important; max-height: none !important; color: #facc15 !important; text-shadow: 0 2px 8px rgba(0,0,0,.9); margin: 0 0 10px 0 !important; }
-      body.tv-mode .swipe-wrapper.tv-current .meta { font-size: 1.1rem !important; margin-top: 8px; opacity: 0.8; }
+      body.tv-mode .swipe-wrapper.tv-current .news-content h3 { font-size: clamp(1.05rem, 2.7vh, 1.55rem) !important; line-height: 1.22 !important;
+          display: -webkit-box !important; -webkit-box-orient: vertical !important; -webkit-line-clamp: 2 !important; overflow: hidden !important;
+          max-height: 2.5em !important; color: #facc15 !important; text-shadow: 0 2px 8px rgba(0,0,0,.9); margin: 0 0 6px 0 !important; flex-shrink: 0 !important; }
+      body.tv-mode .swipe-wrapper.tv-current .meta { font-size: 0.9rem !important; margin-top: 4px !important; opacity: 0.72; }
 
-      /* ===== KART ÜZERİNDE AŞAĞIDAN YUKARIYA VE YATAY AKAN METİN PENCERESİ (GPU Dostu) ===== */
+      /* ===== KART ÜZERİNDE AŞAĞIDAN YUKARIYA VE YATAY AKAN METİN PENCERESİ (GPU Dostu, Genişletilmiş Alan) ===== */
       .tv-card-reader {
           display: block;
           width: 100%;
-          margin-top: 4px;
+          margin-top: 2px;
           box-sizing: border-box;
       }
 
       /* 1) Dikey (Aşağıdan Yukarıya) Akış Modu:
-         Mi Stick GPU'sunu kilitleyen mask-image yerine hafif üst/alt karartma örtüsü (::before / ::after) kullanılır */
+         Başlıktan kazanılan alanla yüksekliği 32vh -> 52vh yapıldı! */
       .tv-vscroll-viewport {
           position: relative;
           width: 100%;
-          height: 32vh;
+          height: 52vh;
           overflow: hidden;
           padding: 0 10px;
           box-sizing: border-box;
@@ -172,7 +174,7 @@
           content: "";
           position: absolute;
           top: 0; left: 0; right: 0;
-          height: 9vh;
+          height: 11vh;
           background: linear-gradient(to bottom, rgba(7, 11, 20, 0.96) 0%, rgba(7, 11, 20, 0) 100%);
           z-index: 3;
           pointer-events: none;
@@ -181,7 +183,7 @@
           content: "";
           position: absolute;
           bottom: 0; left: 0; right: 0;
-          height: 5vh;
+          height: 6vh;
           background: linear-gradient(to top, rgba(7, 11, 20, 0.96) 0%, rgba(7, 11, 20, 0) 100%);
           z-index: 3;
           pointer-events: none;
@@ -190,8 +192,8 @@
           display: flex;
           flex-direction: column;
           gap: 16px;
-          padding-top: 18vh;
-          padding-bottom: 30vh;
+          padding-top: 30vh;
+          padding-bottom: 48vh;
           will-change: transform;
           animation: tvVerticalRoll var(--ticker-dur, 28s) linear infinite;
       }
@@ -570,7 +572,6 @@
     function markLinkAsRead(link) {
         if (!link) return;
         seenReadLinks.add(link);
-        // Her tuş basımında localStorage.setItem yapıp Mi Stick'i kilitlememek için 3 sn gecikmeli kaydet!
         clearTimeout(saveReadDebounce);
         saveReadDebounce = setTimeout(() => {
             try {
@@ -905,7 +906,7 @@
         return p;
     }
 
-    // ---------- KOTA DOSTU + SADECE RAM ÖNBELLEKLİ MİNİ AI ÖZETLEYİCİ (localStorage Tıkanması Yok!) ----------
+    // ---------- KOTA DOSTU + SADECE RAM ÖNBELLEKLİ MİNİ AI ÖZETLEYİCİ ----------
     const CARD_AI_CACHE = new Map();
     const inflightCardAi = new Map();
 
@@ -1004,7 +1005,7 @@
         return cleanHtml;
     }
 
-    // Kart açılır açılmaz akan özet/metin alanını kurar (ağ isteklerini ise kumandayı kilitlememek için 700ms gecikmeyle başlatır!)
+    // Kart açılır açılmaz akan özet/metin alanını kurar
     function attachCardLiveTickerAndReader(forceRestart) {
         if (overlayRoot() || aiOpen()) return;
 
@@ -1117,7 +1118,7 @@
                 }, 15000);
             }
 
-            // 700ms zapping koruması: yön tuşlarıyla hızlıca geçerken ağ isteği başlatmaz!
+            // 700ms zapping koruması
             clearTimeout(currentFetchStartTimer);
             currentFetchStartTimer = setTimeout(() => {
                 if (myToken !== tickerToken || overlayRoot() || aiOpen()) return;
@@ -1207,7 +1208,7 @@
         }
     }
 
-    // ---------- Tek kart yönetimi (Anında tepki veren, DOM silmeyen hızlı geçiş) ----------
+    // ---------- Tek kart yönetimi ----------
     let curLink = null, lastUpTap = 0;
 
     const cards = () => Array.from(document.querySelectorAll('#newsGrid .swipe-wrapper'));
@@ -1667,7 +1668,7 @@
         }
     }
 
-    // ---------- Kumanda Tuş Algılayıcı (Hem e.key hem e.keyCode destekli — Mi Stick / Android TV tam uyumlu) ----------
+    // ---------- Kumanda Tuş Algılayıcı ----------
     let okDownAt = 0;
     let okUsedCombo = false;
     let okSingleTimer = null;
@@ -1717,7 +1718,6 @@
         const dir = getDirectionFromEvent(e);
         const ov = overlayRoot();
 
-        // Seçili radyo varsa ve henüz çalmaya başlamadıysa ilk tuşla başlat
         if (localStorage.getItem('tvRadioStation') && localStorage.getItem('tvRadioStation') !== 'off' && !isRadioPlaying()) {
             startOrSwitchRadio(localStorage.getItem('tvRadioStation'), false);
         }
