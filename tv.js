@@ -13,10 +13,17 @@
     if (!on) return;
     window.IS_TV = true;
 
-    // TV'de kart açılışı: Tek OK = Okuma Modu (veri çekilemezse otomatik Orijinal Siteye geçer)
-    // Çift OK (2×OK) = API yüklüyse doğrudan TV'de rahat okunur Yapay Zeka Özeti (yoksa Orijinal Site)
-    // Varsayılan olarak Okunan Haberler Gizlensin ve Kart Üzerinde AI Özeti Aksın (Ayarlar'dan değiştirilebilir)
+    // ---------- 1) ŞİŞMİŞ CACHE / LOCALSTORAGE OTOMATİK TEMİZLEYİCİ (Mi Stick Açılış & Donma Koruması) ----------
+    // localStorage şiştiğinde her JSON.parse / setItem Mi Stick'in ana iş parçacığını (UI thread) saniyelerce kilitler.
     try {
+        const heavyKeys = ['readerCacheV1', 'readerCacheV3', 'gnResolveV1', 'pubFeeds', 'tvCardAiCacheV1', 'tvSeenReadLinks', 'readArticles'];
+        heavyKeys.forEach(k => {
+            const raw = localStorage.getItem(k);
+            // 35 KB'ı aşan önbellekleri otomatik buda/sıfırla ki açılışta ve tuş basımında asla bekleme yapmasın
+            if (raw && raw.length > 35000) {
+                localStorage.removeItem(k);
+            }
+        });
         localStorage.setItem('tapAction_single', 'reader');
         localStorage.setItem('tapAction_double', 'off');
         localStorage.setItem('tvTapMigratedV2', '1');
@@ -25,18 +32,17 @@
             localStorage.setItem('hideReadArticles', 'true');
         }
         if (localStorage.getItem('tvCardContentMode') === null) {
-            localStorage.setItem('tvCardContentMode', 'ai'); // 'ai' = Yapay Zeka Özeti Aksın, 'full' = Tam Haber Metni Aksın
+            localStorage.setItem('tvCardContentMode', 'ai');
         }
     } catch (e) {}
 
     const $ = (id) => document.getElementById(id);
     const OVERLAYS = ['newsModal', 'settingsModal', 'sourceFilterModal', 'guideModal', 'voiceModal'];
 
-    // Akan metin ölçeği (varsayılan 1.0 = +%25 büyütülmüş)
     const initTickerScale = parseFloat(localStorage.getItem('tvTickerScale')) || 1.0;
     document.documentElement.style.setProperty('--ticker-scale', String(initTickerScale));
 
-    // ---------- Görünüm: tek kart tam ekran + Kart Üstünde Aşağıdan Yukarıya Sinematik Akan Özet/Metin + TV Yapay Zeka Özeti ----------
+    // ---------- Görünüm: Mi Stick GPU dostu, hafifletilmiş CSS (blur/mask kaldırıldı, sıfır takılma!) ----------
     const css = document.createElement('style');
     css.textContent = `
       body.tv-mode { overflow: hidden; }
@@ -60,7 +66,7 @@
       body.tv-mode .swipe-wrapper.tv-current .main-img { width: 100% !important; height: 100% !important; object-fit: cover !important; }
       body.tv-mode .swipe-wrapper.tv-current .fallback-logo { position: absolute; left: 50%; top: 38%; width: 22vh; height: 22vh; transform: translate(-50%, -50%); opacity: .5; object-fit: contain; }
 
-      /* Haber kaynağı rozeti: ÜST ORTA kısımda, zarif, ince yazılı ve yarı saydam (başlığı asla kapatmaz) */
+      /* Haber kaynağı rozeti: ÜST ORTA kısımda, zarif, ince yazılı */
       body.tv-mode .swipe-wrapper.tv-current .source-badge {
           position: absolute !important;
           top: 14px !important;
@@ -73,11 +79,9 @@
           line-height: 1.15 !important;
           padding: 4px 14px !important;
           border-radius: 999px !important;
-          background: rgba(15, 23, 42, 0.62) !important;
+          background: rgba(15, 23, 42, 0.85) !important;
           color: rgba(248, 250, 252, 0.92) !important;
           border: 1px solid rgba(255, 255, 255, 0.16) !important;
-          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4) !important;
-          backdrop-filter: blur(6px) !important;
           white-space: nowrap !important;
           z-index: 4;
           pointer-events: none;
@@ -94,10 +98,9 @@
           letter-spacing: 0.04em;
           padding: 4px 12px;
           border-radius: 999px;
-          background: rgba(15, 23, 42, 0.58);
-          color: rgba(241, 245, 249, 0.88);
-          border: 1px solid rgba(255, 255, 255, 0.13);
-          backdrop-filter: blur(6px);
+          background: rgba(15, 23, 42, 0.85);
+          color: rgba(241, 245, 249, 0.9);
+          border: 1px solid rgba(255, 255, 255, 0.14);
           pointer-events: none;
           white-space: nowrap;
       }
@@ -108,7 +111,7 @@
           margin-right: 2px;
       }
 
-      /* Sol üst köşe durum rozeti (sağ üstte tarih/gün, üst ortada kaynak adı olduğu için sol üstte zarifçe durur) */
+      /* Sol üst köşe durum rozeti */
       .tv-fetch-badge {
           position: absolute;
           top: 14px;
@@ -118,37 +121,36 @@
           letter-spacing: 0.03em;
           padding: 3px 10px;
           border-radius: 999px;
-          background: rgba(15, 23, 42, 0.62);
+          background: rgba(15, 23, 42, 0.85);
           color: #cbd5e1;
           border: 1px solid rgba(148, 163, 184, 0.2);
-          backdrop-filter: blur(6px);
           pointer-events: none;
-          transition: opacity 0.35s ease, transform 0.35s ease;
+          transition: opacity 0.35s ease;
       }
       .tv-fetch-badge.warn {
-          background: rgba(127, 29, 29, 0.72);
+          background: rgba(127, 29, 29, 0.88);
           color: #fecaca;
           border-color: rgba(248, 113, 113, 0.35);
       }
       .tv-fetch-badge.ok {
-          background: rgba(6, 78, 59, 0.72);
+          background: rgba(6, 78, 59, 0.88);
           color: #a7f3d0;
           border-color: rgba(52, 211, 153, 0.35);
       }
       .tv-fetch-badge.ai {
-          background: linear-gradient(135deg, rgba(88, 28, 135, 0.75), rgba(30, 58, 138, 0.75));
+          background: rgba(67, 20, 107, 0.9);
           color: #e9d5ff;
           border-color: rgba(192, 132, 252, 0.4);
       }
 
       body.tv-mode .swipe-wrapper.tv-current .news-content { position: absolute !important; left: 0; right: 0; bottom: 0; padding: 90px 4% 64px !important; z-index: 2;
-          background: linear-gradient(transparent 0%, rgba(7, 11, 20, 0.72) 22%, rgba(7, 11, 20, 0.94) 55%, rgba(7, 11, 20, 0.98) 100%) !important;
+          background: linear-gradient(transparent 0%, rgba(7, 11, 20, 0.78) 24%, rgba(7, 11, 20, 0.96) 55%, rgba(7, 11, 20, 0.99) 100%) !important;
           display: flex !important; flex-direction: column !important; justify-content: flex-end !important; box-sizing: border-box !important; }
       body.tv-mode .swipe-wrapper.tv-current .news-content h3 { font-size: clamp(1.75rem, 5.2vh, 3.0rem) !important; line-height: 1.24 !important; display: block !important;
-          -webkit-line-clamp: unset !important; max-height: none !important; color: #facc15 !important; text-shadow: 0 2px 12px rgba(0,0,0,.9); margin: 0 0 10px 0 !important; }
+          -webkit-line-clamp: unset !important; max-height: none !important; color: #facc15 !important; text-shadow: 0 2px 8px rgba(0,0,0,.9); margin: 0 0 10px 0 !important; }
       body.tv-mode .swipe-wrapper.tv-current .meta { font-size: 1.1rem !important; margin-top: 8px; opacity: 0.8; }
 
-      /* ===== KART ÜZERİNDE AŞAĞIDAN YUKARIYA VE YATAY AKAN METİN PENCERESİ ===== */
+      /* ===== KART ÜZERİNDE AŞAĞIDAN YUKARIYA VE YATAY AKAN METİN PENCERESİ (GPU Dostu) ===== */
       .tv-card-reader {
           display: block;
           width: 100%;
@@ -156,34 +158,49 @@
           box-sizing: border-box;
       }
 
-      /* 1) Dikey (Aşağıdan Yukarıya) Akış Modu */
+      /* 1) Dikey (Aşağıdan Yukarıya) Akış Modu:
+         Mi Stick GPU'sunu kilitleyen mask-image yerine hafif üst/alt karartma örtüsü (::before / ::after) kullanılır */
       .tv-vscroll-viewport {
           position: relative;
           width: 100%;
-          height: 34vh;
+          height: 32vh;
           overflow: hidden;
           padding: 0 10px;
           box-sizing: border-box;
-          -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.25) 14%, rgba(0,0,0,1) 34%, rgba(0,0,0,1) 88%, rgba(0,0,0,0.2) 100%);
-          mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.25) 14%, rgba(0,0,0,1) 34%, rgba(0,0,0,1) 88%, rgba(0,0,0,0.2) 100%);
+      }
+      .tv-vscroll-viewport::before {
+          content: "";
+          position: absolute;
+          top: 0; left: 0; right: 0;
+          height: 9vh;
+          background: linear-gradient(to bottom, rgba(7, 11, 20, 0.96) 0%, rgba(7, 11, 20, 0) 100%);
+          z-index: 3;
+          pointer-events: none;
+      }
+      .tv-vscroll-viewport::after {
+          content: "";
+          position: absolute;
+          bottom: 0; left: 0; right: 0;
+          height: 5vh;
+          background: linear-gradient(to top, rgba(7, 11, 20, 0.96) 0%, rgba(7, 11, 20, 0) 100%);
+          z-index: 3;
+          pointer-events: none;
       }
       .tv-vscroll-track {
           display: flex;
           flex-direction: column;
-          gap: calc(18px * var(--ticker-scale, 1));
-          padding-top: 20vh;
-          padding-bottom: 34vh;
+          gap: 16px;
+          padding-top: 18vh;
+          padding-bottom: 30vh;
           will-change: transform;
           animation: tvVerticalRoll var(--ticker-dur, 28s) linear infinite;
-          zoom: var(--ticker-scale, 1);
       }
       .tv-vscroll-sentence {
-          font-size: clamp(1.55rem, 3.9vh, 2.35rem) !important;
+          font-size: calc(2.0rem * var(--ticker-scale, 1)) !important;
           font-weight: 600 !important;
           line-height: 1.42 !important;
           font-family: system-ui, sans-serif;
           color: #f8fafc;
-          text-shadow: 0 2px 10px rgba(0, 0, 0, 0.95);
           padding-left: 16px;
           border-left: 4px solid #38bdf8;
       }
@@ -200,25 +217,23 @@
           position: relative;
           width: 100%;
           overflow: hidden;
-          background: rgba(15, 23, 42, 0.92);
+          background: rgba(15, 23, 42, 0.94);
           border: 1px solid rgba(56, 189, 248, 0.35);
           border-left: 6px solid #e11d48;
           border-radius: 10px;
           padding: 13px 0;
-          box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55);
       }
       .tv-ticker-track {
           display: inline-block;
           white-space: nowrap;
           padding-left: 100%;
-          font-size: clamp(1.68rem, 4.25vh, 2.56rem) !important;
+          font-size: calc(2.1rem * var(--ticker-scale, 1)) !important;
           font-weight: 600 !important;
           line-height: 1.35 !important;
           font-family: system-ui, sans-serif;
           color: #f8fafc;
           will-change: transform;
           animation: tvTickerScroll var(--ticker-dur, 28s) linear infinite;
-          zoom: var(--ticker-scale, 1);
       }
       .tv-ticker-track .tv-sep {
           color: #facc15;
@@ -279,14 +294,13 @@
       body.tv-mode .tv-focus, body.tv-mode :focus-visible { outline: 4px solid #facc15 !important; outline-offset: 3px; border-radius: 12px; }
       body.tv-mode * { -webkit-tap-highlight-color: transparent; }
 
-      #tvBar { display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 5000; padding: 10px 4%; background: rgba(0,0,0,.78); color: #e2e8f0;
-          font: 600 1.35rem system-ui, sans-serif; justify-content: space-between; gap: 14px; transition: opacity 0.4s ease, transform 0.4s ease; }
+      #tvBar { display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 5000; padding: 10px 4%; background: rgba(0,0,0,.85); color: #e2e8f0;
+          font: 600 1.35rem system-ui, sans-serif; justify-content: space-between; gap: 14px; transition: opacity 0.35s ease, transform 0.35s ease; }
       body.tv-mode #tvBar { display: flex; }
       body.tv-mode #tvBar.tv-bar-hidden { opacity: 0 !important; transform: translateY(100%) !important; pointer-events: none !important; }
       #tvBar b { color: #facc15; }
     `;
     document.head.appendChild(css);
-    // Yazı büyütme oranı (varsayılan 2). Ekran çok dar görünüyorsa otomatik düşürülür. ?tvscale=1.5 ile değiştirilebilir.
     try {
         const qs = parseFloat(new URLSearchParams(location.search).get('tvscale'));
         if (qs > 0) localStorage.setItem('tvScale', String(qs));
@@ -302,7 +316,7 @@
         cl.id = 'tvClockBadge';
         document.body.appendChild(cl);
         updateClockBadge();
-        setInterval(updateClockBadge, 15000);
+        setInterval(updateClockBadge, 30000);
     }
 
     function updateClockBadge() {
@@ -318,8 +332,7 @@
         } catch (e) {}
     }
 
-    // ---------- Arka Plan Radyo Çalar (Klasik Müzik, Odaklanma/Lo-Fi, Türkü, Yabancı Pop/Rock, Caz, Ambient) ----------
-    // Her kategori için yedekli (fallback) doğrudan MP3/AAC canlı yayın adresleri
+    // ---------- Arka Plan Radyo Çalar ----------
     const RADIO_STATIONS = [
         { id: 'off', name: '🔇 Kapalı', shortName: '', urls: [] },
         {
@@ -344,21 +357,11 @@
         },
         {
             id: 'turku',
-            name: '🪕 Türkü & Halk Müziği (TRT Türkü / Anadolu)',
+            name: '🪕 Türkü & Halk Müziği (Anadolu / Folk)',
             shortName: 'Türkü',
             urls: [
-                'https://rd-trtturku.medya.trt.com.tr/master_128.m3u8',
-                'https://trkvz-radyolar.ercdn.net/radyoturkuvaz/playlist.m3u8',
-                'https://ice2.somafm.com/suburbsofgoa-128-mp3'
-            ]
-        },
-        {
-            id: 'tsm',
-            name: '🎼 Türk Sanat Müziği (TRT Nağme)',
-            shortName: 'TSM',
-            urls: [
-                'https://rd-trtnagme.medya.trt.com.tr/master_128.m3u8',
-                'https://trkvz-radyolar.ercdn.net/vavtv/playlist.m3u8'
+                'https://ice2.somafm.com/suburbsofgoa-128-mp3',
+                'https://stream.srg-ssr.ch/m/rsc_de/mp3_128'
             ]
         },
         {
@@ -440,9 +443,7 @@
         if (!radioAudio) {
             radioAudio = new Audio();
             radioAudio.preload = 'none';
-            radioAudio.crossOrigin = 'anonymous';
             radioAudio.addEventListener('error', () => {
-                // Bir akış adresi hata verirse aynı istasyonun yedek adresine geç
                 const currSt = getCurrentRadioStation();
                 if (!currSt || currSt.id === 'off') return;
                 if (currentUrlIndex + 1 < currSt.urls.length) {
@@ -463,14 +464,7 @@
             if (showNotification && typeof showToastGlobal === 'function') {
                 showToastGlobal('📻 Çalıyor: ' + st.name, 1800);
             }
-        }).catch(() => {
-            // İlk adres açılamazsa yedeği dene
-            if (st.urls.length > 1) {
-                currentUrlIndex = 1;
-                radioAudio.src = st.urls[1];
-                radioAudio.play().then(() => updateClockBadge()).catch(() => {});
-            }
-        });
+        }).catch(() => {});
     }
 
     window.tvSetRadioStation = function (val) {
@@ -534,7 +528,6 @@
     }
     const aiOpen = () => { const a = $('aiInlineResult'); return !!a && getComputedStyle(a).display !== 'none'; };
 
-    // API anahtarı (Groq veya Gemini) yüklü mü kontrolü
     function hasAIKey() {
         try {
             if (typeof allAIKeys === 'function' && allAIKeys().length > 0) return true;
@@ -563,102 +556,66 @@
         return await groqChat(messages, opts);
     }
 
-    // ---------- Mükerrer (Tekrarlanan) Haberleri ve Okunan Haberleri Filtreleme ----------
+    // ---------- HAFİF BELLEK (RAM) İÇİ MÜKERRER VE OKUNAN FİLTRESİ (localStorage Yazma Gecikmesi Yok!) ----------
     const seenReadLinks = new Set();
     try {
-        (JSON.parse(localStorage.getItem('tvSeenReadLinks') || '[]')).forEach(u => seenReadLinks.add(u));
+        (JSON.parse(localStorage.getItem('tvSeenReadLinks') || '[]')).slice(-150).forEach(u => seenReadLinks.add(u));
     } catch (e) {}
 
     function isHideReadEnabled() {
         return localStorage.getItem('tvHideReadPref') !== '0';
     }
 
+    let saveReadDebounce = null;
     function markLinkAsRead(link) {
         if (!link) return;
         seenReadLinks.add(link);
-        try {
-            const arr = [...seenReadLinks].slice(-500);
-            localStorage.setItem('tvSeenReadLinks', JSON.stringify(arr));
-            if (typeof readArticles !== 'undefined' && Array.isArray(readArticles) && !readArticles.includes(link)) {
-                readArticles.push(link);
-                localStorage.setItem('readArticles', JSON.stringify(readArticles.slice(-500)));
-            }
-        } catch (e) {}
+        // Her tuş basımında localStorage.setItem yapıp Mi Stick'i kilitlememek için 3 sn gecikmeli kaydet!
+        clearTimeout(saveReadDebounce);
+        saveReadDebounce = setTimeout(() => {
+            try {
+                const arr = [...seenReadLinks].slice(-180);
+                localStorage.setItem('tvSeenReadLinks', JSON.stringify(arr));
+            } catch (e) {}
+        }, 3000);
     }
 
-    function normHeadline(title) {
+    function fastTitleKey(title) {
         return String(title || '')
             .replace(/\s+-\s+[^-]+$/, '')
-            .toLocaleLowerCase('tr')
-            .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+            .toLowerCase()
+            .replace(/[ıİ]/g, 'i')
+            .replace(/[^a-z0-9ğüşöç\s]/g, '')
             .replace(/\s+/g, ' ')
-            .trim();
+            .trim()
+            .slice(0, 36);
     }
 
-    function isDuplicateTitle(normA, normB) {
-        if (!normA || !normB) return false;
-        if (normA === normB) return true;
-        if (normA.length > 22 && normB.length > 22) {
-            if (normA.slice(0, 32) === normB.slice(0, 32)) return true;
-        }
-        const wordsA = normA.split(' ').filter(w => w.length > 3);
-        const wordsB = new Set(normB.split(' ').filter(w => w.length > 3));
-        if (wordsA.length < 4 || wordsB.size < 4) return false;
-        let common = 0;
-        for (const w of wordsA) {
-            if (wordsB.has(w)) common++;
-        }
-        return (common / Math.min(wordsA.length, wordsB.size)) >= 0.72;
-    }
-
-    function deduplicateAndFilterFeed() {
-        const hideRead = isHideReadEnabled();
-        const cleanArray = (arr) => {
-            if (!Array.isArray(arr) || !arr.length) return;
-            const keptNorms = [];
-            const seenLinks = new Set();
-            for (let i = 0; i < arr.length; i++) {
-                const a = arr[i];
-                if (!a || !a.link) continue;
-                if (a.link === curLink) {
-                    seenLinks.add(a.link);
-                    keptNorms.push(normHeadline(a.title));
-                    continue;
-                }
-                if (seenLinks.has(a.link)) { arr.splice(i, 1); i--; continue; }
-                if (hideRead && seenReadLinks.has(a.link)) { arr.splice(i, 1); i--; continue; }
-                const nh = normHeadline(a.title);
-                if (nh && keptNorms.some(existing => isDuplicateTitle(nh, existing))) {
-                    arr.splice(i, 1); i--; continue;
-                }
-                seenLinks.add(a.link);
-                if (nh) keptNorms.push(nh);
-            }
-        };
-        try {
-            if (typeof allArticles !== 'undefined') cleanArray(allArticles);
-            if (typeof filteredArticles !== 'undefined') cleanArray(filteredArticles);
-        } catch (e) {}
-
+    let lastDedupCount = -1;
+    function deduplicateDomCardsLight() {
         const domCards = cards();
-        const domNorms = [];
+        if (domCards.length === lastDedupCount) return;
+        const hideRead = isHideReadEnabled();
+        const domKeys = new Set();
         const domLinks = new Set();
+
         for (const c of domCards) {
             const link = c.dataset.link || '';
             const h3 = c.querySelector('h3');
-            const nh = normHeadline(h3 ? h3.textContent : '');
+            const tk = fastTitleKey(h3 ? h3.textContent : '');
             if (link === curLink) {
-                domLinks.add(link);
-                if (nh) domNorms.push(nh);
+                if (link) domLinks.add(link);
+                if (tk.length > 10) domKeys.add(tk);
                 continue;
             }
-            if ((link && domLinks.has(link)) || (hideRead && link && seenReadLinks.has(link)) || (nh && domNorms.some(ex => isDuplicateTitle(nh, ex)))) {
+            if ((link && domLinks.has(link)) || (hideRead && link && seenReadLinks.has(link)) || (tk.length > 10 && domKeys.has(tk))) {
                 c.remove();
                 continue;
             }
             if (link) domLinks.add(link);
-            if (nh) domNorms.push(nh);
+            if (tk.length > 10) domKeys.add(tk);
         }
+        lastDedupCount = cards().length;
     }
 
     // ---------- Ayarlar Menüsüne "📻 Arka Plan Radyo" ve "📺 TV Akan Metin & Otomasyon" Enjeksiyonu ----------
@@ -701,9 +658,6 @@
                 showToastGlobal('🔠 Akan metin boyutu güncellendi', 1200);
             }
         } catch (e) {}
-        document.querySelectorAll('.tv-vscroll-track, .tv-ticker-track').forEach(el => {
-            el.style.zoom = String(s);
-        });
     };
 
     window.tvSetAutoAdvance = function (val) {
@@ -723,12 +677,20 @@
             localStorage.setItem('hideReadArticles', boolVal ? 'true' : 'false');
             const chk1 = $('showReadMain'); if (chk1) chk1.checked = boolVal;
             const chk2 = $('showReadPopup'); if (chk2) chk2.checked = boolVal;
-            if (typeof toggleReadVisibility === 'function') {
-                try { toggleReadVisibility(boolVal); } catch (e) {}
-            }
             if (typeof showToastGlobal === 'function') {
                 showToastGlobal(boolVal ? '👁️ Okunan haberler gizlenecek' : '👁️ Okunan haberler de gösterilecek', 1400);
             }
+        } catch (e) {}
+    };
+
+    window.tvClearAllCaches = function () {
+        try {
+            ['readerCacheV1', 'readerCacheV3', 'gnResolveV1', 'pubFeeds', 'tvCardAiCacheV1', 'tvSeenReadLinks', 'readArticles'].forEach(k => localStorage.removeItem(k));
+            CARD_AI_CACHE.clear();
+            AI_SUMMARY_CACHE.clear();
+            seenReadLinks.clear();
+            if (typeof READER_CACHE !== 'undefined') READER_CACHE.clear();
+            if (typeof showToastGlobal === 'function') showToastGlobal('🧹 Önbellek temizlendi, uygulama hızlandırıldı!', 2000);
         } catch (e) {}
     };
 
@@ -747,7 +709,6 @@
         const chk1 = $('showReadMain'); if (chk1) chk1.checked = (curHideRead === '1');
         const chk2 = $('showReadPopup'); if (chk2) chk2.checked = (curHideRead === '1');
 
-        // 1) Arka Plan Radyo Bölümü
         const radioDetails = document.createElement('details');
         radioDetails.className = 'setting-item';
         radioDetails.id = 'tvRadioSettingsDetail';
@@ -771,7 +732,6 @@
             </div>
         `;
 
-        // 2) TV Akan Metin & Otomasyon Bölümü
         const details = document.createElement('details');
         details.className = 'setting-item';
         details.id = 'tvSettingsDetail';
@@ -825,7 +785,9 @@
                     <option value="1">🔄 Açık (Özet 2 kez akınca / çekilemezse 15 sn)</option>
                     <option value="0">⏸️ Kapalı (Yalnızca kumanda ile geç)</option>
                 </select>
-                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 0;">Özet 2 kez aktıktan sonra (veya metin çekilemezse 15 saniye sonra) kendiliğinden sıradaki habere geçer.</p>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Özet 2 kez aktıktan sonra (veya metin çekilemezse 15 saniye sonra) kendiliğinden sıradaki habere geçer.</p>
+
+                <button type="button" class="tap-select" style="cursor:pointer; text-align:center; font-weight:bold; background:rgba(239,68,68,0.2); color:#fca5a5; border:1px solid rgba(239,68,68,0.4);" onclick="window.tvClearAllCaches()">🧹 Önbelleği Temizle & Hızlandır</button>
             </div>
         `;
         modalBody.prepend(details);
@@ -845,34 +807,28 @@
     let tickerToken = 0;
     let autoAdvanceTimer = null;
     let nextCardWarmTimer = null;
+    let currentFetchStartTimer = null;
 
     function advanceToNextCard() {
         if (overlayRoot() || aiOpen()) return;
-        const prevLink = curLink;
         const l = cards();
         if (!l.length) return;
         const nextIdx = (curIndex() + 1 >= l.length) ? 0 : (curIndex() + 1);
         showCard(nextIdx, true);
-        if (prevLink && prevLink !== curLink) {
-            markLinkAsRead(prevLink);
-            if (isHideReadEnabled()) {
-                document.querySelectorAll('#newsGrid .swipe-wrapper').forEach(w => {
-                    if (w.dataset.link === prevLink && !w.classList.contains('tv-current')) w.remove();
-                });
-                refreshCount();
-            }
-        }
     }
 
     function stopCardTicker() {
         clearTimeout(autoAdvanceTimer);
         clearTimeout(nextCardWarmTimer);
+        clearTimeout(currentFetchStartTimer);
         autoAdvanceTimer = null;
         nextCardWarmTimer = null;
+        currentFetchStartTimer = null;
         tickerToken++;
-        document.querySelectorAll('#newsGrid .swipe-wrapper').forEach(w => {
-            w.querySelectorAll('.tv-card-reader, .tv-fetch-badge').forEach(el => el.remove());
-        });
+        const cur = document.querySelector('#newsGrid .swipe-wrapper.tv-current');
+        if (cur) {
+            cur.querySelectorAll('.tv-card-reader, .tv-fetch-badge').forEach(el => el.remove());
+        }
     }
 
     function splitIntoSentences(text) {
@@ -949,18 +905,8 @@
         return p;
     }
 
-    // ---------- KOTA DOSTU + SIRALI KEY ROTASYONLU KART ÜSTÜ MİNİ AI ÖZETLEYİCİ ----------
+    // ---------- KOTA DOSTU + SADECE RAM ÖNBELLEKLİ MİNİ AI ÖZETLEYİCİ (localStorage Tıkanması Yok!) ----------
     const CARD_AI_CACHE = new Map();
-    try {
-        (JSON.parse(localStorage.getItem('tvCardAiCacheV1') || '[]')).forEach(([k, v]) => CARD_AI_CACHE.set(k, v));
-    } catch (e) {}
-
-    function persistCardAiCache() {
-        try {
-            localStorage.setItem('tvCardAiCacheV1', JSON.stringify([...CARD_AI_CACHE.entries()].slice(-80)));
-        } catch (e) {}
-    }
-
     const inflightCardAi = new Map();
 
     async function getCardMiniAISummarySentences(art) {
@@ -1001,8 +947,8 @@
 
                 const sents = splitIntoSentences(cleanText);
                 if (sents.length >= 1) {
+                    if (CARD_AI_CACHE.size > 60) CARD_AI_CACHE.delete(CARD_AI_CACHE.keys().next().value);
                     CARD_AI_CACHE.set(art.link, sents);
-                    persistCardAiCache();
                     return sents;
                 }
             } catch (e) {
@@ -1058,7 +1004,7 @@
         return cleanHtml;
     }
 
-    // Kart açılır açılmaz veya haberden geri çıkıldığında akan özet/metin alanını kurar
+    // Kart açılır açılmaz akan özet/metin alanını kurar (ağ isteklerini ise kumandayı kilitlememek için 700ms gecikmeyle başlatır!)
     function attachCardLiveTickerAndReader(forceRestart) {
         if (overlayRoot() || aiOpen()) return;
 
@@ -1088,15 +1034,11 @@
             art = { link: w.dataset.link || '', title: h3 ? h3.textContent.trim() : '', description: '' };
         }
 
-        if (art.link) markLinkAsRead(art.link);
-
         const myToken = ++tickerToken;
         const autoAdvanceEnabled = localStorage.getItem('tvAutoAdvance') !== '0';
         const isHorizontal = localStorage.getItem('tvTickerDir') === 'horizontal';
-        const curScale = parseFloat(localStorage.getItem('tvTickerScale')) || 1.0;
         const wantAiOnCard = (localStorage.getItem('tvCardContentMode') || 'ai') === 'ai' && hasAIKey();
 
-        // Sol üst köşede ufak durum rozeti
         const badge = document.createElement('div');
         badge.className = 'tv-fetch-badge';
         badge.textContent = wantAiOnCard ? '✨ AI özeti hazırlanıyor...' : '⏳ Haber metni çekiliyor...';
@@ -1117,7 +1059,6 @@
             tickerWrap.className = 'tv-ticker-wrap';
             trackEl = document.createElement('div');
             trackEl.className = 'tv-ticker-track';
-            trackEl.style.zoom = String(curScale);
             tickerWrap.appendChild(trackEl);
             readerWrap.appendChild(tickerWrap);
         } else {
@@ -1125,13 +1066,11 @@
             vViewport.className = 'tv-vscroll-viewport';
             trackEl = document.createElement('div');
             trackEl.className = 'tv-vscroll-track';
-            trackEl.style.zoom = String(curScale);
             vViewport.appendChild(trackEl);
             readerWrap.appendChild(vViewport);
         }
         contentEl.appendChild(readerWrap);
 
-        // Tek bir tur için akış süresini hesaplar ve animasyonu başlatır
         function updateScrollingContent(list) {
             if (isHorizontal) {
                 const joined = list.map(s => escapeHtml(s)).join('<span class="tv-sep">●</span>');
@@ -1151,7 +1090,6 @@
             return singlePassSec;
         }
 
-        // Özet (veya kısa metin) için 2 TUR (passCount = 2) akıttıktan sonra otomatik olarak sonraki habere geçer!
         function scheduleNextCardAdvance(singlePassSec, passCount) {
             if (!autoAdvanceEnabled) return;
             clearTimeout(autoAdvanceTimer);
@@ -1169,10 +1107,8 @@
             badge.className = 'tv-fetch-badge ai';
             badge.textContent = `✨ AI Özeti (2 kez akar)`;
             setTimeout(() => { if (myToken === tickerToken && badge.parentNode) badge.style.opacity = '0'; }, 3000);
-            // Özet 2 kez akıp bittiğinde sıradaki habere geç!
             scheduleNextCardAdvance(initialSec, 2);
         } else {
-            // Henüz özet/metin gelmemişken yedek zamanlayıcı (15 sn)
             if (autoAdvanceEnabled) {
                 clearTimeout(autoAdvanceTimer);
                 autoAdvanceTimer = setTimeout(() => {
@@ -1181,66 +1117,70 @@
                 }, 15000);
             }
 
-            if (wantAiOnCard) {
-                getCardMiniAISummarySentences(art).then(aiSents => {
-                    if (myToken !== tickerToken) return;
-                    if (aiSents && aiSents.length) {
-                        sentences = aiSents;
-                        const singlePassSec = updateScrollingContent(sentences);
-                        badge.className = 'tv-fetch-badge ai';
-                        badge.textContent = `✨ AI Özeti (2 kez akar)`;
-                        setTimeout(() => { if (myToken === tickerToken && badge.parentNode) badge.style.opacity = '0'; }, 3000);
-                        // Özet tam 2 kez aktıktan sonra sonraki habere geç!
-                        scheduleNextCardAdvance(singlePassSec, 2);
-                        return;
-                    }
+            // 700ms zapping koruması: yön tuşlarıyla hızlıca geçerken ağ isteği başlatmaz!
+            clearTimeout(currentFetchStartTimer);
+            currentFetchStartTimer = setTimeout(() => {
+                if (myToken !== tickerToken || overlayRoot() || aiOpen()) return;
+
+                if (wantAiOnCard) {
+                    getCardMiniAISummarySentences(art).then(aiSents => {
+                        if (myToken !== tickerToken) return;
+                        if (aiSents && aiSents.length) {
+                            sentences = aiSents;
+                            const singlePassSec = updateScrollingContent(sentences);
+                            badge.className = 'tv-fetch-badge ai';
+                            badge.textContent = `✨ AI Özeti (2 kez akar)`;
+                            setTimeout(() => { if (myToken === tickerToken && badge.parentNode) badge.style.opacity = '0'; }, 3000);
+                            scheduleNextCardAdvance(singlePassSec, 2);
+                            return;
+                        }
+                        fetchArticleParasForPeek(art).then(res => {
+                            if (myToken !== tickerToken) return;
+                            if (res.ok && res.paras.length) {
+                                const cleaned = [];
+                                res.paras.forEach(fp => splitIntoSentences(fp).forEach(sub => cleaned.push(sub)));
+                                if (cleaned.length) {
+                                    sentences = cleaned;
+                                    const singlePassSec = updateScrollingContent(sentences);
+                                    badge.className = 'tv-fetch-badge ok';
+                                    badge.textContent = `✅ Tam metin (${sentences.length} cümle)`;
+                                    setTimeout(() => { if (myToken === tickerToken && badge.parentNode) badge.style.opacity = '0'; }, 3000);
+                                    scheduleNextCardAdvance(singlePassSec, sentences.length <= 5 ? 2 : 1);
+                                    return;
+                                }
+                            }
+                            badge.className = 'tv-fetch-badge warn';
+                            badge.textContent = '⚠️ Metin çekilemedi (15 sn)';
+                        });
+                    });
+                } else {
                     fetchArticleParasForPeek(art).then(res => {
                         if (myToken !== tickerToken) return;
                         if (res.ok && res.paras.length) {
                             const cleaned = [];
                             res.paras.forEach(fp => splitIntoSentences(fp).forEach(sub => cleaned.push(sub)));
-                            if (cleaned.length) {
+                            if (cleaned.length > 0) {
                                 sentences = cleaned;
                                 const singlePassSec = updateScrollingContent(sentences);
                                 badge.className = 'tv-fetch-badge ok';
                                 badge.textContent = `✅ Tam metin (${sentences.length} cümle)`;
                                 setTimeout(() => { if (myToken === tickerToken && badge.parentNode) badge.style.opacity = '0'; }, 3000);
-                                // Tam metin 5 cümleden kısaysa 2 kez, uzunsa 1 kez akıp geçsin
                                 scheduleNextCardAdvance(singlePassSec, sentences.length <= 5 ? 2 : 1);
                                 return;
                             }
                         }
                         badge.className = 'tv-fetch-badge warn';
                         badge.textContent = '⚠️ Metin çekilemedi (15 sn)';
+                    }).catch(() => {
+                        if (myToken !== tickerToken) return;
+                        badge.className = 'tv-fetch-badge warn';
+                        badge.textContent = '⚠️ Metin çekilemedi (15 sn)';
                     });
-                });
-            } else {
-                fetchArticleParasForPeek(art).then(res => {
-                    if (myToken !== tickerToken) return;
-                    if (res.ok && res.paras.length) {
-                        const cleaned = [];
-                        res.paras.forEach(fp => splitIntoSentences(fp).forEach(sub => cleaned.push(sub)));
-                        if (cleaned.length > 0) {
-                            sentences = cleaned;
-                            const singlePassSec = updateScrollingContent(sentences);
-                            badge.className = 'tv-fetch-badge ok';
-                            badge.textContent = `✅ Tam metin (${sentences.length} cümle)`;
-                            setTimeout(() => { if (myToken === tickerToken && badge.parentNode) badge.style.opacity = '0'; }, 3000);
-                            scheduleNextCardAdvance(singlePassSec, sentences.length <= 5 ? 2 : 1);
-                            return;
-                        }
-                    }
-                    badge.className = 'tv-fetch-badge warn';
-                    badge.textContent = '⚠️ Metin çekilemedi (15 sn)';
-                }).catch(() => {
-                    if (myToken !== tickerToken) return;
-                    badge.className = 'tv-fetch-badge warn';
-                    badge.textContent = '⚠️ Metin çekilemedi (15 sn)';
-                });
-            }
+                }
+            }, 700);
         }
 
-        // Zapping Korumalı Ön Hazırlık: 2.2 sn sonra sıradaki haberin özetini bir sonraki API anahtarıyla hazırla
+        // Zapping Korumalı Ön Hazırlık: 2.5 sn sonra sıradaki haberin özetini bir sonraki API anahtarıyla hazırla
         clearTimeout(nextCardWarmTimer);
         nextCardWarmTimer = setTimeout(() => {
             if (myToken !== tickerToken || overlayRoot() || aiOpen()) return;
@@ -1256,7 +1196,7 @@
                     }
                 }
             }
-        }, 2200);
+        }, 2500);
     }
 
     function ensureCardTickerPresent() {
@@ -1267,9 +1207,8 @@
         }
     }
 
-    // ---------- Tek kart yönetimi ----------
+    // ---------- Tek kart yönetimi (Anında tepki veren, DOM silmeyen hızlı geçiş) ----------
     let curLink = null, lastUpTap = 0;
-    let savedActiveCardClone = null;
 
     const cards = () => Array.from(document.querySelectorAll('#newsGrid .swipe-wrapper'));
     function curIndex() {
@@ -1283,79 +1222,54 @@
     }
 
     function showCard(i, allowMore) {
-        deduplicateAndFilterFeed();
         const l = cards(); if (!l.length) return;
         if (i >= l.length) i = 0;
-        i = Math.max(0, Math.min(l.length - 1, i));
+        if (i < 0) i = 0;
         const target = l[i];
+        if (!target) return;
 
         if (target.classList.contains('tv-current') && curLink === target.dataset.link && target.querySelector('.tv-card-reader')) {
-            l.forEach(c => { if (c !== target) c.classList.remove('tv-current'); });
             refreshCount();
-            if (allowMore && i >= l.length - 3) loadMore();
             return;
         }
 
         const prevLink = curLink;
         stopCardTicker();
-        l.forEach(c => c.classList.remove('tv-current'));
+
+        const prevActive = document.querySelector('#newsGrid .swipe-wrapper.tv-current');
+        if (prevActive && prevActive !== target) prevActive.classList.remove('tv-current');
+
         target.classList.add('tv-current');
         curLink = target.dataset.link;
 
         if (prevLink && prevLink !== curLink) {
             markLinkAsRead(prevLink);
-            if (isHideReadEnabled()) {
-                l.forEach(c => { if (c.dataset.link === prevLink && c !== target) c.remove(); });
-            }
         }
-
-        savedActiveCardClone = target.cloneNode(true);
-        savedActiveCardClone.querySelectorAll('.tv-card-reader, .tv-fetch-badge').forEach(el => el.remove());
 
         refreshCount();
         attachCardLiveTickerAndReader(true);
-        if (allowMore && curIndex() >= cards().length - 3) loadMore();
+        if (allowMore && i >= l.length - 3) loadMore();
     }
 
     function ensureCurrent() {
         const grid = $('newsGrid');
         if (!grid) return;
-        deduplicateAndFilterFeed();
+        deduplicateDomCardsLight();
         const l = cards();
         if (!l.length) return;
 
-        const activeNow = document.querySelectorAll('#newsGrid .swipe-wrapper.tv-current');
-        if (activeNow.length === 1 && (!curLink || activeNow[0].dataset.link === curLink)) {
-            curLink = activeNow[0].dataset.link;
+        const activeNow = document.querySelector('#newsGrid .swipe-wrapper.tv-current');
+        if (activeNow && (!curLink || activeNow.dataset.link === curLink)) {
+            curLink = activeNow.dataset.link;
             refreshCount();
             ensureCardTickerPresent();
             return;
         }
 
         if (curLink) {
-            let match = l.find(c => c.dataset.link === curLink);
-
-            if (!match && typeof filteredArticles !== 'undefined' && Array.isArray(filteredArticles)) {
-                const posInFiltered = filteredArticles.findIndex(a => a && a.link === curLink);
-                if (posInFiltered >= 0 && typeof renderNextBatch === 'function') {
-                    let guard = 0;
-                    while (!match && typeof displayedCount !== 'undefined' && displayedCount <= posInFiltered && guard++ < 15) {
-                        try { renderNextBatch(); } catch (e) { break; }
-                        deduplicateAndFilterFeed();
-                        match = cards().find(c => c.dataset.link === curLink);
-                    }
-                }
-            }
-
-            if (!match && savedActiveCardClone) {
-                const restored = savedActiveCardClone.cloneNode(true);
-                restored.classList.add('tv-current');
-                grid.insertBefore(restored, grid.firstChild);
-                match = restored;
-            }
-
+            const match = l.find(c => c.dataset.link === curLink);
             if (match) {
-                cards().forEach(c => { if (c !== match) c.classList.remove('tv-current'); });
+                document.querySelectorAll('#newsGrid .swipe-wrapper.tv-current').forEach(c => { if (c !== match) c.classList.remove('tv-current'); });
                 match.classList.add('tv-current');
                 refreshCount();
                 ensureCardTickerPresent();
@@ -1458,7 +1372,7 @@
 
             if (!directAiEntry && nm && nm.style.display === 'flex') {
                 try { history.pushState({ tvGuard: 1 }, ''); } catch (e) {}
-                setTimeout(sync, 30);
+                setTimeout(sync, 20);
                 return true;
             }
             directAiEntry = false;
@@ -1468,14 +1382,13 @@
                 if (idx !== -1) openStack.splice(idx, 1);
             }
             try { history.pushState({ tvGuard: 1 }, ''); } catch (e) {}
-            setTimeout(() => { sync(); attachCardLiveTickerAndReader(true); }, 30);
-            setTimeout(() => { ensureCardTickerPresent(); }, 180);
+            setTimeout(() => { sync(); attachCardLiveTickerAndReader(true); }, 20);
             return true;
         }
 
         const top = overlayRoot();
         if (!top) {
-            setTimeout(() => { sync(); attachCardLiveTickerAndReader(true); }, 30);
+            setTimeout(() => { sync(); attachCardLiveTickerAndReader(true); }, 20);
             return false;
         }
 
@@ -1506,8 +1419,7 @@
         if (openStack.length > 0 || fromPopState) {
             try { history.pushState({ tvGuard: 1 }, ''); } catch (e) {}
         }
-        setTimeout(() => { sync(); attachCardLiveTickerAndReader(true); }, 30);
-        setTimeout(() => { ensureCardTickerPresent(); }, 180);
+        setTimeout(() => { sync(); attachCardLiveTickerAndReader(true); }, 20);
         return true;
     }
 
@@ -1519,8 +1431,7 @@
             const aiEl = $('aiInlineResult');
             if (aiEl) { aiEl.classList.remove('show'); aiEl.style.display = 'none'; }
             directAiEntry = false;
-            setTimeout(() => { sync(); attachCardLiveTickerAndReader(true); }, 40);
-            setTimeout(() => { ensureCardTickerPresent(); }, 200);
+            setTimeout(() => { sync(); attachCardLiveTickerAndReader(true); }, 30);
         }
     }, true);
 
@@ -1668,7 +1579,7 @@
         try { if (typeof switchControlTab === 'function') switchControlTab('filter'); } catch (e) {}
         const fl = $('filterList'); if (fl) fl.classList.add('show');
         refreshOpenStack();
-        setTimeout(() => focusIn(w), 200);
+        setTimeout(() => { sync(); focusIn(w); }, 60);
     }
 
     // ---------- Ana Ekranda Haberi Açma ----------
@@ -1699,6 +1610,7 @@
             const c = document.querySelector('#newsGrid .swipe-wrapper.tv-current .news-card');
             if (c) c.click();
         }
+        setTimeout(sync, 30);
     }
 
     async function openCurrentCardAISummary(fromInsideModal) {
@@ -1755,7 +1667,7 @@
         }
     }
 
-    // ---------- OK tuşu: Mi Stick ses kombinasyonu ve Tek/Çift tık ayrımı ----------
+    // ---------- Kumanda Tuş Algılayıcı (Hem e.key hem e.keyCode destekli — Mi Stick / Android TV tam uyumlu) ----------
     let okDownAt = 0;
     let okUsedCombo = false;
     let okSingleTimer = null;
@@ -1763,7 +1675,28 @@
     let feedOkTimer = null;
     let lastFeedOkAt = 0;
 
-    const isOkKey = (k) => k === 'Enter' || k === 'NumpadEnter' || k === ' ' || k === 'MediaPlayPause';
+    function getDirectionFromEvent(e) {
+        const k = e.key || '';
+        const c = e.keyCode || e.which || 0;
+        if (k === 'ArrowUp' || k === 'Up' || c === 38 || c === 19) return 'up';
+        if (k === 'ArrowDown' || k === 'Down' || c === 40 || c === 20) return 'down';
+        if (k === 'ArrowLeft' || k === 'Left' || c === 37 || c === 21) return 'left';
+        if (k === 'ArrowRight' || k === 'Right' || c === 39 || c === 22) return 'right';
+        return null;
+    }
+
+    function isOkEvent(e) {
+        const k = e.key || '';
+        const c = e.keyCode || e.which || 0;
+        return k === 'Enter' || k === 'NumpadEnter' || k === ' ' || k === 'MediaPlayPause' || c === 13 || c === 23 || c === 66;
+    }
+
+    function isBackEvent(e) {
+        const k = e.key || '';
+        const c = e.keyCode || e.which || 0;
+        return k === 'Escape' || k === 'GoBack' || k === 'BrowserBack' || k === 'Backspace' || c === 27 || c === 4;
+    }
+
     const isVolUpKey = (k) => k === 'AudioVolumeUp' || k === 'VolumeUp' || k === '+' || k === '=';
     const isVolDownKey = (k) => k === 'AudioVolumeDown' || k === 'VolumeDown' || k === '-';
 
@@ -1779,12 +1712,12 @@
 
     document.addEventListener('keydown', (e) => {
         if (e.ctrlKey || e.altKey || e.metaKey) return;
-        const t = e.target, k = e.key;
+        const t = e.target, k = e.key || '';
         const inText = t && (t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && !/^(checkbox|radio|button|submit)$/.test(t.type)));
-        const dir = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' }[k];
+        const dir = getDirectionFromEvent(e);
         const ov = overlayRoot();
 
-        // Kullanıcı kumandada herhangi bir tuşa bastığında seçili radyo varsa ve henüz çalmaya başlamadıysa (autoplay kilidi) başlat
+        // Seçili radyo varsa ve henüz çalmaya başlamadıysa ilk tuşla başlat
         if (localStorage.getItem('tvRadioStation') && localStorage.getItem('tvRadioStation') !== 'off' && !isRadioPlaying()) {
             startOrSwitchRadio(localStorage.getItem('tvRadioStation'), false);
         }
@@ -1814,11 +1747,16 @@
                     if (curIndex() > 0) showCard(curIndex() - 1, false);
                     else {
                         const now = Date.now();
-                        if (now - lastUpTap < 2500) { lastUpTap = 0; curLink = null; savedActiveCardClone = null; if (typeof showToastGlobal === 'function') showToastGlobal('🔄 Yenileniyor...', 2000); try { fetchAllRSS(true); } catch (x) {} }
+                        if (now - lastUpTap < 2500) { lastUpTap = 0; curLink = null; if (typeof showToastGlobal === 'function') showToastGlobal('🔄 Yenileniyor...', 2000); try { fetchAllRSS(true); } catch (x) {} }
                         else { lastUpTap = now; if (typeof showToastGlobal === 'function') showToastGlobal('Yenilemek için ▲ tekrar basın', 2200); }
                     }
                 }
-                else if (dir === 'left') { stopCardTicker(); ensureHistoryGuard(); openModalSafe('settingsModal'); }
+                else if (dir === 'left') {
+                    stopCardTicker();
+                    ensureHistoryGuard();
+                    if (typeof openModalSafe === 'function') openModalSafe('settingsModal');
+                    setTimeout(sync, 30);
+                }
                 else if (dir === 'right') openPanel();
                 return;
             }
@@ -1836,7 +1774,7 @@
             return;
         }
 
-        if (isOkKey(k)) {
+        if (isOkEvent(e)) {
             if ((!ov || ov.id === 'newsModal') && !inText) {
                 e.preventDefault(); e.stopImmediatePropagation();
                 if (!e.repeat && !okDownAt) {
@@ -1854,7 +1792,7 @@
             return;
         }
 
-        if (k === 'Escape' || k === 'GoBack' || k === 'BrowserBack' || (k === 'Backspace' && !inText)) {
+        if (isBackEvent(e) && !inText) {
             if (aiOpen() || ov) {
                 e.preventDefault(); e.stopImmediatePropagation();
                 closeTopmostOverlay(false);
@@ -1864,8 +1802,8 @@
 
     document.addEventListener('keyup', (e) => {
         if (e.ctrlKey || e.altKey || e.metaKey) return;
-        const t = e.target, k = e.key;
-        if (!isOkKey(k)) return;
+        const t = e.target;
+        if (!isOkEvent(e)) return;
         const inText = t && (t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && !/^(checkbox|radio|button|submit)$/.test(t.type)));
         const ov = overlayRoot();
 
@@ -1956,7 +1894,7 @@
         }
         if (ov !== lastOv) {
             document.querySelectorAll('.tv-focus').forEach(x => x.classList.remove('tv-focus'));
-            if (ov && ov.id !== 'newsModal' && ov.id !== 'controlsWrapper') setTimeout(() => focusIn(ov), 120);
+            if (ov && ov.id !== 'newsModal' && ov.id !== 'controlsWrapper') setTimeout(() => focusIn(ov), 80);
             if (!ov) {
                 const aiEl = $('aiInlineResult');
                 if (aiEl) { aiEl.classList.remove('show'); aiEl.style.display = 'none'; }
@@ -1969,6 +1907,11 @@
             ensureCardTickerPresent();
         }
     }
+
+    function scheduleSync() {
+        if (!raf) raf = requestAnimationFrame(sync);
+    }
+
     function start() {
         document.body.classList.add('tv-mode');
         buildBar();
@@ -1980,11 +1923,23 @@
             if (localStorage.getItem('tvRadioStation') && localStorage.getItem('tvRadioStation') !== 'off') {
                 startOrSwitchRadio(localStorage.getItem('tvRadioStation'), false);
             }
-        }, 1000);
+        }, 600);
+
         const grid = $('newsGrid');
-        if (grid) new MutationObserver(() => ensureCurrent()).observe(grid, { childList: true });
-        new MutationObserver(() => { if (!raf) raf = requestAnimationFrame(sync); }).observe(document.body, { attributes: true, subtree: true, attributeFilter: ['style', 'class'] });
-        setTimeout(ensureCurrent, 800);
+        if (grid) {
+            let gridDebounce = null;
+            new MutationObserver(() => {
+                clearTimeout(gridDebounce);
+                gridDebounce = setTimeout(ensureCurrent, 40);
+            }).observe(grid, { childList: true });
+        }
+
+        [...OVERLAYS, 'controlsWrapper', 'aiInlineResult'].forEach(id => {
+            const el = $(id);
+            if (el) new MutationObserver(scheduleSync).observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
+        });
+
+        setTimeout(ensureCurrent, 300);
     }
     if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
 })();
