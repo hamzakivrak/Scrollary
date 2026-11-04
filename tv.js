@@ -1541,6 +1541,16 @@
         const dir = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' }[k];
         const ov = overlayRoot();
 
+        // Radyo: CH+/CH− veya PageUp/PageDown ile istasyon değiştir (radyo kapalıysa açar)
+        if (!inText && (k === 'ChannelUp' || k === 'PageUp' || k === 'ChannelDown' || k === 'PageDown')) {
+            e.preventDefault(); e.stopImmediatePropagation();
+            const d = (k === 'ChannelUp' || k === 'PageUp') ? 1 : -1;
+            if (!radioIsOn()) { try { localStorage.setItem('tvRadioOn', '1'); } catch (x) {} radio.fails = 0; }
+            radioStep(d, false);
+            const onSel = $('tvRadioOnSelect'); if (onSel) onSel.value = '1';
+            return;
+        }
+
         if (ov && ov.id === 'newsModal' && !inText) {
             if (isVolUpKey(k)) {
                 e.preventDefault(); e.stopImmediatePropagation();
@@ -1679,7 +1689,7 @@
     }, true);
 
     // ---------- 📻 Arka Plan Radyosu (klasik / odaklanma / enstrümantal / TRT) ----------
-    // Ayarlar > "📻 Arka Plan Radyosu" bölümünden açılır ve istasyon yalnızca oradan değiştirilir.
+    // Ayarlar > "📻 Arka Plan Radyosu" bölümünden açılır; kumandada ChannelUp/Down veya PageUp/PageDown ile istasyon değişir.
     // Akış adresleri herkese açık ücretsiz yayınlardır; çalışmayan olursa otomatik sıradakine geçilir.
     // Kendi akış adresinizi ayarlardan ekleyebilirsiniz (https:// ile başlayan mp3/aac/m3u8).
     const RADIO_BUILTIN = [
@@ -1877,7 +1887,7 @@
 
                 <label class="tap-label" for="tvRadioStationSelect" style="margin-top:12px;display:block;">İstasyon</label>
                 <select id="tvRadioStationSelect" class="tap-select" onchange="window.tvRadioSetStation(this.value)"></select>
-                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">İstasyon yalnızca buradan değiştirilir. Çalışmayan istasyon otomatik atlanır.</p>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Haber ekranındayken kumandada CH+/CH− (veya PageUp/PageDown) ile de istasyon değiştirebilirsiniz. Çalışmayan istasyon otomatik atlanır.</p>
 
                 <label class="tap-label" for="tvRadioVolumeSelect">Radyo Ses Seviyesi</label>
                 <select id="tvRadioVolumeSelect" class="tap-select" onchange="window.tvRadioSetVolume(this.value)">
