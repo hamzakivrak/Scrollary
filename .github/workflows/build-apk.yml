@@ -1,6 +1,6 @@
 name: Android TV APK
 
-# Tek dosyalık kurulum:  Android projesi bu dosyanın içinden otomatik üretilir.
+# Tek dosyalık kurulum: Android projesi bu dosyanın içinden otomatik üretilir.
 # Actions sekmesi > "Android TV APK" > Run workflow ile başlatın.
 on:
   workflow_dispatch:
