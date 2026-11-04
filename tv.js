@@ -64,8 +64,7 @@
       body.tv-mode .swipe-wrapper.tv-current .source-badge {
           position: absolute !important;
           top: 14px !important;
-          left: 50% !important;
-          transform: translateX(-50%) !important;
+          left: 3% !important;
           font-size: 0.72rem !important;
           font-weight: 400 !important;
           letter-spacing: 0.04em !important;
@@ -85,7 +84,7 @@
           background: linear-gradient(transparent 0%, rgba(7, 11, 20, 0.72) 22%, rgba(7, 11, 20, 0.94) 55%, rgba(7, 11, 20, 0.98) 100%) !important;
           display: flex !important; flex-direction: column !important; justify-content: flex-end !important; box-sizing: border-box !important; }
       body.tv-mode .swipe-wrapper.tv-current .news-content h3 { font-size: clamp(1.75rem, 5.2vh, 3.0rem) !important; line-height: 1.24 !important; display: block !important;
-          -webkit-line-clamp: unset !important; max-height: none !important; color: #facc15 !important; text-shadow: 0 2px 12px rgba(0,0,0,.9); margin: 0 0 18px 0 !important; }
+          -webkit-line-clamp: unset !important; max-height: none !important; color: #facc15 !important; text-shadow: 0 2px 12px rgba(0,0,0,.9); margin: 0 0 10px 0 !important; }
       body.tv-mode .swipe-wrapper.tv-current .meta { font-size: 1.1rem !important; margin-top: 8px; opacity: 0.8; }
 
       /* Sağ üst köşe durum rozeti: kaynak etiketiyle uyumlu zarif ve ince görünüm */
@@ -133,7 +132,7 @@
       .tv-vscroll-viewport {
           position: relative;
           width: 100%;
-          height: 46vh;
+          height: 34vh;
           overflow: hidden;
           padding: 0 10px;
           box-sizing: border-box;
@@ -144,8 +143,8 @@
           display: flex;
           flex-direction: column;
           gap: calc(18px * var(--ticker-scale, 1));
-          padding-top: 28vh;
-          padding-bottom: 46vh;
+          padding-top: 20vh;
+          padding-bottom: 34vh;
           will-change: transform;
           animation: tvVerticalRoll var(--ticker-dur, 35s) linear infinite;
           zoom: var(--ticker-scale, 1);
@@ -165,7 +164,7 @@
       }
       @keyframes tvVerticalRoll {
           0%   { transform: translate3d(0, 0, 0); }
-          100% { transform: translate3d(0, calc(-100% + 30vh), 0); }
+          100% { transform: translate3d(0, calc(-100% + 22vh), 0); }
       }
 
       /* 2) Yatay (Sağdan Sola) Akış Modu */
@@ -252,9 +251,6 @@
       body.tv-mode .tv-focus, body.tv-mode :focus-visible { outline: 4px solid #facc15 !important; outline-offset: 3px; border-radius: 12px; }
       body.tv-mode * { -webkit-tap-highlight-color: transparent; }
 
-      #tvRadioBadge { display: none; position: fixed; top: 14px; left: 3%; z-index: 4000; max-width: 28vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-          font: 400 0.72rem/1.15 system-ui, sans-serif; letter-spacing: 0.03em; padding: 3px 10px; border-radius: 999px;
-          background: rgba(15, 23, 42, 0.62); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.2); backdrop-filter: blur(6px); pointer-events: none; }
       #tvBar { display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 5000; padding: 10px 4%; background: rgba(0,0,0,.78); color: #e2e8f0;
           font: 600 1.35rem system-ui, sans-serif; justify-content: space-between; gap: 14px; transition: opacity 0.4s ease, transform 0.4s ease; }
       body.tv-mode #tvBar { display: flex; }
@@ -852,7 +848,7 @@
             art = { link: w.dataset.link || '', title: h3 ? h3.textContent.trim() : '', description: '' };
         }
 
-        // Haber 'okundu' işareti kart gösterilirken değil, karttan ayrılırken (showCard / advanceToNextCard) konur
+        if (art.link) markLinkAsRead(art.link);
 
         const myToken = ++tickerToken;
         const autoAdvanceEnabled = localStorage.getItem('tvAutoAdvance') !== '0';
@@ -917,7 +913,7 @@
         function scheduleNextCardAdvance(secDuration) {
             if (!autoAdvanceEnabled) return;
             clearTimeout(autoAdvanceTimer);
-            const advanceDelayMs = (secDuration * 2 * 1000) + 1200; // metin kart üzerinde 2 kez tamamen aksın, sonra sıradaki habere geç
+            const advanceDelayMs = (secDuration * 1000) + 1200;
             autoAdvanceTimer = setTimeout(() => {
                 if (myToken !== tickerToken || overlayRoot() || aiOpen()) return;
                 advanceToNextCard();
@@ -937,7 +933,7 @@
                 autoAdvanceTimer = setTimeout(() => {
                     if (myToken !== tickerToken || overlayRoot() || aiOpen()) return;
                     advanceToNextCard();
-                }, wantAiOnCard ? 25000 : 15000); // AI özeti beklenirken biraz daha sabırlı ol
+                }, 15000);
             }
 
             if (wantAiOnCard) {
@@ -968,7 +964,7 @@
                             }
                         }
                         badge.className = 'tv-fetch-badge warn';
-                        badge.textContent = '⚠️ Metin çekilemedi (birazdan sıradaki)';
+                        badge.textContent = '⚠️ Metin çekilemedi (15 sn sonra sıradaki)';
                     });
                 });
             } else {
@@ -988,11 +984,11 @@
                         }
                     }
                     badge.className = 'tv-fetch-badge warn';
-                    badge.textContent = '⚠️ Metin çekilemedi (birazdan sıradaki)';
+                    badge.textContent = '⚠️ Metin çekilemedi (15 sn sonra sıradaki)';
                 }).catch(() => {
                     if (myToken !== tickerToken) return;
                     badge.className = 'tv-fetch-badge warn';
-                    badge.textContent = '⚠️ Metin çekilemedi (birazdan sıradaki)';
+                    badge.textContent = '⚠️ Metin çekilemedi (15 sn sonra sıradaki)';
                 });
             }
         }
@@ -1541,16 +1537,6 @@
         const dir = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' }[k];
         const ov = overlayRoot();
 
-        // Radyo: CH+/CH− veya PageUp/PageDown ile istasyon değiştir (radyo kapalıysa açar)
-        if (!inText && (k === 'ChannelUp' || k === 'PageUp' || k === 'ChannelDown' || k === 'PageDown')) {
-            e.preventDefault(); e.stopImmediatePropagation();
-            const d = (k === 'ChannelUp' || k === 'PageUp') ? 1 : -1;
-            if (!radioIsOn()) { try { localStorage.setItem('tvRadioOn', '1'); } catch (x) {} radio.fails = 0; }
-            radioStep(d, false);
-            const onSel = $('tvRadioOnSelect'); if (onSel) onSel.value = '1';
-            return;
-        }
-
         if (ov && ov.id === 'newsModal' && !inText) {
             if (isVolUpKey(k)) {
                 e.preventDefault(); e.stopImmediatePropagation();
@@ -1688,235 +1674,6 @@
         }
     }, true);
 
-    // ---------- 📻 Arka Plan Radyosu (klasik / odaklanma / enstrümantal / TRT) ----------
-    // Ayarlar > "📻 Arka Plan Radyosu" bölümünden açılır; kumandada ChannelUp/Down veya PageUp/PageDown ile istasyon değişir.
-    // Akış adresleri herkese açık ücretsiz yayınlardır; çalışmayan olursa otomatik sıradakine geçilir.
-    // Kendi akış adresinizi ayarlardan ekleyebilirsiniz (https:// ile başlayan mp3/aac/m3u8).
-    const RADIO_BUILTIN = [
-        { id: 'swissclassic', group: '🎻 Klasik & Odaklanma', name: 'Radio Swiss Classic (Klasik Müzik)', url: 'https://stream.srg-ssr.ch/m/rsc_de/mp3_128' },
-        { id: 'swissjazz', group: '🎻 Klasik & Odaklanma', name: 'Radio Swiss Jazz (Sakin Caz)', url: 'https://stream.srg-ssr.ch/m/rsj/mp3_128' },
-        { id: 'dronezone', group: '🎻 Klasik & Odaklanma', name: 'SomaFM Drone Zone (Odaklanma / Ambient)', url: 'https://ice1.somafm.com/dronezone-128-mp3' },
-        { id: 'deepspace', group: '🎻 Klasik & Odaklanma', name: 'SomaFM Deep Space One (Derin Ambient)', url: 'https://ice1.somafm.com/deepspaceone-128-mp3' },
-        { id: 'groovesalad', group: '🎧 Enstrümantal & Sakin', name: 'SomaFM Groove Salad (Sakin Elektronik)', url: 'https://ice1.somafm.com/groovesalad-128-mp3' },
-        { id: 'fluid', group: '🎧 Enstrümantal & Sakin', name: 'SomaFM Fluid (Enstrümantal Çalışma)', url: 'https://ice1.somafm.com/fluid-128-mp3' },
-        { id: 'rpmellow', group: '🎧 Enstrümantal & Sakin', name: 'Radio Paradise Mellow (Hafif Müzik)', url: 'https://stream.radioparadise.com/mellow-128' },
-        { id: 'trtnagme', group: '🇹🇷 Türk Müziği', name: 'TRT Nağme (Türk Sanat Müziği)', url: 'https://radio-trtnagme.live.trt.com.tr/master_720.m3u8' },
-        { id: 'trthalk', group: '🇹🇷 Türk Müziği', name: 'TRT Türk Halk Müziği (Türkü)', url: 'https://radio-trthalk.live.trt.com.tr/master_720.m3u8' }
-    ];
-    const radio = { audio: null, hls: null, token: 0, fails: 0 };
-
-    function radioGet(key, def) { try { const v = localStorage.getItem(key); return v === null ? def : v; } catch (e) { return def; } }
-    function radioCustom() {
-        try { const a = JSON.parse(localStorage.getItem('tvRadioCustom') || '[]'); return Array.isArray(a) ? a.filter(x => x && /^https:\/\//i.test(x.url || '')) : []; } catch (e) { return []; }
-    }
-    function radioList() {
-        return RADIO_BUILTIN.concat(radioCustom().map((c, i) => ({ id: 'custom' + i, group: '⭐ Eklediklerim', name: c.name || ('İstasyon ' + (i + 1)), url: c.url })));
-    }
-    function radioStation() {
-        const l = radioList();
-        const id = radioGet('tvRadioStation', l[0].id);
-        return l.find(s => s.id === id) || l[0];
-    }
-    const radioIsOn = () => radioGet('tvRadioOn', '0') === '1';
-    const radioVol = () => Math.max(0, Math.min(1, parseFloat(radioGet('tvRadioVolume', '0.6')) || 0.6));
-    const radioToast = (msg, ms) => { try { if (typeof showToastGlobal === 'function') showToastGlobal(msg, ms || 1800); } catch (e) {} };
-
-    function radioUpdateBadge() {
-        let b = $('tvRadioBadge');
-        if (!b) { b = document.createElement('div'); b.id = 'tvRadioBadge'; document.body.appendChild(b); }
-        const playing = radioIsOn();
-        b.style.display = playing ? 'block' : 'none';
-        if (playing) b.textContent = '📻 ' + radioStation().name.replace(/\s*\(.*\)\s*$/, '');
-    }
-
-    function radioEnsureAudio() {
-        if (radio.audio) return radio.audio;
-        const a = new Audio();
-        a.preload = 'none';
-        a.volume = radioVol();
-        a.addEventListener('playing', () => { radio.fails = 0; });
-        a.addEventListener('error', () => radioOnError());
-        radio.audio = a;
-        return a;
-    }
-    function radioDestroyHls() {
-        if (radio.hls) { try { radio.hls.destroy(); } catch (e) {} radio.hls = null; }
-    }
-    function loadHlsLib() {
-        if (window.Hls) return Promise.resolve(window.Hls);
-        return new Promise((res, rej) => {
-            const s = document.createElement('script');
-            s.src = 'https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js';
-            s.onload = () => res(window.Hls);
-            s.onerror = () => rej(new Error('hls'));
-            document.head.appendChild(s);
-        });
-    }
-    // Tarayıcı ilk sesi kullanıcı etkileşimi olmadan başlatmayı engellerse, ilk tuşa/dokunuşa basılınca başlat
-    function radioWaitGesture() {
-        const go = () => {
-            ['keydown', 'pointerdown', 'click'].forEach(t => window.removeEventListener(t, go, true));
-            if (radioIsOn()) radioPlay();
-        };
-        ['keydown', 'pointerdown', 'click'].forEach(t => window.addEventListener(t, go, true));
-    }
-    function radioOnError() {
-        if (!radioIsOn()) return;
-        radio.fails++;
-        if (radio.fails > radioList().length) {
-            radio.fails = 0;
-            radioStop();
-            try { localStorage.setItem('tvRadioOn', '0'); } catch (e) {}
-            radioUpdateBadge();
-            radioToast('📻 Radyo açılamadı (internet veya yayın sorunu)', 2600);
-            return;
-        }
-        radioToast('📻 Bu istasyon açılmadı, sıradakine geçiliyor...', 1800);
-        radioStep(1, true);
-    }
-    function radioPlay() {
-        const st = radioStation();
-        const a = radioEnsureAudio();
-        const myToken = ++radio.token;
-        a.volume = radioVol();
-        radioDestroyHls();
-        const tryPlay = () => {
-            const p = a.play();
-            if (p && p.catch) p.catch(err => { if (err && err.name === 'NotAllowedError') radioWaitGesture(); });
-        };
-        const isHls = /\.m3u8(\?|$)/i.test(st.url);
-        if (isHls && !a.canPlayType('application/vnd.apple.mpegurl')) {
-            loadHlsLib().then(Hls => {
-                if (myToken !== radio.token) return;
-                if (!Hls || !Hls.isSupported()) { radioOnError(); return; }
-                const h = new Hls();
-                radio.hls = h;
-                h.on(Hls.Events.ERROR, (e, d) => { if (d && d.fatal && myToken === radio.token) radioOnError(); });
-                h.loadSource(st.url);
-                h.attachMedia(a);
-                tryPlay();
-            }).catch(() => { if (myToken === radio.token) radioOnError(); });
-        } else {
-            a.src = st.url;
-            tryPlay();
-        }
-        radioUpdateBadge();
-    }
-    function radioStop() {
-        radio.token++;
-        radioDestroyHls();
-        if (radio.audio) { try { radio.audio.pause(); radio.audio.removeAttribute('src'); radio.audio.load(); } catch (e) {} }
-    }
-    function radioStep(d, silent) {
-        const l = radioList();
-        const cur = radioStation();
-        let i = l.findIndex(s => s.id === cur.id);
-        i = (i + d + l.length) % l.length;
-        try { localStorage.setItem('tvRadioStation', l[i].id); } catch (e) {}
-        const sel = $('tvRadioStationSelect'); if (sel) sel.value = l[i].id;
-        if (radioIsOn()) radioPlay(); else radioUpdateBadge();
-        if (!silent) radioToast('📻 ' + l[i].name, 2000);
-    }
-
-    window.tvRadioSetOn = function (val) {
-        try { localStorage.setItem('tvRadioOn', String(val)); } catch (e) {}
-        if (val === '1') { radio.fails = 0; radioPlay(); radioToast('📻 Radyo açıldı: ' + radioStation().name, 2000); }
-        else { radioStop(); radioToast('📻 Radyo kapatıldı', 1400); }
-        radioUpdateBadge();
-        const sel = $('tvRadioOnSelect'); if (sel) sel.value = val;
-    };
-    window.tvRadioSetStation = function (id) {
-        try { localStorage.setItem('tvRadioStation', String(id)); } catch (e) {}
-        // İstasyon seçmek radyoyu da açar
-        try { localStorage.setItem('tvRadioOn', '1'); } catch (e) {}
-        const sel = $('tvRadioOnSelect'); if (sel) sel.value = '1';
-        radio.fails = 0;
-        radioPlay();
-        radioToast('📻 ' + radioStation().name, 2000);
-    };
-    window.tvRadioSetVolume = function (v) {
-        try { localStorage.setItem('tvRadioVolume', String(v)); } catch (e) {}
-        if (radio.audio) radio.audio.volume = radioVol();
-        radioToast('🔊 Radyo ses seviyesi %' + Math.round(radioVol() * 100), 1200);
-    };
-    window.tvRadioAddCustom = function () {
-        const nameEl = $('tvRadioCustomName'), urlEl = $('tvRadioCustomUrl');
-        const url = (urlEl && urlEl.value || '').trim();
-        const name = (nameEl && nameEl.value || '').trim();
-        if (!/^https:\/\//i.test(url)) { radioToast('⚠️ Adres https:// ile başlamalı', 2400); return; }
-        const arr = radioCustom();
-        arr.push({ name: name || ('İstasyon ' + (arr.length + 1)), url });
-        try { localStorage.setItem('tvRadioCustom', JSON.stringify(arr.slice(-12))); } catch (e) {}
-        if (nameEl) nameEl.value = '';
-        if (urlEl) urlEl.value = '';
-        radioRenderStationOptions();
-        window.tvRadioSetStation('custom' + (radioCustom().length - 1));
-    };
-    window.tvRadioClearCustom = function () {
-        try { localStorage.removeItem('tvRadioCustom'); } catch (e) {}
-        if (radioStation().id.indexOf('custom') === 0) { try { localStorage.setItem('tvRadioStation', RADIO_BUILTIN[0].id); } catch (e) {} if (radioIsOn()) radioPlay(); }
-        radioRenderStationOptions();
-        radioToast('🗑️ Eklenen istasyonlar silindi', 1400);
-    };
-
-    function radioRenderStationOptions() {
-        const sel = $('tvRadioStationSelect');
-        if (!sel) return;
-        const groups = {};
-        radioList().forEach(s => { (groups[s.group] = groups[s.group] || []).push(s); });
-        sel.innerHTML = Object.keys(groups).map(g =>
-            `<optgroup label="${escapeHtml(g)}">` + groups[g].map(s => `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)}</option>`).join('') + '</optgroup>'
-        ).join('');
-        sel.value = radioStation().id;
-    }
-
-    function injectRadioSettings() {
-        const modalBody = document.querySelector('#settingsModal .modal-body');
-        if (!modalBody || $('tvRadioDetail')) return;
-        const details = document.createElement('details');
-        details.className = 'setting-item';
-        details.id = 'tvRadioDetail';
-        details.innerHTML = `
-            <summary>📻 Arka Plan Radyosu</summary>
-            <div class="setting-detail">
-                <label class="tap-label" for="tvRadioOnSelect">Radyo</label>
-                <select id="tvRadioOnSelect" class="tap-select" onchange="window.tvRadioSetOn(this.value)">
-                    <option value="0">⏹️ Kapalı</option>
-                    <option value="1">▶️ Açık (haber okurken arka planda çalsın)</option>
-                </select>
-
-                <label class="tap-label" for="tvRadioStationSelect" style="margin-top:12px;display:block;">İstasyon</label>
-                <select id="tvRadioStationSelect" class="tap-select" onchange="window.tvRadioSetStation(this.value)"></select>
-                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Haber ekranındayken kumandada CH+/CH− (veya PageUp/PageDown) ile de istasyon değiştirebilirsiniz. Çalışmayan istasyon otomatik atlanır.</p>
-
-                <label class="tap-label" for="tvRadioVolumeSelect">Radyo Ses Seviyesi</label>
-                <select id="tvRadioVolumeSelect" class="tap-select" onchange="window.tvRadioSetVolume(this.value)">
-                    <option value="0.2">🔈 %20</option>
-                    <option value="0.4">🔉 %40</option>
-                    <option value="0.6">🔉 %60 (Varsayılan)</option>
-                    <option value="0.8">🔊 %80</option>
-                    <option value="1">🔊 %100</option>
-                </select>
-
-                <label class="tap-label" style="margin-top:12px;display:block;">Kendi İstasyonunu Ekle (enstrümantal, türkü vb.)</label>
-                <input id="tvRadioCustomName" class="tap-select" type="text" placeholder="İstasyon adı" style="margin-bottom:6px;">
-                <input id="tvRadioCustomUrl" class="tap-select" type="url" placeholder="https://... (mp3 / aac / m3u8 yayın adresi)" style="margin-bottom:6px;">
-                <button type="button" class="tap-select" onclick="window.tvRadioAddCustom()">➕ Ekle ve çal</button>
-                <button type="button" class="tap-select" onclick="window.tvRadioClearCustom()" style="margin-top:6px;">🗑️ Eklediklerimi sil</button>
-            </div>
-        `;
-        const anchor = $('tvSettingsDetail');
-        if (anchor) anchor.insertAdjacentElement('afterend', details); else modalBody.prepend(details);
-        radioRenderStationOptions();
-        const on = $('tvRadioOnSelect'); if (on) on.value = radioIsOn() ? '1' : '0';
-        const vol = $('tvRadioVolumeSelect'); if (vol) vol.value = String(radioVol());
-    }
-
-    function radioInit() {
-        radioUpdateBadge();
-        if (radioIsOn()) radioPlay();
-    }
-
     // ---------- Başlat / izle ----------
     let lastOv = null, lastAi = false, raf = 0, volCap = false;
     function sync() {
@@ -1966,8 +1723,6 @@
         window.tvApplyZoom();
         watchReaderFallbackAndAI();
         setTimeout(injectTvSettings, 1000);
-        setTimeout(injectRadioSettings, 1300);
-        radioInit();
         const grid = $('newsGrid');
         if (grid) new MutationObserver(() => ensureCurrent()).observe(grid, { childList: true });
         new MutationObserver(() => { if (!raf) raf = requestAnimationFrame(sync); }).observe(document.body, { attributes: true, subtree: true, attributeFilter: ['style', 'class'] });
