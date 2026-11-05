@@ -615,6 +615,105 @@
     }
     const aiOpen = () => { const a = $('aiInlineResult'); return !!a && getComputedStyle(a).display !== 'none'; };
 
+    // ---------- AKILLI TOPLU API ANAHTARI ALGILAYICI (TEK TEK, VİRGÜLLE VEYA .TXT İÇERİĞİ YAPIŞTIRMA) ----------
+    // Kutuya ister tek anahtar, ister virgülle/boşlukla ayrılmış anahtarlar, ister bütün bir .txt dosyasının içeriği
+    // yapıştırılsın; içindeki tüm Groq (gsk_...) ve Gemini (AIza...) anahtarlarını otomatik ayıklar ve kaydeder.
+    function extractAllApiKeys(rawText) {
+        const out = { groq: [], gemini: [] };
+        if (!rawText) return out;
+        const re = /(gsk_[A-Za-z0-9_\-]{20,}|AIza[0-9A-Za-z_\-]{25,})/g;
+        let m;
+        while ((m = re.exec(String(rawText)))) {
+            const k = m[1].trim();
+            const list = k.startsWith('gsk_') ? out.groq : out.gemini;
+            if (!list.includes(k)) list.push(k);
+        }
+        return out;
+    }
+
+    function saveExtractedApiKeys(rawText) {
+        const found = extractAllApiKeys(rawText);
+        const total = found.groq.length + found.gemini.length;
+        if (total === 0) return { total: 0, addG: 0, addM: 0, dup: 0 };
+
+        let g = [], m = [];
+        try { g = JSON.parse(localStorage.getItem('groqApiKeys') || '[]'); } catch (e) {}
+        try { m = JSON.parse(localStorage.getItem('geminiApiKeys') || '[]'); } catch (e) {}
+        if (!Array.isArray(g)) g = [];
+        if (!Array.isArray(m)) m = [];
+
+        let addG = 0, addM = 0, dup = 0;
+        found.groq.forEach(k => {
+            if (g.includes(k)) dup++;
+            else { g.push(k); addG++; }
+        });
+        found.gemini.forEach(k => {
+            if (m.includes(k)) dup++;
+            else { m.push(k); addM++; }
+        });
+
+        try {
+            localStorage.setItem('groqApiKeys', JSON.stringify(g));
+            localStorage.setItem('geminiApiKeys', JSON.stringify(m));
+        } catch (e) {}
+
+        if (typeof loadGroqKeys === 'function') {
+            try { loadGroqKeys(); } catch (e) {}
+        }
+        return { total, addG, addM, dup };
+    }
+
+    // ai.js içindeki tekli addGroqKey ve parseKeysFromText fonksiyonlarını çoklu/virgüllü/.txt destekli sürümle güncelliyoruz
+    window.parseKeysFromText = extractAllApiKeys;
+    window.importKeysFromText = saveExtractedApiKeys;
+
+    window.addGroqKey = function () {
+        const input = document.getElementById('newGroqKeyInput');
+        if (!input) return;
+        const raw = input.value.trim();
+        if (!raw) return;
+
+        const r = saveExtractedApiKeys(raw);
+        if (r.total === 0) {
+            alert('Geçerli anahtar bulunamadı. Groq anahtarı gsk_ ile, Gemini anahtarı AIza ile başlamalıdır.\n(Tek tek, virgülle ayrılmış veya .txt içeriğini doğrudan yapıştırabilirsiniz.)');
+            return;
+        }
+        input.value = '';
+        const added = r.addG + r.addM;
+        if (added > 0) {
+            const parts = [];
+            if (r.addG > 0) parts.push(`${r.addG} Groq`);
+            if (r.addM > 0) parts.push(`${r.addM} Gemini`);
+            const msg = `✅ ${parts.join(' + ')} anahtarı eklendi!` + (r.dup ? ` (${r.dup} zaten kayıtlıydı)` : '');
+            if (typeof showToastGlobal === 'function') showToastGlobal(msg, 3500);
+        } else {
+            if (typeof showToastGlobal === 'function') showToastGlobal(`ℹ️ Yapıştırılan ${r.dup} anahtar zaten ekli!`, 2800);
+        }
+    };
+
+    function upgradeApiKeyInputBox() {
+        const keyInput = document.getElementById('newGroqKeyInput');
+        if (!keyInput || keyInput.dataset.tvBulkReady) return;
+        keyInput.dataset.tvBulkReady = '1';
+        // Şifre maskesini kaldırıp normal metin yapıyoruz ki TV klavyesinde ve çoklu yapıştırmada rahatça görülsün
+        try { keyInput.type = 'text'; } catch (e) {}
+        keyInput.placeholder = 'Tek tek, virgülle (key1, key2) veya tüm .txt içeriğini yapıştırın...';
+
+        // Kutuya doğrudan çok satırlı .txt içeriği veya virgüllü liste yapıştırıldığında satır sonları kaybolmadan yakala ve kaydet
+        keyInput.addEventListener('paste', (e) => {
+            try {
+                const clip = (e.clipboardData || window.clipboardData).getData('text');
+                if (!clip) return;
+                const found = extractAllApiKeys(clip);
+                if ((found.groq.length + found.gemini.length) >= 1) {
+                    e.preventDefault();
+                    keyInput.value = clip.replace(/[\r\n]+/g, ', ');
+                    window.addGroqKey();
+                }
+            } catch (err) {}
+        });
+    }
+
     // ---------- HER KARTTA SIRAYLA FARKLI API ANAHTARI KULLANIMI (STRICT ROUND-ROBIN KEY ROTATION) ----------
     function getAllKeyEntries() {
         let g = [], m = [];
@@ -911,6 +1010,7 @@
     };
 
     function injectTvSettings() {
+        upgradeApiKeyInputBox();
         const modalBody = document.querySelector('#settingsModal .modal-body');
         if (!modalBody || document.getElementById('tvSettingsDetail')) return;
         const curContentMode = isSummaryScrollMode() ? 'ai' : 'full';
@@ -1188,12 +1288,11 @@
         const pool = filtered.length ? filtered : noTitleRepeat;
         if (pool.length <= maxSentences) return pool.slice(0, maxSentences);
 
-        // 5N1K sinyali taşıyan (rakam, tarih, yer, sebep/sonuç ifadesi içeren) cümlelere öncelik ver
         const scored = pool.map((s, idx) => {
             let sc = idx === 0 ? 4 : idx === 1 ? 3 : 1;
             if (/\d/.test(s)) sc += 2;
             if (/nedeniyle|dolayı|için|sonucu|açıkladı|bildirdi|belirtti|duyurdu|gerçekleşti|başladı|karar/i.test(s)) sc += 2;
-            if (/일|saat|gün|ay|yıl|bugün|dün|yarın|bölge|ilçe|şehir|mahalle|ülke/i.test(s)) sc += 1;
+            if (/saat|gün|ay|yıl|bugün|dün|yarın|bölge|ilçe|şehir|mahalle|ülke/i.test(s)) sc += 1;
             return { s, idx, sc };
         });
         scored.sort((a, b) => b.sc - a.sc || a.idx - b.idx);
@@ -1209,7 +1308,6 @@
         const shortQ = cleanTitle.split(/\s+/).filter(w => w.length > 2).slice(0, 8).join(' ');
         const out = [];
 
-        // 1) Bing Haberler RSS snippet'leri
         try {
             const xml = await fetchHtmlRace('https://www.bing.com/news/search?format=rss&setlang=tr&q=' + encodeURIComponent(shortQ + (pub ? ' ' + pub : '')));
             if (xml && !/^\s*(<!doctype|<html)/i.test(xml)) {
@@ -1232,7 +1330,6 @@
 
         if (out.length >= 3) return out;
 
-        // 2) DuckDuckGo HTML arama sonuçlarındaki haber alt özetleri (.result__snippet)
         try {
             const ddgHtml = await fetchHtmlRace('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(shortQ + (pub ? ' ' + pub : '')));
             if (ddgHtml) {
@@ -1256,13 +1353,11 @@
     async function fetchArticleParasForPeek(art) {
         if (!art || !art.link) return { ok: false, paras: [] };
 
-        // 1) Önce READER_CACHE kontrolü
         if (typeof READER_CACHE !== 'undefined' && READER_CACHE.has(art.link)) {
             const c = READER_CACHE.get(art.link);
             if (c && Array.isArray(c.paras) && c.paras.length) return { ok: true, paras: c.paras };
         }
 
-        // 2) RSS içinde hazır uzun content varsa
         if (art.content && art.content.length > 200) {
             const fp = typeof finalizeParas === 'function'
                 ? finalizeParas(art.content.split('\n\n'), art)
@@ -1281,7 +1376,6 @@
             try {
                 let url = art.link;
 
-                // 3) Hızlı sunucu (Cloudflare Worker) varsa
                 if (typeof workerBase === 'function' && workerBase() && typeof workerRead === 'function') {
                     try {
                         const w = await workerRead(url, art);
@@ -1293,11 +1387,9 @@
                     } catch (e) {}
                 }
 
-                // 4) Google Haberler linkiyse gerçek yayıncı adresini çöz
                 if (/news\.google\.com/.test(url) && typeof resolveGoogleNewsUrl === 'function') {
                     const real = await resolveGoogleNewsUrl(url, art);
                     if (real) url = real;
-                    // resolveGoogleNewsUrl içindeki 'yayıncı-rss' adımı tam metni READER_CACHE'e yazmış olabilir!
                     if (typeof READER_CACHE !== 'undefined' && READER_CACHE.has(art.link)) {
                         const c = READER_CACHE.get(art.link);
                         if (c && Array.isArray(c.paras) && c.paras.length) {
@@ -1306,7 +1398,6 @@
                     }
                 }
 
-                // 5) Gerçek adresten makale metnini çıkar
                 if (!/news\.google\.com/.test(url) && typeof extractArticle === 'function') {
                     try {
                         const res = await extractArticle(url, art, false);
@@ -1317,7 +1408,6 @@
                     } catch (e) {}
                 }
 
-                // 6) Sayfa koruma duvarına takıldıysa yayıncının kendi RSS akışından eşleştirmeyi dene
                 if (typeof matchViaPublisherFeed === 'function') {
                     try {
                         const hit = await matchViaPublisherFeed(art);
@@ -1332,7 +1422,6 @@
                     } catch (e) {}
                 }
 
-                // 7) Kısa haberlerde extractArticle (>=350 karakter sınırı yüzünden) hata fırlattıysa indirilen HTML'den esnek çıkarım yap
                 if (!/news\.google\.com/.test(url) && typeof getHtmlShared === 'function' && typeof extractFromHtml === 'function') {
                     try {
                         const rawHtml = await getHtmlShared(url, false);
@@ -1344,7 +1433,6 @@
                     } catch (e) {}
                 }
 
-                // 8) Son çare: Bing Haberler RSS + DuckDuckGo üzerinden başlıkla eşleşen haber özet cümlelerini çek
                 const searchSents = await fetchSearchSnippetsForTitle(art);
                 if (searchSents.length >= 2) {
                     return { ok: true, paras: searchSents };
@@ -1392,7 +1480,6 @@
                 rawContext = descNoTitle ? `Haber Özeti: ${descNoTitle}` : '';
             }
 
-            // Yalnızca gerçek haber metni/detayı mevcutsa veya yeterli içerik varsa AI 5N1K özeti üret
             if (hasAIKey() && (rawContext.length >= 30 || cleanTitle.length >= 15)) {
                 try {
                     const messages = [
@@ -1439,7 +1526,6 @@
                 }
             }
 
-            // AI anahtarı yoksa veya geçici hata olursa metindeki başlığı tekrar etmeyen 5N1K odaklı 3-4 kritik cümleyi seç
             const fallbackSents = buildSmartExtractiveSummary(fetched.paras, art, 4);
             if (fallbackSents.length >= 2) {
                 const entry = {
@@ -1571,7 +1657,6 @@
         badge.textContent = summaryMode ? '✨ Haber özeti çekiliyor...' : '⏳ Haber metni çekiliyor...';
         cardEl.appendChild(badge);
 
-        // Eğer önbellekte tek cümlelik eski bir kayıt varsa ama READER_CACHE dolmuşsa önbelleği sil ki tam özet üretilsin
         if (summaryMode && CARD_AI_CACHE.has(art.link)) {
             const c = CARD_AI_CACHE.get(art.link);
             if (c && !c.isAi && c.sents.length < 3 && typeof READER_CACHE !== 'undefined' && READER_CACHE.has(art.link)) {
@@ -1589,7 +1674,6 @@
         waitingBox.innerHTML = `<span class="tv-waiting-dot"></span><span>${summaryMode ? 'Haber özeti çekiliyor...' : 'Haber metni çekiliyor...'}</span>`;
         readerWrap.appendChild(waitingBox);
 
-        // İçerik hazır olduğunda bekleme ibaresini kaldırıp kayan alanı (2 tur) başlatan fonksiyon
         function mountAndStartScrolling(list, badgeClass, badgeText) {
             if (myToken !== tickerToken) return;
             readerWrap.innerHTML = '';
@@ -1671,7 +1755,6 @@
             }
         }
 
-        // Henüz önbellekte yoksa, çekilene kadar "Haber özeti/metni çekiliyor..." ibaresi görünür (emniyet zamanlayıcısı: 28 sn)
         if (autoAdvanceEnabled) {
             clearTimeout(autoAdvanceTimer);
             autoAdvanceTimer = setTimeout(() => {
