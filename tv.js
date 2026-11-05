@@ -41,6 +41,8 @@
 
     const initTickerScale = parseFloat(localStorage.getItem('tvTickerScale')) || 1.0;
     document.documentElement.style.setProperty('--ticker-scale', String(initTickerScale));
+    const initTitleScale = parseFloat(localStorage.getItem('tvTitleScale')) || 1.0;
+    document.documentElement.style.setProperty('--title-scale', String(initTitleScale));
 
     // ---------- Görünüm: Mi Stick GPU dostu, hafifletilmiş ve saydam arka planlı CSS ----------
     const css = document.createElement('style');
@@ -156,17 +158,18 @@
           justify-content: flex-end !important;
           box-sizing: border-box !important;
       }
+      /* Haber Başlığı: Varsayılan boyutu +%25 artırıldı (1.9rem taban) ve Ayarlar'dan (--title-scale) değiştirilebilir */
       body.tv-mode .swipe-wrapper.tv-current .news-content h3 {
-          font-size: clamp(1.05rem, 2.7vh, 1.55rem) !important;
+          font-size: calc(1.9rem * var(--title-scale, 1)) !important;
           line-height: 1.22 !important;
           display: -webkit-box !important;
           -webkit-box-orient: vertical !important;
           -webkit-line-clamp: 2 !important;
           overflow: hidden !important;
-          max-height: 2.5em !important;
+          max-height: 2.52em !important;
           color: #facc15 !important;
           text-shadow: 0 2px 10px rgba(0,0,0,0.95), 0 0 4px rgba(0,0,0,0.9) !important;
-          margin: 0 0 6px 0 !important;
+          margin: 0 0 8px 0 !important;
           flex-shrink: 0 !important;
       }
       body.tv-mode .swipe-wrapper.tv-current .meta {
@@ -187,7 +190,7 @@
       .tv-vscroll-viewport {
           position: relative;
           width: 100%;
-          height: 52vh;
+          height: 50vh;
           overflow: hidden;
           padding: 0 10px;
           box-sizing: border-box;
@@ -197,8 +200,8 @@
           display: flex;
           flex-direction: column;
           gap: 16px;
-          padding-top: 30vh;
-          padding-bottom: 48vh;
+          padding-top: 28vh;
+          padding-bottom: 46vh;
           will-change: transform;
           animation: tvVerticalRoll var(--ticker-dur, 28s) linear infinite;
           background: transparent !important;
@@ -449,50 +452,57 @@
     function applyRadioVolume() {
         if (!radioAudio) return;
         const vol = parseFloat(localStorage.getItem('tvRadioVolume'));
-        radioAudio.volume = (!isNaN(vol) && vol >= 0 && vol <= 1) ? vol : 0.45;
+        radioAudio.volume = (vol >= 0.05 && vol <= 1.0) ? vol : 0.45;
     }
 
     function startOrSwitchRadio(stationId, showNotification) {
-        if (stationId !== undefined) {
-            try { localStorage.setItem('tvRadioStation', String(stationId)); } catch (e) {}
-        }
-        const st = getCurrentRadioStation();
-        if (!st || st.id === 'off' || !st.urls.length) {
-            if (radioAudio) {
-                try { radioAudio.pause(); radioAudio.src = ''; } catch (e) {}
+        try {
+            if (stationId !== undefined) {
+                localStorage.setItem('tvRadioStation', String(stationId));
             }
-            updateClockBadge();
-            if (showNotification && typeof showToastGlobal === 'function') {
-                showToastGlobal('🔇 Radyo kapatıldı', 1300);
-            }
-            return;
-        }
-
-        if (!radioAudio) {
-            radioAudio = new Audio();
-            radioAudio.preload = 'none';
-            radioAudio.addEventListener('error', () => {
-                const currSt = getCurrentRadioStation();
-                if (!currSt || currSt.id === 'off') return;
-                if (currentUrlIndex + 1 < currSt.urls.length) {
-                    currentUrlIndex++;
-                    radioAudio.src = currSt.urls[currentUrlIndex];
-                    radioAudio.play().catch(() => {});
+            const st = getCurrentRadioStation();
+            if (!st || st.id === 'off' || !st.urls.length) {
+                if (radioAudio) {
+                    try { radioAudio.pause(); radioAudio.src = ''; } catch (e) {}
                 }
-            });
-            radioAudio.addEventListener('playing', () => updateClockBadge());
-            radioAudio.addEventListener('pause', () => updateClockBadge());
-        }
-
-        currentUrlIndex = 0;
-        applyRadioVolume();
-        radioAudio.src = st.urls[0];
-        radioAudio.play().then(() => {
-            updateClockBadge();
-            if (showNotification && typeof showToastGlobal === 'function') {
-                showToastGlobal('📻 Çalıyor: ' + st.name, 1800);
+                updateClockBadge();
+                if (showNotification && typeof showToastGlobal === 'function') {
+                    showToastGlobal('🔇 Radyo kapatıldı', 1400);
+                }
+                return;
             }
-        }).catch(() => {});
+
+            if (!radioAudio) {
+                radioAudio = new Audio();
+                radioAudio.preload = 'none';
+                radioAudio.crossOrigin = 'anonymous';
+                radioAudio.addEventListener('error', () => {
+                    const curr = getCurrentRadioStation();
+                    if (!curr || curr.id === 'off') return;
+                    currentUrlIndex = (currentUrlIndex + 1) % curr.urls.length;
+                    if (currentUrlIndex !== 0) {
+                        radioAudio.src = curr.urls[currentUrlIndex];
+                        applyRadioVolume();
+                        radioAudio.play().catch(() => {});
+                    }
+                });
+                radioAudio.addEventListener('playing', updateClockBadge);
+                radioAudio.addEventListener('pause', updateClockBadge);
+            }
+
+            currentUrlIndex = 0;
+            radioAudio.src = st.urls[0];
+            applyRadioVolume();
+            const playPromise = radioAudio.play();
+            if (playPromise && typeof playPromise.then === 'function') {
+                playPromise.then(() => {
+                    updateClockBadge();
+                    if (showNotification && typeof showToastGlobal === 'function') {
+                        showToastGlobal('📻 Çalıyor: ' + st.name, 1800);
+                    }
+                }).catch(() => {});
+            }
+        } catch (e) {}
     }
 
     window.tvSetRadioStation = function (val) {
@@ -556,32 +566,143 @@
     }
     const aiOpen = () => { const a = $('aiInlineResult'); return !!a && getComputedStyle(a).display !== 'none'; };
 
-    function hasAIKey() {
-        try {
-            if (typeof allAIKeys === 'function' && allAIKeys().length > 0) return true;
-            const g = JSON.parse(localStorage.getItem('groqApiKeys') || '[]');
-            const m = JSON.parse(localStorage.getItem('geminiApiKeys') || '[]');
-            return (g.length + m.length) > 0;
-        } catch (e) { return false; }
+    // ---------- HER KARTTA SIRAYLA FARKLI API ANAHTARI KULLANIMI (STRICT ROUND-ROBIN KEY ROTATION) ----------
+    function getAllKeyEntries() {
+        let g = [], m = [];
+        try { g = JSON.parse(localStorage.getItem('groqApiKeys') || '[]'); } catch (e) {}
+        try { m = JSON.parse(localStorage.getItem('geminiApiKeys') || '[]'); } catch (e) {}
+        const list = [];
+        if (Array.isArray(g)) {
+            g.forEach((k, idx) => {
+                if (k && String(k).trim()) list.push({ provider: 'groq', key: String(k).trim(), label: `Groq #${idx + 1}` });
+            });
+        }
+        if (Array.isArray(m)) {
+            m.forEach((k, idx) => {
+                if (k && String(k).trim()) list.push({ provider: 'gemini', key: String(k).trim(), label: `Gemini #${idx + 1}` });
+            });
+        }
+        return list;
     }
 
-    // ---------- SIRAYLA ANAHTAR KULLANIMI (ROUND-ROBIN KEY ROTATION) ----------
-    async function groqChatRotated(messages, opts) {
-        let gKeys = [];
-        let mKeys = [];
-        try { gKeys = JSON.parse(localStorage.getItem('groqApiKeys') || '[]'); } catch (e) {}
-        try { mKeys = JSON.parse(localStorage.getItem('geminiApiKeys') || '[]'); } catch (e) {}
+    function hasAIKey() {
+        return getAllKeyEntries().length > 0;
+    }
 
-        if (Array.isArray(gKeys) && gKeys.length > 1) {
-            const rotatedG = gKeys.slice(1).concat(gKeys[0]);
-            try { localStorage.setItem('groqApiKeys', JSON.stringify(rotatedG)); } catch (e) {}
-        }
-        if (Array.isArray(mKeys) && mKeys.length > 1 && gKeys.length === 0) {
-            const rotatedM = mKeys.slice(1).concat(mKeys[0]);
-            try { localStorage.setItem('geminiApiKeys', JSON.stringify(rotatedM)); } catch (e) {}
-        }
+    let rrKeyCounter = 0;
+    try { rrKeyCounter = parseInt(localStorage.getItem('tvRrKeyIdx') || '0', 10) || 0; } catch (e) {}
 
-        return await groqChat(messages, opts);
+    async function tvFetchWithTimeout(url, ms, opts) {
+        if (typeof fetchWithTimeout === 'function') return fetchWithTimeout(url, ms, opts);
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), ms);
+        try {
+            return await fetch(url, Object.assign({}, opts, { signal: ctrl.signal }));
+        } finally {
+            clearTimeout(t);
+        }
+    }
+
+    async function callGroqSingleKey(key, messages, maxTokens, temperature) {
+        const models = (typeof GROQ_MODELS_FAST !== 'undefined' && Array.isArray(GROQ_MODELS_FAST) && GROQ_MODELS_FAST.length)
+            ? GROQ_MODELS_FAST
+            : ['openai/gpt-oss-20b', 'openai/gpt-oss-120b', 'qwen/qwen3.6-27b'];
+        const url = (typeof GROQ_URL !== 'undefined') ? GROQ_URL : 'https://api.groq.com/openai/v1/chat/completions';
+        let lastErr = 'Groq yanıt vermedi';
+
+        for (const model of models) {
+            // Reasoning (düşünen) modellerde <think> belirteçleri yanıtı yutmasın diye max_tokens en az 1200 olmalı (ücret/kota sadece üretilen cümle kadar düşer)
+            const body = { model, messages, temperature, max_tokens: Math.max(maxTokens || 1200, 1200) };
+            if (model.startsWith('openai/gpt-oss')) body.reasoning_effort = 'low';
+            const res = await tvFetchWithTimeout(url, 22000, {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (res.ok) {
+                const data = await res.json();
+                let text = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+                text = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+                if (text) return text;
+                lastErr = 'Model boş yanıt döndürdü';
+                continue;
+            }
+            if (res.status === 404 || res.status === 400) {
+                lastErr = `Model hatası (${res.status})`;
+                continue;
+            }
+            // 429 (kota), 401 veya 5xx durumunda bu anahtarda vakit kaybetme, hemen sıradaki anahtara geç
+            lastErr = `HTTP ${res.status}`;
+            break;
+        }
+        throw new Error(lastErr);
+    }
+
+    async function callGeminiSingleKey(key, messages, maxTokens, temperature) {
+        const models = (typeof GEMINI_MODELS !== 'undefined' && Array.isArray(GEMINI_MODELS) && GEMINI_MODELS.length)
+            ? GEMINI_MODELS
+            : ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest'];
+        const base = (typeof GEMINI_BASE !== 'undefined') ? GEMINI_BASE : 'https://generativelanguage.googleapis.com/v1beta/models/';
+        let lastErr = 'Gemini yanıt vermedi';
+
+        for (const model of models) {
+            const payload = (typeof toGeminiPayload === 'function')
+                ? toGeminiPayload(messages, { temperature, maxTokens: Math.max(maxTokens || 1200, 1200), json: false })
+                : { contents: [{ role: 'user', parts: [{ text: messages.map(m => m.content).join('\n\n') }] }] };
+            const res = await tvFetchWithTimeout(`${base}${model}:generateContent`, 22000, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                const data = await res.json();
+                const parts = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
+                const text = parts.filter(p => !p.thought).map(p => p.text || '').join('').trim();
+                if (text) return text;
+                lastErr = 'Gemini boş yanıt';
+                continue;
+            }
+            if (res.status === 404) continue;
+            lastErr = `HTTP ${res.status}`;
+            break;
+        }
+        throw new Error(lastErr);
+    }
+
+    // Her çağrıda sıradaki API anahtarını seçer (Kart 1 -> Key #1, Kart 2 -> Key #2, Kart 3 -> Key #3...)
+    async function groqChatRotatedWithMeta(messages, opts = {}) {
+        const entries = getAllKeyEntries();
+        if (!entries.length) throw new Error('API anahtarı eksik. Ayarlardan Groq veya Gemini anahtarı ekleyin.');
+
+        const startIdx = rrKeyCounter % entries.length;
+        rrKeyCounter = (rrKeyCounter + 1) % 100000;
+        try { localStorage.setItem('tvRrKeyIdx', String(rrKeyCounter)); } catch (e) {}
+
+        const maxTok = Math.max(opts.maxTokens || 1200, 1200);
+        const temp = opts.temperature !== undefined ? opts.temperature : 0.3;
+        let lastError = null;
+
+        for (let offset = 0; offset < entries.length; offset++) {
+            const idx = (startIdx + offset) % entries.length;
+            const item = entries[idx];
+            try {
+                const text = item.provider === 'groq'
+                    ? await callGroqSingleKey(item.key, messages, maxTok, temp)
+                    : await callGeminiSingleKey(item.key, messages, maxTok, temp);
+                if (text) {
+                    return {
+                        text,
+                        keyNum: idx + 1,
+                        totalKeys: entries.length,
+                        keyLabel: item.label
+                    };
+                }
+            } catch (err) {
+                lastError = err;
+                console.warn(`[TV Key Rotation] Anahtar #${idx + 1} (${item.label}) atlandı, sıradaki deneniyor:`, err && err.message);
+            }
+        }
+        throw lastError || new Error('Tüm API anahtarları yanıt vermedi.');
     }
 
     // ---------- HAFİF BELLEK (RAM) İÇİ MÜKERRER VE OKUNAN FİLTRESİ ----------
@@ -645,12 +766,22 @@
         lastDedupCount = cards().length;
     }
 
-    // ---------- Ayarlar Menüsüne "📻 Arka Plan Radyo" ve "📺 TV Akan Metin & Otomasyon" Enjeksiyonu ----------
+    // ---------- Ayarlar Menüsüne "📻 Arka Plan Radyo" ve "📺 TV Başlık, Akan Metin & Otomasyon" Enjeksiyonu ----------
+    function isSummaryScrollMode() {
+        const m = localStorage.getItem('tvCardContentMode') || 'ai';
+        return m !== 'full';
+    }
+
     window.tvSetCardContentMode = function (modeVal) {
         try {
             localStorage.setItem('tvCardContentMode', String(modeVal));
             if (typeof showToastGlobal === 'function') {
-                showToastGlobal(modeVal === 'ai' ? '✨ Kart üzerinde AI Özeti akacak' : '📄 Kart üzerinde Tam Haber Metni akacak', 1400);
+                showToastGlobal(
+                    modeVal === 'full'
+                        ? '📄 Kart üzerinde Haberin Tüm Metni (2 kez) akacak'
+                        : '✨ Kart üzerinde 3-5 Cümlelik Ana Kritik Özet (2 kez) akacak',
+                    1500
+                );
             }
         } catch (e) {}
         if (!overlayRoot()) attachCardLiveTickerAndReader(true);
@@ -676,6 +807,17 @@
         if (!overlayRoot()) attachCardLiveTickerAndReader(true);
     };
 
+    window.tvSetTitleScale = function (scaleVal) {
+        const s = parseFloat(scaleVal) || 1.0;
+        try {
+            localStorage.setItem('tvTitleScale', String(s));
+            document.documentElement.style.setProperty('--title-scale', String(s));
+            if (typeof showToastGlobal === 'function') {
+                showToastGlobal('📰 Haber başlık boyutu güncellendi (%' + Math.round(s * 100) + ')', 1200);
+            }
+        } catch (e) {}
+    };
+
     window.tvSetTickerScale = function (scaleVal) {
         const s = parseFloat(scaleVal) || 1.0;
         try {
@@ -691,7 +833,7 @@
         try {
             localStorage.setItem('tvAutoAdvance', String(val));
             if (typeof showToastGlobal === 'function') {
-                showToastGlobal(val === '1' ? '🔄 Otomatik haber geçişi açıldı' : '⏸️ Otomatik geçiş kapatıldı', 1400);
+                showToastGlobal(val === '1' ? '🔄 Otomatik haber geçişi açıldı (2 tur sonunda geçer)' : '⏸️ Otomatik geçiş kapatıldı', 1400);
             }
         } catch (e) {}
         if (!overlayRoot()) attachCardLiveTickerAndReader(true);
@@ -724,9 +866,10 @@
     function injectTvSettings() {
         const modalBody = document.querySelector('#settingsModal .modal-body');
         if (!modalBody || document.getElementById('tvSettingsDetail')) return;
-        const curContentMode = localStorage.getItem('tvCardContentMode') || 'ai';
+        const curContentMode = isSummaryScrollMode() ? 'ai' : 'full';
         const curDir = localStorage.getItem('tvTickerDir') || 'vertical';
         const curSpeed = localStorage.getItem('tvTickerSpeed') || '1.0';
+        const curTitleScale = localStorage.getItem('tvTitleScale') || '1.0';
         const curScale = localStorage.getItem('tvTickerScale') || '1.0';
         const curAuto = localStorage.getItem('tvAutoAdvance') !== '0' ? '1' : '0';
         const curHideRead = localStorage.getItem('tvHideReadPref') !== '0' ? '1' : '0';
@@ -763,21 +906,35 @@
         details.className = 'setting-item';
         details.id = 'tvSettingsDetail';
         details.innerHTML = `
-            <summary>📺 TV Akan Metin & Otomasyon</summary>
+            <summary>📺 TV Başlık, Akan Metin & Otomasyon</summary>
             <div class="setting-detail">
-                <label class="tap-label" for="tvCardContentModeSelect">Kart Üzerinde Akacak İçerik</label>
+                <label class="tap-label" for="tvCardContentModeSelect">Kart Üzerinde Kaydırılacak Metin Türü</label>
                 <select id="tvCardContentModeSelect" class="tap-select" onchange="window.tvSetCardContentMode(this.value)">
-                    <option value="ai">✨ Yapay Zeka Özeti Aksın (2 Kez Akıp Sonrakine Geçer)</option>
-                    <option value="full">📄 Tam Haber Metni Aksın (API harcamaz)</option>
+                    <option value="ai">✨ 3-5 Cümlelik Ana Kritik Özet Aksın (2 Kez Akıp Sonrakine Geçer)</option>
+                    <option value="full">📄 Haberin Tüm Metni Aksın (2 Kez Akıp Sonrakine Geçer)</option>
                 </select>
-                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Yapay zeka modunda özet 2 kez akıp bittiğinde otomatik olarak sıradaki habere geçer.</p>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Hangisini seçerseniz seçin metin kart üzerinde 2 kez kaydırıldıktan sonra otomatik olarak sonraki habere geçilir. Özet modunda her kartta sıradaki API anahtarı kullanılır ve bir sonraki haberin özeti arka planda önceden hazırlanır.</p>
 
-                <label class="tap-label" for="tvTickerDirSelect">Akan Metin Yönü</label>
-                <select id="tvTickerDirSelect" class="tap-select" onchange="window.tvSetTickerDir(this.value)">
-                    <option value="vertical">⬆️ Aşağıdan Yukarıya (Cümle Cümle & Saydam)</option>
-                    <option value="horizontal">➡️ Sağdan Sola (Klasik TV Haber Bandı)</option>
+                <label class="tap-label" for="tvTitleScaleSelect">Haber Başlığı Yazı Boyutu</label>
+                <select id="tvTitleScaleSelect" class="tap-select" onchange="window.tvSetTitleScale(this.value)">
+                    <option value="0.75">Küçük (%75)</option>
+                    <option value="0.9">Orta Küçük (%90)</option>
+                    <option value="1.0">Normal / Varsayılan (%100 - +%25 Büyütülmüş)</option>
+                    <option value="1.15">Büyük (%115)</option>
+                    <option value="1.3">Çok Büyük (%130)</option>
+                    <option value="1.5">Dev Başlık (%150)</option>
                 </select>
-                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Aşağıdan yukarıya modunda cümleler saydam arka plan üzerinde kart resmiyle birlikte görünür.</p>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Ana kart üzerindeki sarı haber başlığının büyüklüğünü ayarlar.</p>
+
+                <label class="tap-label" for="tvTickerScaleSelect">Akan Metin Yazı Boyutu (Yukarı & Yatay)</label>
+                <select id="tvTickerScaleSelect" class="tap-select" onchange="window.tvSetTickerScale(this.value)">
+                    <option value="0.8">Küçük (%80)</option>
+                    <option value="1.0">Normal / Varsayılan (%100 - +%25 Büyütülmüş)</option>
+                    <option value="1.2">Büyük (%120)</option>
+                    <option value="1.4">Çok Büyük (%140)</option>
+                    <option value="1.6">Dev Boyut (%160)</option>
+                </select>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Hem yukarı kayan cümlelerin hem de yatay bandın yazı büyüklüğünü değiştirir.</p>
 
                 <label class="tap-label" for="tvTickerSpeedSelect">Yukarı / Yatay Metin Kayma Hızı</label>
                 <select id="tvTickerSpeedSelect" class="tap-select" onchange="window.tvSetTickerSpeed(this.value)">
@@ -790,15 +947,12 @@
                 </select>
                 <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Hem aşağıdan yukarıya hem de sağdan sola akan metnin kayma hızını ayarlar.</p>
 
-                <label class="tap-label" for="tvTickerScaleSelect">Akan Metin Yazı Boyutu (Yukarı & Yatay)</label>
-                <select id="tvTickerScaleSelect" class="tap-select" onchange="window.tvSetTickerScale(this.value)">
-                    <option value="0.8">Küçük (%80)</option>
-                    <option value="1.0">Normal / Varsayılan (%100 - +%25 Büyütülmüş)</option>
-                    <option value="1.2">Büyük (%120)</option>
-                    <option value="1.4">Çok Büyük (%140)</option>
-                    <option value="1.6">Dev Boyut (%160)</option>
+                <label class="tap-label" for="tvTickerDirSelect">Akan Metin Yönü</label>
+                <select id="tvTickerDirSelect" class="tap-select" onchange="window.tvSetTickerDir(this.value)">
+                    <option value="vertical">⬆️ Aşağıdan Yukarıya (Cümle Cümle & Saydam)</option>
+                    <option value="horizontal">➡️ Sağdan Sola (Klasik TV Haber Bandı)</option>
                 </select>
-                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Hem yukarı kayan cümlelerin hem de yatay bandın yazı büyüklüğünü değiştirir.</p>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Aşağıdan yukarıya modunda cümleler saydam arka plan üzerinde kart resmiyle birlikte görünür.</p>
 
                 <label class="tap-label" for="tvHideReadSelect">Okunan Haberleri Gizle</label>
                 <select id="tvHideReadSelect" class="tap-select" onchange="window.tvSetHideRead(this.value)">
@@ -809,10 +963,10 @@
 
                 <label class="tap-label" for="tvAutoAdvanceSelect">Otomatik Sonraki Habere Geçiş</label>
                 <select id="tvAutoAdvanceSelect" class="tap-select" onchange="window.tvSetAutoAdvance(this.value)">
-                    <option value="1">🔄 Açık (Özet 2 kez akınca / çekilemezse 15 sn)</option>
+                    <option value="1">🔄 Açık (Seçilen metin 2 kez akınca otomatik geçer)</option>
                     <option value="0">⏸️ Kapalı (Yalnızca kumanda ile geç)</option>
                 </select>
-                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Özet 2 kez aktıktan sonra (veya metin çekilemezse 15 saniye sonra) kendiliğinden sıradaki habere geçer.</p>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Seçilen özet veya tam metin 2 tam tur aktıktan sonra kendiliğinden sıradaki habere geçer.</p>
 
                 <button type="button" class="tap-select" style="cursor:pointer; text-align:center; font-weight:bold; background:rgba(239,68,68,0.2); color:#fca5a5; border:1px solid rgba(239,68,68,0.4);" onclick="window.tvClearAllCaches()">🧹 Önbelleği Temizle & Hızlandır</button>
             </div>
@@ -823,9 +977,10 @@
         const selRadio = document.getElementById('tvRadioStationSelect'); if (selRadio) selRadio.value = curRadio;
         const selRadioVol = document.getElementById('tvRadioVolSelect'); if (selRadioVol) selRadioVol.value = curRadioVol;
         const selMode = document.getElementById('tvCardContentModeSelect'); if (selMode) selMode.value = curContentMode;
-        const selDir = document.getElementById('tvTickerDirSelect'); if (selDir) selDir.value = curDir;
-        const selSpeed = document.getElementById('tvTickerSpeedSelect'); if (selSpeed) selSpeed.value = curSpeed;
+        const selTitleScale = document.getElementById('tvTitleScaleSelect'); if (selTitleScale) selTitleScale.value = curTitleScale;
         const selScale = document.getElementById('tvTickerScaleSelect'); if (selScale) selScale.value = curScale;
+        const selSpeed = document.getElementById('tvTickerSpeedSelect'); if (selSpeed) selSpeed.value = curSpeed;
+        const selDir = document.getElementById('tvTickerDirSelect'); if (selDir) selDir.value = curDir;
         const selHide = document.getElementById('tvHideReadSelect'); if (selHide) selHide.value = curHideRead;
         const selAuto = document.getElementById('tvAutoAdvanceSelect'); if (selAuto) selAuto.value = curAuto;
     }
@@ -860,7 +1015,7 @@
 
     function splitIntoSentences(text) {
         if (!text) return [];
-        const raw = String(text).split(/\n+/).map(s => s.replace(/^[-•*]\s*/, '').replace(/\s+/g, ' ').trim()).filter(Boolean);
+        const raw = String(text).split(/\n+/).map(s => s.replace(/^[-•*\d.)]+\s*/, '').replace(/\s+/g, ' ').trim()).filter(Boolean);
         const out = [];
         for (const block of raw) {
             const sents = block.match(/[^.!?…]+[.!?…]+["”')]*\s*|[^.!?…]+$/g) || [block];
@@ -868,7 +1023,7 @@
             for (const s of sents) {
                 const trimmed = s.trim();
                 if (!trimmed) continue;
-                if (cur && (cur.length + trimmed.length) > 155) {
+                if (cur && (cur.length + trimmed.length) > 160) {
                     out.push(cur);
                     cur = trimmed;
                 } else {
@@ -878,6 +1033,27 @@
             if (cur) out.push(cur);
         }
         return out.filter(p => p.length >= 12);
+    }
+
+    // API anahtarı yoksa veya internet dalgalanmasında 3-5 kritik cümleyi metinden akıllıca seçen yedek özetleyici
+    function buildSmartExtractiveSummary(paras, art, maxSentences = 4) {
+        const all = [];
+        if (Array.isArray(paras) && paras.length) {
+            paras.forEach(p => splitIntoSentences(p).forEach(s => all.push(s)));
+        }
+        if (!all.length && art && art.description) {
+            const cleanDesc = (art.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+            splitIntoSentences(cleanDesc).forEach(s => all.push(s));
+        }
+        const filtered = all.filter(s => s.length >= 25 && !/abone ol|bizi takip|tıklayın|haberin devamı|tüm hakları/i.test(s));
+        const pool = filtered.length ? filtered : all;
+        if (pool.length <= maxSentences) return pool.slice(0, maxSentences);
+        // İlk 2 cümle (haberin girişi/spotu) + ortadaki ve sondaki en kritik cümleler
+        const picked = [pool[0], pool[1]];
+        const midIdx = Math.floor(pool.length / 2);
+        if (midIdx > 1 && picked.length < maxSentences) picked.push(pool[midIdx]);
+        if (pool.length - 1 > midIdx && picked.length < maxSentences) picked.push(pool[pool.length - 1]);
+        return picked.slice(0, maxSentences);
     }
 
     const inflightArticleFetch = new Map();
@@ -932,54 +1108,72 @@
         return p;
     }
 
-    // ---------- KOTA DOSTU + SADECE RAM ÖNBELLEKLİ MİNİ AI ÖZETLEYİCİ ----------
+    // ---------- KART ÜZERİ 3-5 CÜMLELİK KRİTİK ÖZETLEYİCİ (SIRALI API ANAHTARI + ARKA PLAN ÖN HAZIRLIK) ----------
+    // CARD_AI_CACHE: link -> { sents: string[], keyInfo: string }
     const CARD_AI_CACHE = new Map();
     const inflightCardAi = new Map();
 
-    async function getCardMiniAISummarySentences(art) {
+    async function getCardMiniAISummaryData(art) {
         if (!art || !art.link) return null;
         if (CARD_AI_CACHE.has(art.link)) return CARD_AI_CACHE.get(art.link);
-        if (!hasAIKey()) return null;
         if (inflightCardAi.has(art.link)) return inflightCardAi.get(art.link);
 
         const job = (async () => {
-            try {
-                const fetched = await fetchArticleParasForPeek(art);
-                let rawContext = '';
-                if (fetched.ok && fetched.paras.length) {
-                    rawContext = fetched.paras.join(' ').substring(0, 1250);
-                } else {
-                    const cleanDesc = (art.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-                    if (cleanDesc.length < 35) return null;
-                    rawContext = cleanDesc.substring(0, 800);
-                }
+            const fetched = await fetchArticleParasForPeek(art);
+            let rawContext = '';
+            if (fetched.ok && fetched.paras.length) {
+                rawContext = fetched.paras.join(' ').substring(0, 1800);
+            } else {
+                const cleanDesc = (art.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+                rawContext = cleanDesc.substring(0, 900);
+            }
 
-                const messages = [
-                    {
-                        role: 'system',
-                        content: 'Sen bir TV haber spikerisin. Verilen haberi TV ekranında alt alta kayarak okunacak şekilde, Türkçe, net ve akıcı 3 veya 4 kısa cümleyle özetle. Kesinlikle HTML etiketi, başlık veya madde işareti kullanma; her cümleyi yeni satırda düz metin olarak yaz.'
-                    },
-                    {
-                        role: 'user',
-                        content: `Başlık: ${art.title || ''}\nİçerik: ${rawContext}`
+            if (hasAIKey() && rawContext.length >= 30) {
+                try {
+                    const messages = [
+                        {
+                            role: 'system',
+                            content: 'Sen deneyimli bir TV haber editörüsün. Verilen haberin sadece EN KRİTİK ve EN ÖNEMLİ kısımlarını içeren, Türkçe, çok net ve akıcı 3 veya 4 cümlelik bir özet yaz. Kesinlikle HTML etiketi, başlık veya madde işareti kullanma; her cümleyi yeni satırda düz metin olarak yaz.'
+                        },
+                        {
+                            role: 'user',
+                            content: `Başlık: ${art.title || ''}\nHaber Metni: ${rawContext}`
+                        }
+                    ];
+
+                    const metaRes = await groqChatRotatedWithMeta(messages, { temperature: 0.3, maxTokens: 1200 });
+                    const cleanText = String(metaRes.text || '')
+                        .replace(/<[^>]*>/g, ' ')
+                        .replace(/[*#_`~>]/g, '')
+                        .trim();
+
+                    const sents = splitIntoSentences(cleanText).slice(0, 5);
+                    if (sents.length >= 1) {
+                        const entry = {
+                            sents,
+                            keyInfo: metaRes.totalKeys > 1 ? `Anahtar ${metaRes.keyNum}/${metaRes.totalKeys}` : 'AI Özeti',
+                            isAi: true
+                        };
+                        if (CARD_AI_CACHE.size > 60) CARD_AI_CACHE.delete(CARD_AI_CACHE.keys().next().value);
+                        CARD_AI_CACHE.set(art.link, entry);
+                        return entry;
                     }
-                ];
-
-                const fastModels = (typeof GROQ_MODELS_FAST !== 'undefined') ? GROQ_MODELS_FAST : undefined;
-                const reply = await groqChatRotated(messages, { temperature: 0.3, maxTokens: 240, models: fastModels });
-                const cleanText = String(reply || '')
-                    .replace(/<[^>]*>/g, ' ')
-                    .replace(/[*#_`~>]/g, '')
-                    .trim();
-
-                const sents = splitIntoSentences(cleanText);
-                if (sents.length >= 1) {
-                    if (CARD_AI_CACHE.size > 60) CARD_AI_CACHE.delete(CARD_AI_CACHE.keys().next().value);
-                    CARD_AI_CACHE.set(art.link, sents);
-                    return sents;
+                } catch (e) {
+                    console.warn('[TV 3-5 Cümle AI Özeti yedek kritik özete düştü]:', e && e.message);
                 }
-            } catch (e) {
-                console.warn('[TV Mini AI Özeti yedek metne düştü]:', e && e.message);
+            }
+
+            // AI anahtarı yoksa veya geçici hata olursa tam metni yığmak yerine 3-4 kritik cümleyi seç
+            const fallbackSents = buildSmartExtractiveSummary(fetched.paras, art, 4);
+            if (fallbackSents.length >= 1) {
+                const entry = {
+                    sents: fallbackSents,
+                    keyInfo: 'Kritik Özet',
+                    isAi: false
+                };
+                if (CARD_AI_CACHE.size > 60) CARD_AI_CACHE.delete(CARD_AI_CACHE.keys().next().value);
+                CARD_AI_CACHE.set(art.link, entry);
+                return entry;
             }
             return null;
         })();
@@ -987,6 +1181,36 @@
         inflightCardAi.set(art.link, job);
         job.finally(() => inflightCardAi.delete(art.link));
         return job;
+    }
+
+    // Bir kart açıkken sıradaki haberin özetini (veya metnini) arka planda sıradaki API anahtarıyla önceden hazırlar
+    function prefetchUpcomingCardInBackground(myToken) {
+        clearTimeout(nextCardWarmTimer);
+        nextCardWarmTimer = setTimeout(() => {
+            if (myToken !== tickerToken || overlayRoot() || aiOpen()) return;
+            const l = cards();
+            if (l.length < 2 || typeof filteredArticles === 'undefined') return;
+            const summaryMode = isSummaryScrollMode();
+
+            // Önce hemen sıradaki kartı (curIndex + 1), o zaten hazırsa bir sonrakini (curIndex + 2) hazırla
+            for (let step = 1; step <= 2; step++) {
+                const candidateCard = l[(curIndex() + step) % l.length];
+                if (!candidateCard || !candidateCard.dataset.link) continue;
+                const link = candidateCard.dataset.link;
+                if (summaryMode && CARD_AI_CACHE.has(link)) continue;
+                if (!summaryMode && typeof READER_CACHE !== 'undefined' && READER_CACHE.has(link)) continue;
+
+                const nextArt = filteredArticles.find(a => a && a.link === link);
+                if (nextArt) {
+                    if (summaryMode) {
+                        getCardMiniAISummaryData(nextArt).catch(() => {});
+                    } else {
+                        fetchArticleParasForPeek(nextArt).catch(() => {});
+                    }
+                    break;
+                }
+            }
+        }, 1200);
     }
 
     // ---------- 2×OK Detaylı Yapay Zeka Özetleyici ----------
@@ -1024,9 +1248,8 @@
             { role: 'user', content: `[HABER METNİ]:\n${bodyText}\n\nBu haberi TV ekranında hızlıca okunabilecek şekilde özetle ve en önemli noktaları maddeler halinde yaz.` }
         ];
 
-        const fastModels = (typeof GROQ_MODELS_FAST !== 'undefined') ? GROQ_MODELS_FAST : undefined;
-        const raw = await groqChatRotated(messages, { temperature: 0.4, maxTokens: 900, models: fastModels });
-        const cleanHtml = String(raw || '').replace(/```html/g, '').replace(/```/g, '').trim();
+        const metaRes = await groqChatRotatedWithMeta(messages, { temperature: 0.4, maxTokens: 1600 });
+        const cleanHtml = String(metaRes.text || '').replace(/```html/g, '').replace(/```/g, '').trim();
         if (cleanHtml) AI_SUMMARY_CACHE.set(art.link, cleanHtml);
         return cleanHtml;
     }
@@ -1064,17 +1287,16 @@
         const myToken = ++tickerToken;
         const autoAdvanceEnabled = localStorage.getItem('tvAutoAdvance') !== '0';
         const isHorizontal = localStorage.getItem('tvTickerDir') === 'horizontal';
-        const wantAiOnCard = (localStorage.getItem('tvCardContentMode') || 'ai') === 'ai' && hasAIKey();
+        const summaryMode = isSummaryScrollMode();
 
         const badge = document.createElement('div');
         badge.className = 'tv-fetch-badge';
-        badge.textContent = wantAiOnCard ? '✨ AI özeti hazırlanıyor...' : '⏳ Haber metni çekiliyor...';
+        badge.textContent = summaryMode ? '✨ 3-5 cümlelik özet hazırlanıyor...' : '⏳ Tam haber metni çekiliyor...';
         cardEl.appendChild(badge);
 
         const cleanDesc = (art.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-        let sentences = (wantAiOnCard && CARD_AI_CACHE.has(art.link))
-            ? CARD_AI_CACHE.get(art.link)
-            : splitIntoSentences(cleanDesc);
+        const cachedAi = summaryMode && CARD_AI_CACHE.get(art.link);
+        let sentences = cachedAi ? cachedAi.sents : splitIntoSentences(cleanDesc).slice(0, 4);
         if (!sentences || !sentences.length) sentences = [art.title || ''];
 
         const readerWrap = document.createElement('div');
@@ -1117,11 +1339,11 @@
             return singlePassSec;
         }
 
-        function scheduleNextCardAdvance(singlePassSec, passCount) {
+        // Hem Özet modunda hem Tam Metin modunda seçilen içerik 2 KEZ (2 tur) kaydırıldıktan sonra sonraki karta geçer
+        function scheduleTwoPassAdvance(singlePassSec) {
             if (!autoAdvanceEnabled) return;
             clearTimeout(autoAdvanceTimer);
-            const passes = passCount || 2;
-            const advanceDelayMs = (singlePassSec * passes * 1000) + 400;
+            const advanceDelayMs = (singlePassSec * 2 * 1000) + 400;
             autoAdvanceTimer = setTimeout(() => {
                 if (myToken !== tickerToken || overlayRoot() || aiOpen()) return;
                 advanceToNextCard();
@@ -1130,100 +1352,78 @@
 
         const initialSec = updateScrollingContent(sentences);
 
-        if (wantAiOnCard && CARD_AI_CACHE.has(art.link)) {
+        // Arka planda önceki karttayken hazırlanmış özet varsa 0 ms'de anında başlat ve sıradaki kartı hazırla!
+        if (cachedAi) {
             badge.className = 'tv-fetch-badge ai';
-            badge.textContent = `✨ AI Özeti (2 kez akar)`;
-            setTimeout(() => { if (myToken === tickerToken && badge.parentNode) badge.style.opacity = '0'; }, 3000);
-            scheduleNextCardAdvance(initialSec, 2);
-        } else {
-            if (autoAdvanceEnabled) {
-                clearTimeout(autoAdvanceTimer);
-                autoAdvanceTimer = setTimeout(() => {
-                    if (myToken !== tickerToken || overlayRoot() || aiOpen()) return;
-                    advanceToNextCard();
-                }, 15000);
-            }
-
-            // 700ms zapping koruması
-            clearTimeout(currentFetchStartTimer);
-            currentFetchStartTimer = setTimeout(() => {
-                if (myToken !== tickerToken || overlayRoot() || aiOpen()) return;
-
-                if (wantAiOnCard) {
-                    getCardMiniAISummarySentences(art).then(aiSents => {
-                        if (myToken !== tickerToken) return;
-                        if (aiSents && aiSents.length) {
-                            sentences = aiSents;
-                            const singlePassSec = updateScrollingContent(sentences);
-                            badge.className = 'tv-fetch-badge ai';
-                            badge.textContent = `✨ AI Özeti (2 kez akar)`;
-                            setTimeout(() => { if (myToken === tickerToken && badge.parentNode) badge.style.opacity = '0'; }, 3000);
-                            scheduleNextCardAdvance(singlePassSec, 2);
-                            return;
-                        }
-                        fetchArticleParasForPeek(art).then(res => {
-                            if (myToken !== tickerToken) return;
-                            if (res.ok && res.paras.length) {
-                                const cleaned = [];
-                                res.paras.forEach(fp => splitIntoSentences(fp).forEach(sub => cleaned.push(sub)));
-                                if (cleaned.length) {
-                                    sentences = cleaned;
-                                    const singlePassSec = updateScrollingContent(sentences);
-                                    badge.className = 'tv-fetch-badge ok';
-                                    badge.textContent = `✅ Tam metin (${sentences.length} cümle)`;
-                                    setTimeout(() => { if (myToken === tickerToken && badge.parentNode) badge.style.opacity = '0'; }, 3000);
-                                    scheduleNextCardAdvance(singlePassSec, sentences.length <= 5 ? 2 : 1);
-                                    return;
-                                }
-                            }
-                            badge.className = 'tv-fetch-badge warn';
-                            badge.textContent = '⚠️ Metin çekilemedi (15 sn)';
-                        });
-                    });
-                } else {
-                    fetchArticleParasForPeek(art).then(res => {
-                        if (myToken !== tickerToken) return;
-                        if (res.ok && res.paras.length) {
-                            const cleaned = [];
-                            res.paras.forEach(fp => splitIntoSentences(fp).forEach(sub => cleaned.push(sub)));
-                            if (cleaned.length > 0) {
-                                sentences = cleaned;
-                                const singlePassSec = updateScrollingContent(sentences);
-                                badge.className = 'tv-fetch-badge ok';
-                                badge.textContent = `✅ Tam metin (${sentences.length} cümle)`;
-                                setTimeout(() => { if (myToken === tickerToken && badge.parentNode) badge.style.opacity = '0'; }, 3000);
-                                scheduleNextCardAdvance(singlePassSec, sentences.length <= 5 ? 2 : 1);
-                                return;
-                            }
-                        }
-                        badge.className = 'tv-fetch-badge warn';
-                        badge.textContent = '⚠️ Metin çekilemedi (15 sn)';
-                    }).catch(() => {
-                        if (myToken !== tickerToken) return;
-                        badge.className = 'tv-fetch-badge warn';
-                        badge.textContent = '⚠️ Metin çekilemedi (15 sn)';
-                    });
-                }
-            }, 700);
+            badge.textContent = `✨ ${cachedAi.keyInfo} (${cachedAi.sents.length} cümle • 2 kez akar)`;
+            setTimeout(() => { if (myToken === tickerToken && badge.parentNode) badge.style.opacity = '0'; }, 3500);
+            scheduleTwoPassAdvance(initialSec);
+            prefetchUpcomingCardInBackground(myToken);
+            return;
         }
 
-        // Zapping Korumalı Ön Hazırlık: 2.5 sn sonra sıradaki haberin özetini bir sonraki API anahtarıyla hazırla
-        clearTimeout(nextCardWarmTimer);
-        nextCardWarmTimer = setTimeout(() => {
+        // Henüz önbellekte yoksa geçici emniyet zamanlayıcısı (metin gelince 2 turluk gerçek süreyle güncellenir)
+        if (autoAdvanceEnabled) {
+            clearTimeout(autoAdvanceTimer);
+            autoAdvanceTimer = setTimeout(() => {
+                if (myToken !== tickerToken || overlayRoot() || aiOpen()) return;
+                advanceToNextCard();
+            }, 22000);
+        }
+
+        // 550ms zapping koruması: kullanıcı kanalları hızlıca geçiyorsa boşuna API harcamaz
+        clearTimeout(currentFetchStartTimer);
+        currentFetchStartTimer = setTimeout(() => {
             if (myToken !== tickerToken || overlayRoot() || aiOpen()) return;
-            const l = cards();
-            const nextCard = l[(curIndex() + 1) % Math.max(1, l.length)];
-            if (nextCard && nextCard.dataset.link && typeof filteredArticles !== 'undefined') {
-                const nextArt = filteredArticles.find(a => a && a.link === nextCard.dataset.link);
-                if (nextArt) {
-                    if (wantAiOnCard) {
-                        getCardMiniAISummarySentences(nextArt).catch(() => {});
-                    } else {
-                        fetchArticleParasForPeek(nextArt).catch(() => {});
+
+            if (summaryMode) {
+                getCardMiniAISummaryData(art).then(aiData => {
+                    if (myToken !== tickerToken) return;
+                    if (aiData && aiData.sents && aiData.sents.length) {
+                        sentences = aiData.sents;
+                        const singlePassSec = updateScrollingContent(sentences);
+                        badge.className = 'tv-fetch-badge ai';
+                        badge.textContent = `✨ ${aiData.keyInfo} (${sentences.length} cümle • 2 kez akar)`;
+                        setTimeout(() => { if (myToken === tickerToken && badge.parentNode) badge.style.opacity = '0'; }, 3500);
+                        scheduleTwoPassAdvance(singlePassSec);
+                        prefetchUpcomingCardInBackground(myToken);
+                        return;
                     }
-                }
+                    badge.className = 'tv-fetch-badge warn';
+                    badge.textContent = '⚠️ Özet alınamadı (2 tur)';
+                    scheduleTwoPassAdvance(initialSec);
+                    prefetchUpcomingCardInBackground(myToken);
+                });
+            } else {
+                fetchArticleParasForPeek(art).then(res => {
+                    if (myToken !== tickerToken) return;
+                    if (res.ok && res.paras.length) {
+                        const cleaned = [];
+                        res.paras.forEach(fp => splitIntoSentences(fp).forEach(sub => cleaned.push(sub)));
+                        if (cleaned.length > 0) {
+                            sentences = cleaned;
+                            const singlePassSec = updateScrollingContent(sentences);
+                            badge.className = 'tv-fetch-badge ok';
+                            badge.textContent = `✅ Tam metin (${sentences.length} cümle • 2 kez akar)`;
+                            setTimeout(() => { if (myToken === tickerToken && badge.parentNode) badge.style.opacity = '0'; }, 3500);
+                            scheduleTwoPassAdvance(singlePassSec);
+                            prefetchUpcomingCardInBackground(myToken);
+                            return;
+                        }
+                    }
+                    badge.className = 'tv-fetch-badge warn';
+                    badge.textContent = '⚠️ Metin çekilemedi';
+                    scheduleTwoPassAdvance(initialSec);
+                    prefetchUpcomingCardInBackground(myToken);
+                }).catch(() => {
+                    if (myToken !== tickerToken) return;
+                    badge.className = 'tv-fetch-badge warn';
+                    badge.textContent = '⚠️ Metin çekilemedi';
+                    scheduleTwoPassAdvance(initialSec);
+                    prefetchUpcomingCardInBackground(myToken);
+                });
             }
-        }, 2500);
+        }, 550);
     }
 
     function ensureCardTickerPresent() {
