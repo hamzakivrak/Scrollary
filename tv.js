@@ -54,9 +54,6 @@
 
       /* Üst menü yalnızca ► ile açılan tam ekran panel olarak görünür */
       body.tv-mode #controlsWrapper { display: none !important; }
-      body.tv-mode.tv-panel #controlsWrapper { display: block !important; position: fixed !important; inset: 0 !important; z-index: 3000 !important;
-          overflow-y: auto !important; background: var(--bg, #0b1220) !important; padding: 16px 4% 40px !important; max-height: none !important; }
-      body.tv-mode.tv-panel #controlsWrapper .controls-content { display: block !important; max-height: none !important; overflow: visible !important; opacity: 1 !important; }
 
       body.tv-mode #newsGrid { display: block !important; padding: 0 !important; margin: 0 !important; height: 100vh; width: 100%; position: relative; background: #0b1220; }
       body.tv-mode #newsGrid .swipe-wrapper { display: none !important; animation: none !important; transition: none !important; }
@@ -309,11 +306,185 @@
           100% { transform: translate3d(-100%, 0, 0); }
       }
 
-      /* Yazılar ~2 kat: pencereler --z oranında büyütülür, boyutlar ekrana göre ters orantıyla ayarlanır */
-      body.tv-mode .modal-content { zoom: var(--z, 2); width: calc(94vw / var(--z, 2)) !important; max-width: calc(94vw / var(--z, 2)) !important;
-          height: calc(86vh / var(--z, 2)) !important; max-height: calc(86vh / var(--z, 2)) !important; }
-      body.tv-mode #newsModal .modal-content { width: calc(100vw / var(--z, 2)) !important; max-width: none !important; height: calc(100vh / var(--z, 2)) !important; max-height: none !important; border-radius: 0 !important; }
+      /* ===== FİLTRE PANELİ (#controlsWrapper) VE AYARLAR MODALLARI: %50 KÜÇÜLTÜLMÜŞ, ZARİF VE OKUNAKLI TASARIM ===== */
+      /* Haber okuma penceresi (#newsModal) kendi zoom oranını korurken, Ayarlar ve Filtre pencereleri %50 küçültüldü (zoom: 1) */
+      body.tv-mode #newsModal .modal-content {
+          zoom: var(--z, 2);
+          width: calc(100vw / var(--z, 2)) !important;
+          max-width: none !important;
+          height: calc(100vh / var(--z, 2)) !important;
+          max-height: none !important;
+          border-radius: 0 !important;
+      }
       body.tv-mode #newsModal #modalBodyArea { padding-bottom: 30px; }
+
+      /* Ayarlar, Kaynak Yönetimi ve Rehber pencereleri: %50 küçültülmüş (zoom: 1), kibar ve geniş */
+      body.tv-mode #settingsModal .modal-content,
+      body.tv-mode #sourceFilterModal .modal-content,
+      body.tv-mode #guideModal .modal-content,
+      body.tv-mode #voiceModal .modal-content {
+          zoom: 1 !important;
+          width: 86vw !important;
+          max-width: 820px !important;
+          height: 86vh !important;
+          max-height: 86vh !important;
+          padding: 12px 18px !important;
+          border-radius: 14px !important;
+          box-sizing: border-box !important;
+      }
+      body.tv-mode #settingsModal .modal-header h3,
+      body.tv-mode #sourceFilterModal .modal-header h3,
+      body.tv-mode #guideModal .modal-header h3 {
+          font-size: 1.05rem !important;
+      }
+      body.tv-mode #settingsModal details.setting-item {
+          margin-bottom: 8px !important;
+          border-radius: 10px !important;
+      }
+      body.tv-mode #settingsModal details.setting-item > summary {
+          font-size: 0.88rem !important;
+          padding: 8px 12px !important;
+          line-height: 1.3 !important;
+      }
+      body.tv-mode #settingsModal .setting-detail {
+          padding: 10px 12px !important;
+          font-size: 0.8rem !important;
+      }
+      body.tv-mode #settingsModal .tap-label,
+      body.tv-mode #settingsModal label {
+          font-size: 0.8rem !important;
+          margin-bottom: 4px !important;
+      }
+      body.tv-mode #settingsModal select,
+      body.tv-mode #settingsModal input:not([type="checkbox"]),
+      body.tv-mode #settingsModal button,
+      body.tv-mode #settingsModal .tap-select {
+          font-size: 0.82rem !important;
+          padding: 6px 10px !important;
+          min-height: 0 !important;
+          height: auto !important;
+          border-radius: 8px !important;
+      }
+      body.tv-mode #settingsModal p {
+          font-size: 0.75rem !important;
+          line-height: 1.35 !important;
+          margin: 4px 0 10px 0 !important;
+      }
+
+      /* Sağ ok (►) ile açılan Filtre / Ara / Kaynak Ekle tam ekran paneli: %50 küçültüldü (zoom: 1) */
+      body.tv-mode.tv-panel #controlsWrapper {
+          display: block !important;
+          position: fixed !important;
+          inset: 0 !important;
+          z-index: 3000 !important;
+          zoom: 1 !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          max-height: none !important;
+          overflow-y: auto !important;
+          background: var(--bg, #0b1220) !important;
+          padding: 12px 4% 48px !important;
+          box-sizing: border-box !important;
+      }
+      body.tv-mode.tv-panel #controlsWrapper .controls-content {
+          display: block !important;
+          max-height: none !important;
+          overflow: visible !important;
+          opacity: 1 !important;
+          padding: 6px 0 !important;
+      }
+      /* Üst başlık satırını incelt ve sadeleştir */
+      body.tv-mode.tv-panel #controlsWrapper .controls-toggle {
+          padding: 6px 12px !important;
+          min-height: 0 !important;
+          margin-bottom: 8px !important;
+          font-size: 0.85rem !important;
+          border-radius: 10px !important;
+      }
+      body.tv-mode.tv-panel #controlsWrapper .sticky-icon-btn {
+          width: 30px !important;
+          height: 30px !important;
+          min-width: 30px !important;
+          font-size: 0.88rem !important;
+          padding: 0 !important;
+      }
+      body.tv-mode.tv-panel #controlsWrapper .sticky-logo {
+          width: 22px !important;
+          height: 22px !important;
+      }
+      body.tv-mode.tv-panel #controlsWrapper .sticky-region-select {
+          font-size: 0.8rem !important;
+          padding: 4px 8px !important;
+          height: 30px !important;
+      }
+      /* Sekmeler (Ara / Filtrele / Kaynak Ekle) */
+      body.tv-mode.tv-panel #controlsWrapper .sticky-tabs {
+          gap: 8px !important;
+          margin-bottom: 10px !important;
+      }
+      body.tv-mode.tv-panel #controlsWrapper .c-tab {
+          padding: 6px 12px !important;
+          font-size: 0.84rem !important;
+          border-radius: 8px !important;
+      }
+      /* Bölüm başlıkları ve kategori / kaynak çipleri */
+      body.tv-mode.tv-panel #controlsWrapper .filter-section-title {
+          font-size: 0.8rem !important;
+          padding: 4px 0 !important;
+          margin-bottom: 6px !important;
+      }
+      /* Kategori çipleri sağdan taşmasın, alt satıra sarılsın */
+      body.tv-mode.tv-panel #controlsWrapper #catWrapper.category-scroll {
+          display: flex !important;
+          flex-wrap: wrap !important;
+          overflow-x: visible !important;
+          gap: 6px !important;
+          padding: 2px 0 8px 0 !important;
+      }
+      body.tv-mode.tv-panel #controlsWrapper .chip,
+      body.tv-mode.tv-panel #controlsWrapper .cat-chip,
+      body.tv-mode.tv-panel #controlsWrapper #catWrapper > * {
+          font-size: 0.78rem !important;
+          padding: 5px 11px !important;
+          border-radius: 999px !important;
+          min-height: 0 !important;
+          height: auto !important;
+          line-height: 1.2 !important;
+      }
+      body.tv-mode.tv-panel #controlsWrapper #filterList {
+          display: flex !important;
+          flex-wrap: wrap !important;
+          gap: 6px !important;
+          max-height: none !important;
+          padding: 4px 0 !important;
+      }
+      body.tv-mode.tv-panel #controlsWrapper .select-all-btn {
+          font-size: 0.74rem !important;
+          padding: 3px 10px !important;
+          border-radius: 6px !important;
+      }
+      /* Ara ve Kaynak Ekle bölmelerindeki kutu ve butonlar */
+      body.tv-mode.tv-panel #controlsWrapper input:not([type="checkbox"]),
+      body.tv-mode.tv-panel #controlsWrapper button {
+          font-size: 0.82rem !important;
+          padding: 7px 12px !important;
+          border-radius: 8px !important;
+      }
+      body.tv-mode.tv-panel #controlsWrapper #fetchBtn {
+          padding: 8px 14px !important;
+          font-size: 0.84rem !important;
+          margin-top: 10px !important;
+      }
+      /* AI Kaynak Asistanı ve URL Arama sonuç kartları: kumandayla seçilebilir net görünüm */
+      body.tv-mode #aiRssResults > div,
+      body.tv-mode #rssSearchResults > div,
+      body.tv-mode .tv-rss-item {
+          padding: 8px 12px !important;
+          font-size: 0.82rem !important;
+          border-radius: 8px !important;
+          margin-bottom: 4px !important;
+          cursor: pointer !important;
+      }
 
       /* Haber okuma penceresinde üstte sadece haber kaynağı görünsün, sekmeler ve fazlalıklar gizlensin */
       body.tv-mode #newsModal .modal-tabs,
@@ -353,9 +524,13 @@
       body.tv-mode #aiChatHistory .summary-card h4 { font-size: 1.1rem !important; color: #facc15 !important; margin: 0 0 6px 0 !important; }
       body.tv-mode #aiChatHistory .summary-card li { margin-bottom: 6px !important; line-height: 1.58 !important; }
 
-      body.tv-mode.tv-panel #controlsWrapper { zoom: var(--z, 2); inset: auto !important; top: 0 !important; left: 0 !important;
-          width: calc(100vw / var(--z, 2)) !important; height: calc(100vh / var(--z, 2)) !important; padding: 8px 3% 70px !important; box-sizing: border-box; }
-      body.tv-mode .tv-focus, body.tv-mode :focus-visible { outline: 4px solid #facc15 !important; outline-offset: 3px; border-radius: 12px; }
+      /* Seçili odak çerçevesi: zarif sarı vurgu */
+      body.tv-mode .tv-focus, body.tv-mode :focus-visible {
+          outline: 2.5px solid #facc15 !important;
+          outline-offset: 2px !important;
+          border-radius: 8px;
+          box-shadow: 0 0 12px rgba(250, 204, 21, 0.35) !important;
+      }
       body.tv-mode * { -webkit-tap-highlight-color: transparent; }
 
       /* Alt yönlendirme / buton tanıtım çubuğu (#tvBar): çok ince, zarif, yarı saydam ve ufak yazılı (akan metinle asla çakışmaz) */
@@ -577,7 +752,7 @@
         feed: '<span><b>◄</b> Ayarlar & Radyo</span><span><b>▲▼</b> Haber</span><span id="tvCount"></span><span><b>OK</b> Oku</span><span><b>2×OK</b> ✨ Detaylı Özet</span><span><b>►</b> Filtreler</span>',
         news: '<span><b>◄</b> Okuma</span><span><b>►</b> Orijinal</span><span><b>OK</b> Boyut</span><span><b>2×OK</b> ✨ Özet</span><span><b>▲▼</b> Kaydır</span><span><b>GERİ</b> Kapat</span>',
         ai:   '<span><b>▲▼</b> Kaydır</span><span><b>OK</b> Boyut</span><span><b>2×OK / GERİ</b> Özeti kapat</span>',
-        menu: '<span><b>▲▼◄►</b> Gez</span><span><b>OK</b> Seç / aç</span><span><b>GERİ</b> Kapat</span>'
+        menu: '<span><b>▲▼◄►</b> Gez</span><span><b>OK</b> Seç / Ekle</span><span><b>GERİ</b> Kapat</span>'
     };
     let barKind = '';
     let barHideTimer = null;
@@ -616,8 +791,6 @@
     const aiOpen = () => { const a = $('aiInlineResult'); return !!a && getComputedStyle(a).display !== 'none'; };
 
     // ---------- AKILLI TOPLU API ANAHTARI ALGILAYICI (TEK TEK, VİRGÜLLE VEYA .TXT İÇERİĞİ YAPIŞTIRMA) ----------
-    // Kutuya ister tek anahtar, ister virgülle/boşlukla ayrılmış anahtarlar, ister bütün bir .txt dosyasının içeriği
-    // yapıştırılsın; içindeki tüm Groq (gsk_...) ve Gemini (AIza...) anahtarlarını otomatik ayıklar ve kaydeder.
     function extractAllApiKeys(rawText) {
         const out = { groq: [], gemini: [] };
         if (!rawText) return out;
@@ -663,7 +836,6 @@
         return { total, addG, addM, dup };
     }
 
-    // ai.js içindeki tekli addGroqKey ve parseKeysFromText fonksiyonlarını çoklu/virgüllü/.txt destekli sürümle güncelliyoruz
     window.parseKeysFromText = extractAllApiKeys;
     window.importKeysFromText = saveExtractedApiKeys;
 
@@ -695,11 +867,16 @@
         const keyInput = document.getElementById('newGroqKeyInput');
         if (!keyInput || keyInput.dataset.tvBulkReady) return;
         keyInput.dataset.tvBulkReady = '1';
-        // Şifre maskesini kaldırıp normal metin yapıyoruz ki TV klavyesinde ve çoklu yapıştırmada rahatça görülsün
         try { keyInput.type = 'text'; } catch (e) {}
         keyInput.placeholder = 'Tek tek, virgülle (key1, key2) veya tüm .txt içeriğini yapıştırın...';
 
-        // Kutuya doğrudan çok satırlı .txt içeriği veya virgüllü liste yapıştırıldığında satır sonları kaybolmadan yakala ve kaydet
+        keyInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                window.addGroqKey();
+            }
+        });
+
         keyInput.addEventListener('paste', (e) => {
             try {
                 const clip = (e.clipboardData || window.clipboardData).getData('text');
@@ -712,6 +889,79 @@
                 }
             } catch (err) {}
         });
+    }
+
+    // ---------- KAYNAK EKLE (AI RSS & URL ARAMA) SONUÇLARINI KUMANDAYLA GEZİLEBİLİR YAPMA ----------
+    function makeRssResultContainerFocusable(containerId) {
+        const box = $(containerId);
+        if (!box || box.dataset.tvObserved) return;
+        box.dataset.tvObserved = '1';
+
+        const enhanceItems = () => {
+            const children = Array.from(box.children).filter(el => {
+                // Yükleniyor veya hata mesajı değilse, tıklanabilir sonuç kartıdır
+                return el.tagName === 'BUTTON' || typeof el.onclick === 'function' || el.querySelector('.ai-add-badge, button');
+            });
+            if (!children.length) return;
+
+            children.forEach((item) => {
+                if (!item.classList.contains('tv-rss-item')) {
+                    item.classList.add('tv-rss-item');
+                    item.setAttribute('tabindex', '0');
+                    item.setAttribute('role', 'button');
+
+                    // Tıklandığında pointerEvents: 'none' yüzünden kumanda odağının kaybolmasını önle ve sıradaki sonuca odaklan
+                    const origClick = item.onclick;
+                    if (typeof origClick === 'function' && !item.dataset.tvClickWrapped) {
+                        item.dataset.tvClickWrapped = '1';
+                        item.onclick = function (ev) {
+                            if (this.dataset.tvAdded !== '1') {
+                                this.dataset.tvAdded = '1';
+                                origClick.call(this, ev);
+                                // autoFillAndAddRss'in açtığı manuel kayıt formunu tekrar kapat ki ekran kaymasın
+                                setTimeout(() => {
+                                    const man = $('manualAddSection');
+                                    if (man) man.classList.remove('show');
+                                }, 450);
+                            }
+                            this.style.pointerEvents = 'auto';
+                            // Varsa bir sonraki eklenmemiş sonuca odaklan
+                            const siblings = Array.from(box.querySelectorAll('.tv-rss-item'));
+                            const myIdx = siblings.indexOf(this);
+                            const nextItem = siblings.slice(myIdx + 1).find(x => x.dataset.tvAdded !== '1')
+                                || siblings.find(x => x.dataset.tvAdded !== '1')
+                                || this;
+                            if (nextItem) setTimeout(() => setFocus(nextItem), 60);
+                        };
+                    }
+                }
+            });
+
+            // Sonuçlar ilk kez yüklendiğinde kumanda odağını otomatik olarak ilk bulunan kaynağın üzerine getir!
+            const firstUnadded = children.find(x => x.dataset.tvAdded !== '1') || children[0];
+            if (firstUnadded && document.body.classList.contains('tv-panel')) {
+                setTimeout(() => setFocus(firstUnadded), 80);
+            }
+        };
+
+        new MutationObserver(enhanceItems).observe(box, { childList: true });
+        enhanceItems();
+    }
+
+    function setupAddSourceEnhancements() {
+        makeRssResultContainerFocusable('aiRssResults');
+        makeRssResultContainerFocusable('rssSearchResults');
+
+        const aiInput = $('aiRssTopic');
+        if (aiInput && !aiInput.dataset.tvEnterReady) {
+            aiInput.dataset.tvEnterReady = '1';
+            aiInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && typeof findRssWithAI === 'function') {
+                    e.preventDefault();
+                    findRssWithAI();
+                }
+            });
+        }
     }
 
     // ---------- HER KARTTA SIRAYLA FARKLI API ANAHTARI KULLANIMI (STRICT ROUND-ROBIN KEY ROTATION) ----------
@@ -1011,6 +1261,7 @@
 
     function injectTvSettings() {
         upgradeApiKeyInputBox();
+        setupAddSourceEnhancements();
         const modalBody = document.querySelector('#settingsModal .modal-body');
         if (!modalBody || document.getElementById('tvSettingsDetail')) return;
         const curContentMode = isSummaryScrollMode() ? 'ai' : 'full';
@@ -1037,7 +1288,7 @@
                 <select id="tvRadioStationSelect" class="tap-select" onchange="window.tvSetRadioStation(this.value)">
                     ${stationOptionsHtml}
                 </select>
-                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Seçtiğiniz radyo istasyonu haberleri izlerken ve okurken arka planda kesintisiz çalar.</p>
+                <p style="color: var(--text-muted); font-size: 0.78rem; margin: 4px 0 10px 0;">Seçtiğiniz radyo istasyonu haberleri izlerken ve okurken arka planda kesintisiz çalar.</p>
 
                 <label class="tap-label" for="tvRadioVolSelect">Radyo Ses Seviyesi</label>
                 <select id="tvRadioVolSelect" class="tap-select" onchange="window.tvSetRadioVolume(this.value)">
@@ -1060,7 +1311,7 @@
                     <option value="ai">✨ 3-5 Cümlelik 5N1K Özeti Aksın (2 Kez Akıp Sonrakine Geçer)</option>
                     <option value="full">📄 Haberin Tüm Metni Aksın (2 Kez Akıp Sonrakine Geçer)</option>
                 </select>
-                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Hangisini seçerseniz seçin metin çekilene kadar başlığın altında bilgi ibaresi belirir, çekildiği anda başlığı tekrar etmeden 2 kez kaydırılır ve otomatik olarak sonraki habere geçilir.</p>
+                <p style="color: var(--text-muted); font-size: 0.78rem; margin: 4px 0 10px 0;">Hangisini seçerseniz seçin metin çekilene kadar başlığın altında bilgi ibaresi belirir, çekildiği anda başlığı tekrar etmeden 2 kez kaydırılır ve otomatik olarak sonraki habere geçilir.</p>
 
                 <label class="tap-label" for="tvTitleScaleSelect">Haber Başlığı Yazı Boyutu</label>
                 <select id="tvTitleScaleSelect" class="tap-select" onchange="window.tvSetTitleScale(this.value)">
@@ -1071,7 +1322,7 @@
                     <option value="1.3">Çok Büyük (%130)</option>
                     <option value="1.5">Dev Başlık (%150)</option>
                 </select>
-                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Ana kart üzerindeki sarı haber başlığının büyüklüğünü ayarlar.</p>
+                <p style="color: var(--text-muted); font-size: 0.78rem; margin: 4px 0 10px 0;">Ana kart üzerindeki sarı haber başlığının büyüklüğünü ayarlar.</p>
 
                 <label class="tap-label" for="tvTickerScaleSelect">Akan Metin Yazı Boyutu (Yukarı & Yatay)</label>
                 <select id="tvTickerScaleSelect" class="tap-select" onchange="window.tvSetTickerScale(this.value)">
@@ -1081,7 +1332,7 @@
                     <option value="1.4">Çok Büyük (%140)</option>
                     <option value="1.6">Dev Boyut (%160)</option>
                 </select>
-                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Hem yukarı kayan cümlelerin hem de yatay bandın yazı büyüklüğünü değiştirir.</p>
+                <p style="color: var(--text-muted); font-size: 0.78rem; margin: 4px 0 10px 0;">Hem yukarı kayan cümlelerin hem de yatay bandın yazı büyüklüğünü değiştirir.</p>
 
                 <label class="tap-label" for="tvTickerSpeedSelect">Yukarı / Yatay Metin Kayma Hızı</label>
                 <select id="tvTickerSpeedSelect" class="tap-select" onchange="window.tvSetTickerSpeed(this.value)">
@@ -1092,28 +1343,28 @@
                     <option value="1.5">🏎️ Çok Hızlı (%150)</option>
                     <option value="1.85">⚡⚡ Süper Hızlı (%185)</option>
                 </select>
-                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Hem aşağıdan yukarıya hem de sağdan sola akan metnin kayma hızını ayarlar.</p>
+                <p style="color: var(--text-muted); font-size: 0.78rem; margin: 4px 0 10px 0;">Hem aşağıdan yukarıya hem de sağdan sola akan metnin kayma hızını ayarlar.</p>
 
                 <label class="tap-label" for="tvTickerDirSelect">Akan Metin Yönü</label>
                 <select id="tvTickerDirSelect" class="tap-select" onchange="window.tvSetTickerDir(this.value)">
                     <option value="vertical">⬆️ Aşağıdan Yukarıya (Cümle Cümle & Saydam)</option>
                     <option value="horizontal">➡️ Sağdan Sola (Klasik TV Haber Bandı)</option>
                 </select>
-                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Aşağıdan yukarıya modunda cümleler saydam arka plan üzerinde kart resmiyle birlikte görünür.</p>
+                <p style="color: var(--text-muted); font-size: 0.78rem; margin: 4px 0 10px 0;">Aşağıdan yukarıya modunda cümleler saydam arka plan üzerinde kart resmiyle birlikte görünür.</p>
 
                 <label class="tap-label" for="tvHideReadSelect">Okunan Haberleri Gizle</label>
                 <select id="tvHideReadSelect" class="tap-select" onchange="window.tvSetHideRead(this.value)">
                     <option value="1">👁️ Açık / Varsayılan (Okunanlar tekrar düşmesin)</option>
                     <option value="0">👁️‍🗨️ Kapalı (Tüm haberler tekrar görünsün)</option>
                 </select>
-                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">İzlediğiniz veya okuduğunuz haberlerin akışta tekrar karşınıza çıkmasını engeller.</p>
+                <p style="color: var(--text-muted); font-size: 0.78rem; margin: 4px 0 10px 0;">İzlediğiniz veya okuduğunuz haberlerin akışta tekrar karşınıza çıkmasını engeller.</p>
 
                 <label class="tap-label" for="tvAutoAdvanceSelect">Otomatik Sonraki Habere Geçiş</label>
                 <select id="tvAutoAdvanceSelect" class="tap-select" onchange="window.tvSetAutoAdvance(this.value)">
                     <option value="1">🔄 Açık (Seçilen metin 2 kez akınca otomatik geçer)</option>
                     <option value="0">⏸️ Kapalı (Yalnızca kumanda ile geç)</option>
                 </select>
-                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Seçilen özet veya tam metin 2 tam tur aktıktan sonra kendiliğinden sıradaki habere geçer.</p>
+                <p style="color: var(--text-muted); font-size: 0.78rem; margin: 4px 0 10px 0;">Seçilen özet veya tam metin 2 tam tur aktıktan sonra kendiliğinden sıradaki habere geçer.</p>
 
                 <button type="button" class="tap-select" style="cursor:pointer; text-align:center; font-weight:bold; background:rgba(239,68,68,0.2); color:#fca5a5; border:1px solid rgba(239,68,68,0.4);" onclick="window.tvClearAllCaches()">🧹 Önbelleği Temizle & Hızlandır</button>
             </div>
@@ -1668,7 +1919,6 @@
         readerWrap.className = 'tv-card-reader';
         contentEl.appendChild(readerWrap);
 
-        // Başlığın hemen altında içerik çekilene kadar gösterilecek zarif bilgi ibaresi
         const waitingBox = document.createElement('div');
         waitingBox.className = 'tv-waiting-box';
         waitingBox.innerHTML = `<span class="tv-waiting-dot"></span><span>${summaryMode ? 'Haber özeti çekiliyor...' : 'Haber metni çekiliyor...'}</span>`;
@@ -1722,7 +1972,6 @@
             }
         }
 
-        // 1) Özet modundaysa ve bir önceki karttayken arka planda hazırlandıysa beklemeden anında akıt!
         const cachedAi = summaryMode && CARD_AI_CACHE.get(art.link);
         if (cachedAi && cachedAi.sents && cachedAi.sents.length) {
             mountAndStartScrolling(
@@ -1734,7 +1983,6 @@
             return;
         }
 
-        // 2) Tam metin modundaysa ve READER_CACHE içinde zaten hazırsa beklemeden anında akıt!
         if (!summaryMode && typeof READER_CACHE !== 'undefined' && READER_CACHE.has(art.link)) {
             const c = READER_CACHE.get(art.link);
             if (c && Array.isArray(c.paras) && c.paras.length) {
@@ -1763,7 +2011,6 @@
             }, 28000);
         }
 
-        // 450ms zapping koruması: kullanıcı kanalları hızlıca geçiyorsa boşuna API harcamaz
         clearTimeout(currentFetchStartTimer);
         currentFetchStartTimer = setTimeout(() => {
             if (myToken !== tickerToken || overlayRoot() || aiOpen()) return;
@@ -2065,11 +2312,22 @@
         return true;
     };
 
+    // Kumanda ile odaklanabilecek tüm öğeler (AI Kaynak Ekle ve URL arama sonuç kartları dahil)
     function candidates(root) {
-        const sel = 'button, a[href], select, input:not([type=hidden]), textarea, summary, [role=button], .chip, .c-tab, [onclick]';
-        const area = innerWidth * innerHeight * 0.45;
+        setupAddSourceEnhancements();
+        const sel = 'button, a[href], select, input:not([type=hidden]), textarea, summary, [role=button], .chip, .cat-chip, .c-tab, [onclick], .tv-rss-item, #aiRssResults > div, #rssSearchResults > div';
+        const area = innerWidth * innerHeight * 0.55;
         return Array.from(root.querySelectorAll(sel)).filter(el => {
             if (el.disabled || el.classList.contains('modal') || el.classList.contains('modal-content') || el.classList.contains('controls-toggle')) return false;
+            if ((el.parentElement && (el.parentElement.id === 'aiRssResults' || el.parentElement.id === 'rssSearchResults')) && !el.classList.contains('tv-rss-item')) {
+                if (typeof el.onclick === 'function' || el.querySelector('.ai-add-badge, button')) {
+                    el.classList.add('tv-rss-item');
+                    el.setAttribute('tabindex', '0');
+                    el.setAttribute('role', 'button');
+                } else {
+                    return false;
+                }
+            }
             if (!visible(el)) return false;
             const r = el.getBoundingClientRect();
             return r.width * r.height < area;
@@ -2092,20 +2350,39 @@
     function move(dir, root) {
         const list = candidates(root); if (!list.length) return false;
         const from = curFocus(root);
-        if (!from || !list.includes(from)) { setFocus(list[0]); return true; }
+        if (!from) { setFocus(list[0]); return true; }
+
+        // Eğer bir metin kutusundayken (örn: #aiRssTopic, #searchRssUrl, #newGroqKeyInput) sağa (►) veya aşağı (▼) basıldıysa
+        // ve aynı satırın sağında "Bul / Ekle" butonu varsa önce doğrudan o butona geçebilsin
+        if ((dir === 'right' || dir === 'down') && from.tagName === 'INPUT' && from.parentElement) {
+            const rowBtn = Array.from(from.parentElement.querySelectorAll('button')).find(b => b !== from && visible(b));
+            if (rowBtn && dir === 'right') {
+                setFocus(rowBtn);
+                return true;
+            }
+            if (rowBtn && dir === 'down' && from.value && from.value.trim().length > 0) {
+                const aiRes = $('aiRssResults');
+                const hasResultsBelow = aiRes && aiRes.querySelectorAll('.tv-rss-item').length > 0;
+                if (!hasResultsBelow) {
+                    setFocus(rowBtn);
+                    return true;
+                }
+            }
+        }
+
         const a = from.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2;
         let best = null, bs = Infinity;
         for (const el of list) {
             if (el === from) continue;
             const b = el.getBoundingClientRect(), bx = b.left + b.width / 2, by = b.top + b.height / 2;
             const dx = bx - ax, dy = by - ay;
-            const ok = dir === 'down' ? dy > 6 : dir === 'up' ? dy < -6 : dir === 'right' ? dx > 6 : dx < -6;
+            const ok = dir === 'down' ? dy > 4 : dir === 'up' ? dy < -4 : dir === 'right' ? dx > 4 : dx < -4;
             if (!ok) continue;
             const vert = dir === 'up' || dir === 'down';
             const main = Math.max(0, dir === 'down' ? b.top - a.bottom : dir === 'up' ? a.top - b.bottom : dir === 'right' ? b.left - a.right : a.left - b.right);
             const gap = vert ? Math.max(0, Math.max(a.left, b.left) - Math.min(a.right, b.right)) : Math.max(0, Math.max(a.top, b.top) - Math.min(a.bottom, b.bottom));
             const off = vert ? Math.abs(dx) : Math.abs(dy);
-            const s = main + (gap + off * 0.25) * 3;
+            const s = main + (gap + off * 0.22) * 2.5;
             if (s < bs) { bs = s; best = el; }
         }
         if (best) { setFocus(best); return true; }
@@ -2119,7 +2396,7 @@
         }
         return root.querySelector('.modal-body') || root;
     }
-    function scrollOverlay(dir, root) { const s = scroller(root); s.scrollBy({ top: dir === 'down' ? 320 : -320, behavior: 'smooth' }); }
+    function scrollOverlay(dir, root) { const s = scroller(root); s.scrollBy({ top: dir === 'down' ? 260 : -260, behavior: 'smooth' }); }
 
     function scrollReader(dir) {
         const dy = dir === 'down' ? 280 : -280;
@@ -2198,6 +2475,7 @@
         if (w.classList.contains('collapsed') && typeof toggleControls === 'function') toggleControls();
         try { if (typeof switchControlTab === 'function') switchControlTab('filter'); } catch (e) {}
         const fl = $('filterList'); if (fl) fl.classList.add('show');
+        setupAddSourceEnhancements();
         refreshOpenStack();
         setTimeout(() => { sync(); focusIn(w); }, 60);
     }
@@ -2358,7 +2636,14 @@
             }
         }
         if (dir) {
-            if (inText && (dir === 'left' || dir === 'right')) return;
+            if (inText && (dir === 'left' || dir === 'right')) {
+                // Metin kutusunda imleç en sondayken (veya kutu boşken) sağ oka (►) basılırsa yandaki "Bul / Ekle" butonuna geçebilsin
+                const atEnd = !t.value || (typeof t.selectionStart === 'number' && t.selectionStart >= t.value.length);
+                const atStart = !t.value || (typeof t.selectionStart === 'number' && t.selectionStart === 0);
+                if (!((dir === 'right' && atEnd) || (dir === 'left' && atStart))) {
+                    return;
+                }
+            }
             e.preventDefault(); e.stopImmediatePropagation();
             if (!ov) {
                 if (dir === 'down') showCard(curIndex() + 1, true);
