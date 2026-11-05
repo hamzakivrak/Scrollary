@@ -42,7 +42,7 @@
     const initTickerScale = parseFloat(localStorage.getItem('tvTickerScale')) || 1.0;
     document.documentElement.style.setProperty('--ticker-scale', String(initTickerScale));
 
-    // ---------- Görünüm: Mi Stick GPU dostu, hafifletilmiş CSS (blur/mask kaldırıldı, sıfır takılma!) ----------
+    // ---------- Görünüm: Mi Stick GPU dostu, hafifletilmiş ve saydam arka planlı CSS ----------
     const css = document.createElement('style');
     css.textContent = `
       body.tv-mode { overflow: hidden; }
@@ -79,7 +79,7 @@
           line-height: 1.15 !important;
           padding: 4px 14px !important;
           border-radius: 999px !important;
-          background: rgba(15, 23, 42, 0.85) !important;
+          background: rgba(15, 23, 42, 0.72) !important;
           color: rgba(248, 250, 252, 0.92) !important;
           border: 1px solid rgba(255, 255, 255, 0.16) !important;
           white-space: nowrap !important;
@@ -98,7 +98,7 @@
           letter-spacing: 0.04em;
           padding: 4px 12px;
           border-radius: 999px;
-          background: rgba(15, 23, 42, 0.85);
+          background: rgba(15, 23, 42, 0.72);
           color: rgba(241, 245, 249, 0.9);
           border: 1px solid rgba(255, 255, 255, 0.14);
           pointer-events: none;
@@ -121,47 +121,69 @@
           letter-spacing: 0.03em;
           padding: 3px 10px;
           border-radius: 999px;
-          background: rgba(15, 23, 42, 0.85);
+          background: rgba(15, 23, 42, 0.72);
           color: #cbd5e1;
           border: 1px solid rgba(148, 163, 184, 0.2);
           pointer-events: none;
           transition: opacity 0.35s ease;
       }
       .tv-fetch-badge.warn {
-          background: rgba(127, 29, 29, 0.88);
+          background: rgba(127, 29, 29, 0.78);
           color: #fecaca;
           border-color: rgba(248, 113, 113, 0.35);
       }
       .tv-fetch-badge.ok {
-          background: rgba(6, 78, 59, 0.88);
+          background: rgba(6, 78, 59, 0.78);
           color: #a7f3d0;
           border-color: rgba(52, 211, 153, 0.35);
       }
       .tv-fetch-badge.ai {
-          background: rgba(67, 20, 107, 0.9);
+          background: rgba(67, 20, 107, 0.8);
           color: #e9d5ff;
           border-color: rgba(192, 132, 252, 0.4);
       }
 
-      /* Haber başlığı alanı %50 küçültüldü, kazanılan tüm alan akan metin penceresine verildi */
-      body.tv-mode .swipe-wrapper.tv-current .news-content { position: absolute !important; left: 0; right: 0; bottom: 0; padding: 48px 4% 58px !important; z-index: 2;
-          background: linear-gradient(transparent 0%, rgba(7, 11, 20, 0.78) 16%, rgba(7, 11, 20, 0.95) 45%, rgba(7, 11, 20, 0.99) 100%) !important;
-          display: flex !important; flex-direction: column !important; justify-content: flex-end !important; box-sizing: border-box !important; }
-      body.tv-mode .swipe-wrapper.tv-current .news-content h3 { font-size: clamp(1.05rem, 2.7vh, 1.55rem) !important; line-height: 1.22 !important;
-          display: -webkit-box !important; -webkit-box-orient: vertical !important; -webkit-line-clamp: 2 !important; overflow: hidden !important;
-          max-height: 2.5em !important; color: #facc15 !important; text-shadow: 0 2px 8px rgba(0,0,0,.9); margin: 0 0 6px 0 !important; flex-shrink: 0 !important; }
-      body.tv-mode .swipe-wrapper.tv-current .meta { font-size: 0.9rem !important; margin-top: 4px !important; opacity: 0.72; }
+      /* Kart içerik alanı: Arka plan SAYDAM (kart resmi net görünsün diye sadece çok hafif bir alt tül gradyan var),
+         ve alt boşluk ince alt çubuğun üstünde kalacak şekilde ayarlandı */
+      body.tv-mode .swipe-wrapper.tv-current .news-content {
+          position: absolute !important;
+          left: 0; right: 0; bottom: 0;
+          padding: 30px 4% 38px !important;
+          z-index: 2;
+          background: linear-gradient(transparent 0%, rgba(7, 11, 20, 0.18) 30%, rgba(7, 11, 20, 0.42) 70%, rgba(7, 11, 20, 0.62) 100%) !important;
+          display: flex !important;
+          flex-direction: column !important;
+          justify-content: flex-end !important;
+          box-sizing: border-box !important;
+      }
+      body.tv-mode .swipe-wrapper.tv-current .news-content h3 {
+          font-size: clamp(1.05rem, 2.7vh, 1.55rem) !important;
+          line-height: 1.22 !important;
+          display: -webkit-box !important;
+          -webkit-box-orient: vertical !important;
+          -webkit-line-clamp: 2 !important;
+          overflow: hidden !important;
+          max-height: 2.5em !important;
+          color: #facc15 !important;
+          text-shadow: 0 2px 10px rgba(0,0,0,0.95), 0 0 4px rgba(0,0,0,0.9) !important;
+          margin: 0 0 6px 0 !important;
+          flex-shrink: 0 !important;
+      }
+      body.tv-mode .swipe-wrapper.tv-current .meta {
+          display: none !important;
+      }
 
-      /* ===== KART ÜZERİNDE AŞAĞIDAN YUKARIYA VE YATAY AKAN METİN PENCERESİ (GPU Dostu, Genişletilmiş Alan) ===== */
+      /* ===== KART ÜZERİNDE SAYDAM ARKA PLANLI AKAN METİN PENCERESİ (Kart Resmi Arkadan Net Görünür!) ===== */
       .tv-card-reader {
           display: block;
           width: 100%;
           margin-top: 2px;
           box-sizing: border-box;
+          background: transparent !important;
       }
 
       /* 1) Dikey (Aşağıdan Yukarıya) Akış Modu:
-         Başlıktan kazanılan alanla yüksekliği 32vh -> 52vh yapıldı! */
+         Opak siyah örtüler kaldırıldı; arka plan tamamen saydam, yazılar güçlü gölgeyle resim üzerinde cam gibi okunur */
       .tv-vscroll-viewport {
           position: relative;
           width: 100%;
@@ -169,24 +191,7 @@
           overflow: hidden;
           padding: 0 10px;
           box-sizing: border-box;
-      }
-      .tv-vscroll-viewport::before {
-          content: "";
-          position: absolute;
-          top: 0; left: 0; right: 0;
-          height: 11vh;
-          background: linear-gradient(to bottom, rgba(7, 11, 20, 0.96) 0%, rgba(7, 11, 20, 0) 100%);
-          z-index: 3;
-          pointer-events: none;
-      }
-      .tv-vscroll-viewport::after {
-          content: "";
-          position: absolute;
-          bottom: 0; left: 0; right: 0;
-          height: 6vh;
-          background: linear-gradient(to top, rgba(7, 11, 20, 0.96) 0%, rgba(7, 11, 20, 0) 100%);
-          z-index: 3;
-          pointer-events: none;
+          background: transparent !important;
       }
       .tv-vscroll-track {
           display: flex;
@@ -196,14 +201,18 @@
           padding-bottom: 48vh;
           will-change: transform;
           animation: tvVerticalRoll var(--ticker-dur, 28s) linear infinite;
+          background: transparent !important;
       }
       .tv-vscroll-sentence {
           font-size: calc(2.0rem * var(--ticker-scale, 1)) !important;
           font-weight: 600 !important;
           line-height: 1.42 !important;
           font-family: system-ui, sans-serif;
-          color: #f8fafc;
-          padding-left: 16px;
+          color: #ffffff;
+          background: rgba(7, 11, 20, 0.28);
+          border-radius: 0 10px 10px 0;
+          padding: 6px 14px 6px 16px;
+          text-shadow: 0 2px 8px rgba(0, 0, 0, 0.98), 0 0 4px rgba(0, 0, 0, 0.95);
           border-left: 4px solid #38bdf8;
       }
       .tv-vscroll-sentence:nth-child(even) {
@@ -214,16 +223,16 @@
           100% { transform: translate3d(0, -100%, 0); }
       }
 
-      /* 2) Yatay (Sağdan Sola) Akış Modu */
+      /* 2) Yatay (Sağdan Sola) Akış Modu - Saydamlaştırılmış Arka Plan */
       .tv-ticker-wrap {
           position: relative;
           width: 100%;
           overflow: hidden;
-          background: rgba(15, 23, 42, 0.94);
-          border: 1px solid rgba(56, 189, 248, 0.35);
-          border-left: 6px solid #e11d48;
+          background: rgba(15, 23, 42, 0.42);
+          border: 1px solid rgba(255, 255, 255, 0.18);
+          border-left: 5px solid #e11d48;
           border-radius: 10px;
-          padding: 13px 0;
+          padding: 10px 0;
       }
       .tv-ticker-track {
           display: inline-block;
@@ -233,7 +242,8 @@
           font-weight: 600 !important;
           line-height: 1.35 !important;
           font-family: system-ui, sans-serif;
-          color: #f8fafc;
+          color: #ffffff;
+          text-shadow: 0 2px 8px rgba(0, 0, 0, 0.98), 0 0 4px rgba(0, 0, 0, 0.9);
           will-change: transform;
           animation: tvTickerScroll var(--ticker-dur, 28s) linear infinite;
       }
@@ -296,11 +306,27 @@
       body.tv-mode .tv-focus, body.tv-mode :focus-visible { outline: 4px solid #facc15 !important; outline-offset: 3px; border-radius: 12px; }
       body.tv-mode * { -webkit-tap-highlight-color: transparent; }
 
-      #tvBar { display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 5000; padding: 10px 4%; background: rgba(0,0,0,.85); color: #e2e8f0;
-          font: 600 1.35rem system-ui, sans-serif; justify-content: space-between; gap: 14px; transition: opacity 0.35s ease, transform 0.35s ease; }
+      /* Alt yönlendirme / buton tanıtım çubuğu (#tvBar): çok ince, zarif, yarı saydam ve ufak yazılı (akan metinle asla çakışmaz) */
+      #tvBar {
+          display: none;
+          position: fixed;
+          left: 0; right: 0; bottom: 0;
+          z-index: 5000;
+          padding: 4px 3%;
+          background: rgba(7, 11, 20, 0.55);
+          border-top: 1px solid rgba(255, 255, 255, 0.08);
+          color: rgba(226, 232, 240, 0.85);
+          font: 400 0.76rem/1.2 system-ui, -apple-system, sans-serif;
+          letter-spacing: 0.02em;
+          justify-content: space-between;
+          align-items: center;
+          gap: 10px;
+          pointer-events: none;
+          transition: opacity 0.35s ease, transform 0.35s ease;
+      }
       body.tv-mode #tvBar { display: flex; }
       body.tv-mode #tvBar.tv-bar-hidden { opacity: 0 !important; transform: translateY(100%) !important; pointer-events: none !important; }
-      #tvBar b { color: #facc15; }
+      #tvBar b { color: #facc15; font-weight: 600; }
     `;
     document.head.appendChild(css);
     try {
@@ -558,7 +584,7 @@
         return await groqChat(messages, opts);
     }
 
-    // ---------- HAFİF BELLEK (RAM) İÇİ MÜKERRER VE OKUNAN FİLTRESİ (localStorage Yazma Gecikmesi Yok!) ----------
+    // ---------- HAFİF BELLEK (RAM) İÇİ MÜKERRER VE OKUNAN FİLTRESİ ----------
     const seenReadLinks = new Set();
     try {
         (JSON.parse(localStorage.getItem('tvSeenReadLinks') || '[]')).slice(-150).forEach(u => seenReadLinks.add(u));
@@ -748,10 +774,10 @@
 
                 <label class="tap-label" for="tvTickerDirSelect">Akan Metin Yönü</label>
                 <select id="tvTickerDirSelect" class="tap-select" onchange="window.tvSetTickerDir(this.value)">
-                    <option value="vertical">⬆️ Aşağıdan Yukarıya (Cümle Cümle & Üstte Silikleşen)</option>
+                    <option value="vertical">⬆️ Aşağıdan Yukarıya (Cümle Cümle & Saydam)</option>
                     <option value="horizontal">➡️ Sağdan Sola (Klasik TV Haber Bandı)</option>
                 </select>
-                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Aşağıdan yukarıya modunda cümleler alt alta görünür ve kartın ortasına yükseldikçe yumuşakça silikleşir.</p>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin: 6px 0 14px 0;">Aşağıdan yukarıya modunda cümleler saydam arka plan üzerinde kart resmiyle birlikte görünür.</p>
 
                 <label class="tap-label" for="tvTickerSpeedSelect">Yukarı / Yatay Metin Kayma Hızı</label>
                 <select id="tvTickerSpeedSelect" class="tap-select" onchange="window.tvSetTickerSpeed(this.value)">
