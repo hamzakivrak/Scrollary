@@ -576,55 +576,50 @@
         } catch (e) {}
     }
 
-    // ---------- ZENGİNLEŞTİRİLMİŞ ARKA PLAN RADYO ÇALAR (GERÇEK TÜRKÜ, TSM, SLOW, POP, KLASİK, LO-FI, JAZZ + 2×◄► GEÇİŞİ) ----------
-    // Not: crossOrigin='anonymous' kaldırıldı çünkü Türk radyo sunucularında (TRT, Kral, Power vb.) CORS engeline takılıp yayını kesiyordu.
-    // Ayrıca Radio-Browser API üzerinden canlı çalışan Türk radyo akışları da dinamik olarak yedeklenir.
+    // ---------- ZENGİNLEŞTİRİLMİŞ ARKA PLAN RADYO ÇALAR (SIFIR GECİKMELİ DOĞRUDAN AKIŞ + ARKA PLAN TEMİZLİĞİ) ----------
+    // Ağ üzerinden istasyon arama gecikmesi kaldırıldı; doğrudan çalışan akış adresleri kullanılır.
     const RADIO_STATIONS = [
         { id: 'off', name: '🔇 Radyo Kapalı', shortName: '', urls: [] },
         {
             id: 'turku',
-            name: '🪕 Türkü & Halk Müziği (TRT Türkü / Anadolu Türküleri)',
+            name: '🪕 Türkü & Halk Müziği (Power Türkü / Kral Türkü / Anadolu)',
             shortName: 'Türkü',
-            rbQuery: 'turku',
             urls: [
-                'https://Radyo.impek.com/trtturku',
                 'https://listen.powerapp.com.tr/powerturku/mpeg/icecast.audio',
+                'https://listen.powerapp.com.tr/powerturku/abr/powerturku/128/icecast.audio',
                 'https://radyo.dogannet.tv/kralturk',
-                'https://anadolu.liderhost.com.tr:10989/;',
-                'https://yayin.turkhosted.com:6006/;stream.mp3'
+                'https://yayin.turkhosted.com:6006/;stream.mp3',
+                'https://anadolu.liderhost.com.tr:10989/;'
             ]
         },
         {
             id: 'tsm',
-            name: '🎼 Türk Sanat Müziği (TRT Nağme / Klasik TSM)',
+            name: '🎼 Türk Sanat Müziği & Akustik (TSM / Nağme)',
             shortName: 'TSM / Nağme',
-            rbQuery: 'sanat',
             urls: [
-                'https://listen.powerapp.com.tr/powerulker/mpeg/icecast.audio',
                 'https://yayin.turkhosted.com:6054/;stream.mp3',
-                'https://stream.srg-ssr.ch/m/rsc_de/mp3_128'
+                'https://playerservices.streamtheworld.com/api/livestream-redirect/JOY_TURK_AKUSTIK.mp3',
+                'https://listen.powerapp.com.tr/powerlove/mpeg/icecast.audio'
             ]
         },
         {
             id: 'turkce_slow',
-            name: '🕯️ Türkçe Slow & Akustik (Slow Türk / Power Love)',
+            name: '🕯️ Türkçe Slow & Akustik (Slow Türk / JoyTürk Akustik)',
             shortName: 'Türkçe Slow',
-            rbQuery: 'slow turk',
             urls: [
                 'https://radyo.dogannet.tv/slowturk',
-                'https://listen.powerapp.com.tr/powerlove/mpeg/icecast.audio',
-                'https://playerservices.streamtheworld.com/api/livestream-redirect/JOY_TURK_AKUSTIK.mp3'
+                'https://playerservices.streamtheworld.com/api/livestream-redirect/JOY_TURK_AKUSTIK.mp3',
+                'https://listen.powerapp.com.tr/powerlove/mpeg/icecast.audio'
             ]
         },
         {
             id: 'turkce_pop',
-            name: '🇹🇷 Türkçe Pop & Güncel (PowerTürk / Süper FM)',
+            name: '🇹🇷 Türkçe Pop & Güncel (PowerTürk / Süper FM / JoyTürk)',
             shortName: 'Türkçe Pop',
-            rbQuery: 'powerturk',
             urls: [
                 'https://listen.powerapp.com.tr/powerturk/mpeg/icecast.audio',
                 'https://playerservices.streamtheworld.com/api/livestream-redirect/SUPER_FM.mp3',
-                'https://playerservices.streamtheworld.com/api/livestream-redirect/METRO_FM.mp3'
+                'https://playerservices.streamtheworld.com/api/livestream-redirect/JOY_TURK.mp3'
             ]
         },
         {
@@ -701,30 +696,7 @@
 
     let radioAudio = null;
     let currentUrlIndex = 0;
-    const resolvedRbCache = new Map();
-
-    // Türk radyoları için Radio-Browser açık dizininden canlı çalışan MP3/AAC yayın adreslerini otomatik keşfeder
-    async function enrichStationWithLiveDirectory(st) {
-        if (!st || !st.rbQuery || resolvedRbCache.has(st.id)) return;
-        resolvedRbCache.set(st.id, true);
-        try {
-            const api = `https://de1.api.radio-browser.info/json/stations/search?countrycode=TR&name=${encodeURIComponent(st.rbQuery)}&hidebroken=true&order=clickcount&reverse=true&limit=8`;
-            const res = await fetch(api);
-            if (!res.ok) return;
-            const list = await res.json();
-            if (!Array.isArray(list)) return;
-            const liveUrls = [];
-            list.forEach(item => {
-                const u = (item && (item.url_resolved || item.url) || '').trim();
-                if (/^https:\/\//i.test(u) && !/\.m3u8(\?|$)/i.test(u) && !liveUrls.includes(u) && !st.urls.includes(u)) {
-                    liveUrls.push(u);
-                }
-            });
-            if (liveUrls.length) {
-                st.urls = liveUrls.concat(st.urls);
-            }
-        } catch (e) {}
-    }
+    let radioRetryTimer = null;
 
     function getCurrentRadioStation() {
         const id = localStorage.getItem('tvRadioStation') || 'off';
@@ -741,8 +713,19 @@
         radioAudio.volume = (vol >= 0.05 && vol <= 1.0) ? vol : 0.45;
     }
 
-    let radioRetryTimer = null;
-    async function startOrSwitchRadio(stationId, showNotification) {
+    function stopRadioCompletely() {
+        clearTimeout(radioRetryTimer);
+        radioRetryTimer = null;
+        if (radioAudio) {
+            try {
+                radioAudio.pause();
+                radioAudio.removeAttribute('src');
+                radioAudio.load();
+            } catch (e) {}
+        }
+    }
+
+    function startOrSwitchRadio(stationId, showNotification) {
         try {
             clearTimeout(radioRetryTimer);
             if (stationId !== undefined) {
@@ -753,9 +736,7 @@
             if (sel && sel.value !== st.id) sel.value = st.id;
 
             if (!st || st.id === 'off' || !st.urls.length) {
-                if (radioAudio) {
-                    try { radioAudio.pause(); radioAudio.removeAttribute('src'); radioAudio.load(); } catch (e) {}
-                }
+                stopRadioCompletely();
                 updateClockBadge();
                 if (showNotification && typeof showToastGlobal === 'function') {
                     showToastGlobal('🔇 Radyo: Kapalı', 1500);
@@ -764,11 +745,7 @@
             }
 
             if (showNotification && typeof showToastGlobal === 'function') {
-                showToastGlobal('📻 Radyo: ' + st.name, 1800);
-            }
-
-            if (st.rbQuery && !resolvedRbCache.has(st.id)) {
-                await enrichStationWithLiveDirectory(st);
+                showToastGlobal('📻 ' + st.name, 1800);
             }
 
             if (!radioAudio) {
@@ -776,6 +753,7 @@
                 radioAudio.preload = 'none';
                 const tryNextStreamUrl = () => {
                     clearTimeout(radioRetryTimer);
+                    if (document.hidden) return;
                     const curr = getCurrentRadioStation();
                     if (!curr || curr.id === 'off' || !curr.urls.length) return;
                     currentUrlIndex = (currentUrlIndex + 1) % curr.urls.length;
@@ -798,8 +776,8 @@
             applyRadioVolume();
             updateClockBadge();
 
-            // Eğer ilk akış 4.5 sn içinde çalmaya başlamazsa otomatik olarak listedeki yedek akışa geç
             radioRetryTimer = setTimeout(() => {
+                if (document.hidden) return;
                 if (radioAudio && (radioAudio.paused || radioAudio.readyState < 2) && getCurrentRadioStation().id === st.id) {
                     currentUrlIndex = (currentUrlIndex + 1) % st.urls.length;
                     if (st.urls[currentUrlIndex]) {
@@ -808,7 +786,7 @@
                         radioAudio.play().catch(() => {});
                     }
                 }
-            }, 4500);
+            }, 4000);
 
             const playPromise = radioAudio.play();
             if (playPromise && typeof playPromise.then === 'function') {
@@ -883,7 +861,6 @@
         return '';
     }
 
-    // Başlıkla ilgili gerçek haber fotoğrafını (Bing Haberler RSS görseli veya makale og:image) arka planda arar
     async function findHeadlineRelatedPhoto(art) {
         if (!art || !art.link) return '';
         if (CARD_PHOTO_CACHE.has(art.link)) return CARD_PHOTO_CACHE.get(art.link);
@@ -891,7 +868,6 @@
 
         const job = (async () => {
             try {
-                // 1) Bing Haberler RSS içinde başlıkla eşleşen haberin gerçek basın fotoğrafını (<News:Image> veya <media:content>) ara
                 if (art.title && typeof fetchHtmlRace === 'function') {
                     const cleanTitle = typeof gnSplitTitle === 'function' ? gnSplitTitle(art.title).clean : String(art.title).replace(/\s+-\s+[^-]+$/, '').trim();
                     const shortQ = cleanTitle.split(/\s+/).filter(w => w.length > 2).slice(0, 7).join(' ');
@@ -907,7 +883,6 @@
                                         || itemXml.match(/url=["'](https?:\/\/[^"']+(?:th\?id=|jpg|jpeg|png|webp)[^"']*)["']/i);
                                     if (imgMatch && imgMatch[1]) {
                                         let imgUrl = imgMatch[1].replace(/&amp;/g, '&').trim();
-                                        // Bing küçük resimlerini yüksek çözünürlüklü boyuta (w=1200) yükselt
                                         if (imgUrl.includes('bing.com/th')) {
                                             imgUrl = imgUrl.replace(/&pid=News.*$/i, '') + '&w=1200&h=675&c=7';
                                         }
@@ -920,7 +895,6 @@
                     }
                 }
 
-                // 2) Sayfa HTML önbellekte (HTML_SHARED) varsa og:image meta etiketini çek
                 if (typeof HTML_SHARED !== 'undefined') {
                     for (const [u, entry] of HTML_SHARED.entries()) {
                         try {
@@ -942,7 +916,6 @@
         return job;
     }
 
-    // Kartta resim yoksa (veya kırık/amblem ise) anında manzara fotoğrafı koyar ve arka planda başlıkla ilgili gerçek fotoğrafı bulursa yumuşakça değiştirir
     function ensureCardHasPhoto(w, art) {
         if (!w) return;
         const imgWrap = w.querySelector('.card-img-wrapper');
@@ -964,7 +937,6 @@
         const linkKey = (art && art.link) || w.dataset.link || (art && art.title) || 'scenic';
         const scenicUrl = pickScenicPhotoForKey(linkKey);
 
-        // Eğer resim yüklenemezse (onerror) asla boş veya amblem kalmasın, doğrudan manzara fotoğrafına geçsin
         if (!mainImg.dataset.tvFallbackBound) {
             mainImg.dataset.tvFallbackBound = '1';
             mainImg.onerror = function () {
@@ -984,10 +956,8 @@
             return;
         }
 
-        // İlk anda hiç beklemeden yüksek çözünürlüklü manzara fotoğrafını göster
         mainImg.src = scenicUrl;
 
-        // Arka planda başlıkla ilgili gerçek haber fotoğrafını ara; bulursa önyükleyip (kararma yapmadan) ekrana yansıt
         if (art) {
             findHeadlineRelatedPhoto(art).then(foundUrl => {
                 if (!foundUrl) return;
@@ -1658,7 +1628,7 @@
     let activeCardElement = null;
 
     function advanceToNextCard() {
-        if (overlayRoot() || aiOpen()) return;
+        if (document.hidden || overlayRoot() || aiOpen()) return;
         const l = cards();
         if (!l.length) return;
         const nextIdx = (curIndex() + 1 >= l.length) ? 0 : (curIndex() + 1);
@@ -1836,7 +1806,6 @@
                             if (s.length >= 25 && !isSentenceRepeatingTitle(s, art) && !out.includes(s)) out.push(s);
                         });
                     }
-                    // Aynı zamanda Bing News RSS içindeki haber fotoğrafını da önbelleğe al
                     if (art.link && !CARD_PHOTO_CACHE.has(art.link)) {
                         const itemXml = new XMLSerializer().serializeToString(item);
                         const imgMatch = itemXml.match(/<News:Image>([^<]+)<\/News:Image>/i)
@@ -1929,7 +1898,6 @@
                 if (!/news\.google\.com/.test(url) && typeof extractArticle === 'function') {
                     try {
                         const res = await extractArticle(url, art, false);
-                        // Sayfa HTML'i indirildiyse og:image fotoğrafını da yakala
                         if (!CARD_PHOTO_CACHE.has(art.link) && typeof HTML_SHARED !== 'undefined' && HTML_SHARED.has(url)) {
                             try {
                                 const rawH = await HTML_SHARED.get(url).p;
@@ -2084,11 +2052,10 @@
         return job;
     }
 
-    // Bir kart açıkken sıradaki haberin özetini, metnini ve fotoğrafını arka planda önceden hazırlar
     function prefetchUpcomingCardInBackground(myToken) {
         clearTimeout(nextCardWarmTimer);
         nextCardWarmTimer = setTimeout(() => {
-            if (myToken !== tickerToken || overlayRoot() || aiOpen()) return;
+            if (document.hidden || myToken !== tickerToken || overlayRoot() || aiOpen()) return;
             const l = cards();
             if (l.length < 2 || typeof filteredArticles === 'undefined') return;
             const summaryMode = isSummaryScrollMode();
@@ -2156,9 +2123,8 @@
         return cleanHtml;
     }
 
-    // Kart açılır açılmaz fotoğrafını tamamlar ve akan özet/metin alanını kurar
     function attachCardLiveTickerAndReader(forceRestart) {
-        if (overlayRoot() || aiOpen()) return;
+        if (document.hidden || overlayRoot() || aiOpen()) return;
 
         let w = document.querySelector('#newsGrid .swipe-wrapper.tv-current');
         if (!w) {
@@ -2177,7 +2143,6 @@
             art = { link: w.dataset.link || '', title: h3 ? h3.textContent.trim() : '', description: '' };
         }
 
-        // Resim olmayan haberde Scrollary amblemi yerine başlıkla ilgili fotoğrafı veya manzara fotoğrafını yerleştir
         ensureCardHasPhoto(w, art);
 
         if (!forceRestart && w.querySelector('.tv-card-reader')) {
@@ -2220,7 +2185,6 @@
             if (myToken !== tickerToken) return;
             readerWrap.innerHTML = '';
 
-            // Metin çekilirken makale fotoğrafı (og:image / Bing) bulunduysa kart görselini de güncelle
             ensureCardHasPhoto(w, art);
 
             let trackEl = null;
@@ -2247,7 +2211,6 @@
             trackEl.dataset.chars = String(totalChars);
             const multiplier = parseFloat(localStorage.getItem('tvTickerSpeed')) || 1.0;
             const baseFactor = isHorizontal ? 0.11 : 0.082;
-            // Yüksek hız seçeneklerinin (2x, 3x, 4x) tam etki etmesi için alt sınır 3.5 saniyeye indirildi
             const singlePassSec = Math.max(3.5, Math.round(((totalChars * baseFactor) / multiplier) * 10) / 10);
             trackEl.style.setProperty('--ticker-dur', singlePassSec + 's');
             trackEl.dataset.startedAt = String(Date.now());
@@ -2264,7 +2227,7 @@
                 clearTimeout(autoAdvanceTimer);
                 const advanceDelayMs = Math.round(singlePassSec * 2 * 1000) + 400;
                 autoAdvanceTimer = setTimeout(() => {
-                    if (myToken !== tickerToken || overlayRoot() || aiOpen()) return;
+                    if (document.hidden || myToken !== tickerToken || overlayRoot() || aiOpen()) return;
                     advanceToNextCard();
                 }, advanceDelayMs);
             }
@@ -2304,14 +2267,14 @@
         if (autoAdvanceEnabled) {
             clearTimeout(autoAdvanceTimer);
             autoAdvanceTimer = setTimeout(() => {
-                if (myToken !== tickerToken || overlayRoot() || aiOpen()) return;
+                if (document.hidden || myToken !== tickerToken || overlayRoot() || aiOpen()) return;
                 advanceToNextCard();
             }, 28000);
         }
 
         clearTimeout(currentFetchStartTimer);
         currentFetchStartTimer = setTimeout(() => {
-            if (myToken !== tickerToken || overlayRoot() || aiOpen()) return;
+            if (document.hidden || myToken !== tickerToken || overlayRoot() || aiOpen()) return;
 
             if (summaryMode) {
                 getCardMiniAISummaryData(art).then(aiData => {
@@ -2365,7 +2328,7 @@
     }
 
     function ensureCardTickerPresent() {
-        if (overlayRoot() || aiOpen()) return;
+        if (document.hidden || overlayRoot() || aiOpen()) return;
         const w = document.querySelector('#newsGrid .swipe-wrapper.tv-current');
         if (w && !w.querySelector('.tv-card-reader')) {
             attachCardLiveTickerAndReader(true);
@@ -2419,8 +2382,6 @@
         if (allowMore && i >= l.length - 3) loadMore();
     }
 
-    // Arka planda RSS kaynakları yüklenirken ui.js #newsGrid'i sıfırlayıp yeniden çizdiğinde,
-    // ekrandaki mevcut kartın (activeCardElement) silinip kararmasını ve akışın baştan başlamasını 0ms'de engeller!
     function ensureCurrent() {
         const grid = $('newsGrid');
         if (!grid) return;
@@ -2428,7 +2389,6 @@
         const rawWrappers = Array.from(grid.querySelectorAll('.swipe-wrapper'));
         if (!rawWrappers.length) return;
 
-        // 1) Eğer izlenen kart (activeCardElement) hala grid içindeyse hiçbir şeyi bozma!
         if (activeCardElement && grid.contains(activeCardElement) && activeCardElement.classList.contains('tv-current')) {
             curLink = activeCardElement.dataset.link || curLink;
             deduplicateDomCardsLight();
@@ -2437,8 +2397,6 @@
             return;
         }
 
-        // 2) Eğer ui.js arka plan yenilemesi sırasında grid.innerHTML'i değiştirdiyse ve activeCardElement koparıldıysa,
-        //    aynı haber yeni listede varsa yeni ham kartın yerine mevcut çalışan kartımızı (resmi ve kayan metniyle) 0ms'de geri tak!
         if (activeCardElement && curLink && !grid.contains(activeCardElement)) {
             const replacement = rawWrappers.find(c => c.dataset.link === curLink);
             if (replacement) {
@@ -2446,7 +2404,6 @@
                 activeCardElement.classList.add('tv-current');
                 replacement.replaceWith(activeCardElement);
 
-                // Kayan metin animasyonunun kaldığı saniyeden kesintisiz devam etmesini sağla
                 const track = activeCardElement.querySelector('.tv-vscroll-track, .tv-ticker-track');
                 if (track && track.dataset.startedAt) {
                     const elapsedSec = ((Date.now() - parseInt(track.dataset.startedAt, 10)) / 1000);
@@ -2523,6 +2480,14 @@
     // ---------- Açık pencere / panel ve Sıralı Geri Tuşu Yönetimi ----------
     const openStack = [];
     let directAiEntry = false;
+    let navCooldownUntil = 0;
+
+    function clearPendingArrowTimers() {
+        if (leftSingleTimer) { clearTimeout(leftSingleTimer); leftSingleTimer = null; }
+        if (rightSingleTimer) { clearTimeout(rightSingleTimer); rightSingleTimer = null; }
+        lastLeftTapAt = 0;
+        lastRightTapAt = 0;
+    }
 
     function isOverlayOpen(id) {
         if (id === 'controlsWrapper') {
@@ -2557,9 +2522,12 @@
 
     let closingGuard = false;
     function closeTopmostOverlay(fromPopState) {
+        clearPendingArrowTimers();
+        navCooldownUntil = Date.now() + 450;
+
         if (closingGuard) return true;
         closingGuard = true;
-        setTimeout(() => { closingGuard = false; }, 120);
+        setTimeout(() => { closingGuard = false; }, 160);
 
         const nm = $('newsModal');
         const ai = aiOpen();
@@ -2599,8 +2567,10 @@
             top.classList.add('collapsed');
             const icon = $('toggleIcon');
             if (icon) icon.style.transform = 'rotate(0deg)';
+            try { document.activeElement && document.activeElement.blur(); } catch (e) {}
         } else {
             top.style.display = 'none';
+            try { document.activeElement && document.activeElement.blur(); } catch (e) {}
             if (id === 'newsModal') {
                 directAiEntry = false;
                 if (typeof window.speechSynthesis !== 'undefined') window.speechSynthesis.cancel();
@@ -2614,18 +2584,22 @@
         }
 
         refreshOpenStack();
-        if (openStack.length > 0 || fromPopState) {
+        if (openStack.length > 0) {
             try { history.pushState({ tvGuard: 1 }, ''); } catch (e) {}
+        } else {
+            backTrapReady = false;
         }
         setTimeout(() => { sync(); attachCardLiveTickerAndReader(true); }, 20);
         return true;
     }
 
     window.addEventListener('popstate', (e) => {
+        clearPendingArrowTimers();
         if (aiOpen() || overlayRoot()) {
             e.stopImmediatePropagation();
             closeTopmostOverlay(true);
         } else {
+            backTrapReady = false;
             const aiEl = $('aiInlineResult');
             if (aiEl) { aiEl.classList.remove('show'); aiEl.style.display = 'none'; }
             directAiEntry = false;
@@ -2796,11 +2770,13 @@
     }
 
     function openPanel() {
+        clearPendingArrowTimers();
+        if (overlayRoot() || aiOpen()) return;
         stopCardTicker();
         const w = $('controlsWrapper'); if (!w) return;
         ensureHistoryGuard();
         document.body.classList.add('tv-panel');
-        if (w.classList.contains('collapsed') && typeof toggleControls === 'function') toggleControls();
+        w.classList.remove('collapsed');
         try { if (typeof switchControlTab === 'function') switchControlTab('filter'); } catch (e) {}
         const fl = $('filterList'); if (fl) fl.classList.add('show');
         setupAddSourceEnhancements();
@@ -2825,6 +2801,7 @@
     }
 
     function openCurrentCardReader() {
+        clearPendingArrowTimers();
         stopCardTicker();
         ensureHistoryGuard();
         directAiEntry = false;
@@ -2840,6 +2817,7 @@
     }
 
     async function openCurrentCardAISummary(fromInsideModal) {
+        clearPendingArrowTimers();
         stopCardTicker();
         ensureHistoryGuard();
         const art = (fromInsideModal && typeof originalState !== 'undefined' && originalState.art)
@@ -2893,7 +2871,7 @@
         }
     }
 
-    // ---------- Kumanda Tuş Algılayıcı (Tek Sol/Sağ: Ayarlar/Filtre, 2×Sol/Sağ: Radyo Değiştir) ----------
+    // ---------- Kumanda Tuş Algılayıcı (Tek Sol/Sağ: Ayarlar/Filtre, 2×Sol/Sağ: Radyo Değiştir - Çakışmasız KeyUp Mimarisi) ----------
     let okDownAt = 0;
     let okUsedCombo = false;
     let okSingleTimer = null;
@@ -2948,7 +2926,7 @@
         const dir = getDirectionFromEvent(e);
         const ov = overlayRoot();
 
-        if (localStorage.getItem('tvRadioStation') && localStorage.getItem('tvRadioStation') !== 'off' && !isRadioPlaying()) {
+        if (!document.hidden && localStorage.getItem('tvRadioStation') && localStorage.getItem('tvRadioStation') !== 'off' && !isRadioPlaying()) {
             startOrSwitchRadio(localStorage.getItem('tvRadioStation'), false);
         }
 
@@ -2978,14 +2956,15 @@
             }
             e.preventDefault(); e.stopImmediatePropagation();
             if (!ov) {
+                // Ana ekranda Sol (◄) ve Sağ (►) tuşları keyup üzerinde işlenir ki basılı tutma/repeat ve çifte tetikleme hiç yaşanmasın!
+                if (dir === 'left' || dir === 'right') {
+                    return;
+                }
+                clearPendingArrowTimers();
                 if (dir === 'down') {
-                    if (leftSingleTimer) { clearTimeout(leftSingleTimer); leftSingleTimer = null; }
-                    if (rightSingleTimer) { clearTimeout(rightSingleTimer); rightSingleTimer = null; }
                     showCard(curIndex() + 1, true);
                 }
                 else if (dir === 'up') {
-                    if (leftSingleTimer) { clearTimeout(leftSingleTimer); leftSingleTimer = null; }
-                    if (rightSingleTimer) { clearTimeout(rightSingleTimer); rightSingleTimer = null; }
                     if (curIndex() > 0) showCard(curIndex() - 1, false);
                     else {
                         const now = Date.now();
@@ -2999,45 +2978,9 @@
                         else { lastUpTap = now; if (typeof showToastGlobal === 'function') showToastGlobal('Yenilemek için ▲ tekrar basın', 2200); }
                     }
                 }
-                else if (dir === 'left') {
-                    if (e.repeat) return;
-                    const now = Date.now();
-                    if (now - lastLeftTapAt < 380) {
-                        if (leftSingleTimer) { clearTimeout(leftSingleTimer); leftSingleTimer = null; }
-                        lastLeftTapAt = 0;
-                        cycleRadioStation(-1);
-                    } else {
-                        lastLeftTapAt = now;
-                        if (leftSingleTimer) clearTimeout(leftSingleTimer);
-                        leftSingleTimer = setTimeout(() => {
-                            leftSingleTimer = null;
-                            lastLeftTapAt = 0;
-                            stopCardTicker();
-                            ensureHistoryGuard();
-                            if (typeof openModalSafe === 'function') openModalSafe('settingsModal');
-                            setTimeout(sync, 30);
-                        }, 340);
-                    }
-                }
-                else if (dir === 'right') {
-                    if (e.repeat) return;
-                    const now = Date.now();
-                    if (now - lastRightTapAt < 380) {
-                        if (rightSingleTimer) { clearTimeout(rightSingleTimer); rightSingleTimer = null; }
-                        lastRightTapAt = 0;
-                        cycleRadioStation(1);
-                    } else {
-                        lastRightTapAt = now;
-                        if (rightSingleTimer) clearTimeout(rightSingleTimer);
-                        rightSingleTimer = setTimeout(() => {
-                            rightSingleTimer = null;
-                            lastRightTapAt = 0;
-                            openPanel();
-                        }, 340);
-                    }
-                }
                 return;
             }
+            clearPendingArrowTimers();
             if (ov.id === 'newsModal') {
                 if (aiOpen()) {
                     if (dir === 'up' || dir === 'down') scrollAI(dir);
@@ -3071,6 +3014,7 @@
         }
 
         if (isBackEvent(e) && !inText) {
+            clearPendingArrowTimers();
             if (aiOpen() || ov) {
                 e.preventDefault(); e.stopImmediatePropagation();
                 closeTopmostOverlay(false);
@@ -3081,9 +3025,61 @@
     document.addEventListener('keyup', (e) => {
         if (e.ctrlKey || e.altKey || e.metaKey) return;
         const t = e.target;
-        if (!isOkEvent(e)) return;
         const inText = t && (t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && !/^(checkbox|radio|button|submit)$/.test(t.type)));
         const ov = overlayRoot();
+        const dir = getDirectionFromEvent(e);
+
+        // Ana haber ekranındayken Sol (◄) ve Sağ (►) tuşlarını keyup'ta işle (460ms penceresi: tek basış Ayarlar/Filtre, çift basış Radyo)
+        if (!ov && !inText && (dir === 'left' || dir === 'right')) {
+            e.preventDefault(); e.stopImmediatePropagation();
+            const now = Date.now();
+            if (now < navCooldownUntil) return;
+
+            if (dir === 'left') {
+                if (rightSingleTimer) { clearTimeout(rightSingleTimer); rightSingleTimer = null; lastRightTapAt = 0; }
+                if (now - lastLeftTapAt < 460) {
+                    if (leftSingleTimer) { clearTimeout(leftSingleTimer); leftSingleTimer = null; }
+                    lastLeftTapAt = 0;
+                    navCooldownUntil = now + 350;
+                    cycleRadioStation(-1);
+                } else {
+                    lastLeftTapAt = now;
+                    if (leftSingleTimer) clearTimeout(leftSingleTimer);
+                    leftSingleTimer = setTimeout(() => {
+                        leftSingleTimer = null;
+                        lastLeftTapAt = 0;
+                        if (overlayRoot() || aiOpen() || Date.now() < navCooldownUntil) return;
+                        stopCardTicker();
+                        ensureHistoryGuard();
+                        if (typeof openModalSafe === 'function') openModalSafe('settingsModal');
+                        setTimeout(sync, 30);
+                    }, 460);
+                }
+                return;
+            }
+
+            if (dir === 'right') {
+                if (leftSingleTimer) { clearTimeout(leftSingleTimer); leftSingleTimer = null; lastLeftTapAt = 0; }
+                if (now - lastRightTapAt < 460) {
+                    if (rightSingleTimer) { clearTimeout(rightSingleTimer); rightSingleTimer = null; }
+                    lastRightTapAt = 0;
+                    navCooldownUntil = now + 350;
+                    cycleRadioStation(1);
+                } else {
+                    lastRightTapAt = now;
+                    if (rightSingleTimer) clearTimeout(rightSingleTimer);
+                    rightSingleTimer = setTimeout(() => {
+                        rightSingleTimer = null;
+                        lastRightTapAt = 0;
+                        if (overlayRoot() || aiOpen() || Date.now() < navCooldownUntil) return;
+                        openPanel();
+                    }, 460);
+                }
+                return;
+            }
+        }
+
+        if (!isOkEvent(e)) return;
 
         if (!ov && !inText) {
             e.preventDefault(); e.stopImmediatePropagation();
@@ -3142,6 +3138,30 @@
         }
     }, true);
 
+    // ---------- UYGULAMADAN ÇIKILDIĞINDA (ARKA PLANA DÜŞTÜĞÜNDE) TÜM İŞLEMLERİ VE RADYOYU DURDURMA ----------
+    // Mi Stick'te uygulamadan çıkıldığında WebView arka planda radyo ve zamanlayıcı çalıştırmaya devam ederse
+    // cihazın 1 GB RAM'i ve Bluetooth kumanda kuyruğu şişer; bu dinleyici çıkış anında her şeyi sıfırlar.
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            clearPendingArrowTimers();
+            stopCardTicker();
+            stopRadioCompletely();
+        } else {
+            if (localStorage.getItem('tvRadioStation') && localStorage.getItem('tvRadioStation') !== 'off') {
+                startOrSwitchRadio(localStorage.getItem('tvRadioStation'), false);
+            }
+            if (!overlayRoot() && !aiOpen()) {
+                attachCardLiveTickerAndReader(true);
+            }
+        }
+    });
+
+    window.addEventListener('pagehide', () => {
+        clearPendingArrowTimers();
+        stopCardTicker();
+        stopRadioCompletely();
+    });
+
     // ---------- Başlat / izle ----------
     let lastOv = null, lastAi = false, raf = 0, volCap = false;
     function sync() {
@@ -3149,6 +3169,7 @@
         const ov = overlayRoot();
         const ai = aiOpen();
         if (ov || ai) {
+            clearPendingArrowTimers();
             stopCardTicker();
             ensureHistoryGuard();
         }
@@ -3198,13 +3219,11 @@
         watchReaderFallbackAndAI();
         setTimeout(() => {
             injectTvSettings();
-            if (localStorage.getItem('tvRadioStation') && localStorage.getItem('tvRadioStation') !== 'off') {
+            if (!document.hidden && localStorage.getItem('tvRadioStation') && localStorage.getItem('tvRadioStation') !== 'off') {
                 startOrSwitchRadio(localStorage.getItem('tvRadioStation'), false);
             }
         }, 600);
 
-        // #newsGrid üzerinde 0ms gecikmesiz (senkron mikro-görev) koruma:
-        // Arka planda yeni RSS kaynakları eklendiğinde ekranın kararmasını ve kartın sıfırlanmasını engeller!
         const grid = $('newsGrid');
         if (grid) {
             new MutationObserver(() => {
