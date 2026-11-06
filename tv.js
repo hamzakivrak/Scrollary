@@ -1,4 +1,4 @@
-// tv.js - Android TV / kumanda modu (tek kart tam ekran, ◄ ayarlar, ► filtreler)
+// tv.js - Android TV / kumanda modu (tek kart tam ekran, ◄ ayarlar, ► filtreler, 2×◄► radyo değiştir)
 // TV'de otomatik açılır (APK "ScrollaryTV" işaretini ekler, adres ?tv=1 ile açılır).
 // Telefonda denemek için adrese ?tv=1 ekleyin; kapatmak için ?tv=0.
 (function () {
@@ -14,12 +14,10 @@
     window.IS_TV = true;
 
     // ---------- 1) ŞİŞMİŞ CACHE / LOCALSTORAGE OTOMATİK TEMİZLEYİCİ (Mi Stick Açılış & Donma Koruması) ----------
-    // localStorage şiştiğinde her JSON.parse / setItem Mi Stick'in ana iş parçacığını (UI thread) saniyelerce kilitler.
     try {
         const heavyKeys = ['readerCacheV1', 'readerCacheV3', 'gnResolveV1', 'pubFeeds', 'tvCardAiCacheV1', 'tvSeenReadLinks', 'readArticles'];
         heavyKeys.forEach(k => {
             const raw = localStorage.getItem(k);
-            // 35 KB'ı aşan önbellekleri otomatik buda/sıfırla ki açılışta ve tuş basımında asla bekleme yapmasın
             if (raw && raw.length > 35000) {
                 localStorage.removeItem(k);
             }
@@ -47,7 +45,7 @@
     // ---------- Görünüm: Mi Stick GPU dostu, hafifletilmiş ve saydam arka planlı CSS ----------
     const css = document.createElement('style');
     css.textContent = `
-      body.tv-mode { overflow: hidden; }
+      body.tv-mode { overflow: hidden; background: #0b1220 !important; }
       body.tv-mode .ambient-bg, body.tv-mode #pullToRefresh, body.tv-mode #mainHeader,
       body.tv-mode .mic-fab, body.tv-mode #scrollSpinner, body.tv-mode #endRefreshSpinner { display: none !important; }
       body.tv-mode .container { padding: 0 !important; margin: 0 !important; max-width: none !important; width: 100% !important; }
@@ -62,8 +60,9 @@
       body.tv-mode .swipe-wrapper.tv-current .news-card { position: relative !important; width: 100% !important; height: 100vh !important; margin: 0 !important; border-radius: 0 !important;
           display: block !important; background: #0b1220 !important; overflow: hidden; border: 0 !important; animation: none !important; transition: none !important; }
       body.tv-mode .swipe-wrapper.tv-current .card-img-wrapper { position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; aspect-ratio: auto !important; }
-      body.tv-mode .swipe-wrapper.tv-current .main-img { width: 100% !important; height: 100% !important; object-fit: cover !important; }
-      body.tv-mode .swipe-wrapper.tv-current .fallback-logo { position: absolute; left: 50%; top: 38%; width: 22vh; height: 22vh; transform: translate(-50%, -50%); opacity: .5; object-fit: contain; }
+      body.tv-mode .swipe-wrapper.tv-current .main-img { width: 100% !important; height: 100% !important; object-fit: cover !important; transition: opacity 0.35s ease; }
+      /* Scrollary amblemi (fallback-logo) TV modunda tamamen gizlendi; yerine başlıkla ilgili fotoğraf veya manzara fotoğrafı gösterilir */
+      body.tv-mode .fallback-logo { display: none !important; }
 
       /* Haber kaynağı rozeti: ÜST ORTA kısımda, zarif, ince yazılı */
       body.tv-mode .swipe-wrapper.tv-current .source-badge {
@@ -164,8 +163,7 @@
           box-sizing: border-box !important;
           overflow: hidden !important;
       }
-      /* Haber Başlığı: style.css içindeki sabit mobil height/min-height sıfırlandı (height: auto !important).
-         Böylece 2 veya 3 satır olduğunda aşağı taşmaz; ilk satırı yukarı doğru öteleyerek genişler. */
+      /* Haber Başlığı: style.css içindeki sabit mobil height/min-height sıfırlandı (height: auto !important). */
       body.tv-mode .swipe-wrapper.tv-current .news-content h3 {
           position: relative !important;
           z-index: 3 !important;
@@ -230,8 +228,7 @@
           100% { opacity: 1; transform: scale(1.2); }
       }
 
-      /* 1) Dikey (Aşağıdan Yukarıya) Akış Modu:
-         Başlık büyüdüğünde esnek şekilde yer açar, üst sınırından taşmaz */
+      /* 1) Dikey (Aşağıdan Yukarıya) Akış Modu */
       .tv-vscroll-viewport {
           position: relative;
           width: 100%;
@@ -307,7 +304,6 @@
       }
 
       /* ===== FİLTRE PANELİ (#controlsWrapper) VE AYARLAR MODALLARI: %50 KÜÇÜLTÜLMÜŞ, ZARİF VE OKUNAKLI TASARIM ===== */
-      /* Haber okuma penceresi (#newsModal) kendi zoom oranını korurken, Ayarlar ve Filtre pencereleri %50 küçültüldü (zoom: 1) */
       body.tv-mode #newsModal .modal-content {
           zoom: var(--z, 2);
           width: calc(100vw / var(--z, 2)) !important;
@@ -318,7 +314,6 @@
       }
       body.tv-mode #newsModal #modalBodyArea { padding-bottom: 30px; }
 
-      /* Ayarlar, Kaynak Yönetimi ve Rehber pencereleri: %50 küçültülmüş (zoom: 1), kibar ve geniş */
       body.tv-mode #settingsModal .modal-content,
       body.tv-mode #sourceFilterModal .modal-content,
       body.tv-mode #guideModal .modal-content,
@@ -393,7 +388,6 @@
           opacity: 1 !important;
           padding: 6px 0 !important;
       }
-      /* Üst başlık satırını incelt ve sadeleştir */
       body.tv-mode.tv-panel #controlsWrapper .controls-toggle {
           padding: 6px 12px !important;
           min-height: 0 !important;
@@ -417,7 +411,6 @@
           padding: 4px 8px !important;
           height: 30px !important;
       }
-      /* Sekmeler (Ara / Filtrele / Kaynak Ekle) */
       body.tv-mode.tv-panel #controlsWrapper .sticky-tabs {
           gap: 8px !important;
           margin-bottom: 10px !important;
@@ -427,13 +420,11 @@
           font-size: 0.84rem !important;
           border-radius: 8px !important;
       }
-      /* Bölüm başlıkları ve kategori / kaynak çipleri */
       body.tv-mode.tv-panel #controlsWrapper .filter-section-title {
           font-size: 0.8rem !important;
           padding: 4px 0 !important;
           margin-bottom: 6px !important;
       }
-      /* Kategori çipleri sağdan taşmasın, alt satıra sarılsın */
       body.tv-mode.tv-panel #controlsWrapper #catWrapper.category-scroll {
           display: flex !important;
           flex-wrap: wrap !important;
@@ -463,7 +454,6 @@
           padding: 3px 10px !important;
           border-radius: 6px !important;
       }
-      /* Ara ve Kaynak Ekle bölmelerindeki kutu ve butonlar */
       body.tv-mode.tv-panel #controlsWrapper input:not([type="checkbox"]),
       body.tv-mode.tv-panel #controlsWrapper button {
           font-size: 0.82rem !important;
@@ -475,7 +465,6 @@
           font-size: 0.84rem !important;
           margin-top: 10px !important;
       }
-      /* AI Kaynak Asistanı ve URL Arama sonuç kartları: kumandayla seçilebilir net görünüm */
       body.tv-mode #aiRssResults > div,
       body.tv-mode #rssSearchResults > div,
       body.tv-mode .tv-rss-item {
@@ -498,7 +487,7 @@
       body.tv-mode #readerView { zoom: var(--tv-rz, 0.75); }
       body.tv-mode #readerView .reader-image { max-width: 75% !important; max-height: 42vh !important; width: auto !important; height: auto !important; display: block; margin: 0 auto 14px auto !important; object-fit: contain; }
 
-      /* TV'de Yapay Zeka Özeti: iç kutuların tüm yükseklik/taşma sınırlarını kaldırıp tek bir tam ekran kaydırma alanı yapıyoruz */
+      /* TV'de Yapay Zeka Özeti */
       body.tv-mode #aiInlineResult { display: none; position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important;
           max-height: none !important; overflow-y: auto !important; overflow-x: hidden !important; background: #0b1220 !important; z-index: 9999 !important; }
       body.tv-mode #aiInlineResult.show { display: block !important; }
@@ -524,7 +513,7 @@
       body.tv-mode #aiChatHistory .summary-card h4 { font-size: 1.1rem !important; color: #facc15 !important; margin: 0 0 6px 0 !important; }
       body.tv-mode #aiChatHistory .summary-card li { margin-bottom: 6px !important; line-height: 1.58 !important; }
 
-      /* Seçili odak çerçevesi: zarif sarı vurgu */
+      /* Seçili odak çerçevesi */
       body.tv-mode .tv-focus, body.tv-mode :focus-visible {
           outline: 2.5px solid #facc15 !important;
           outline-offset: 2px !important;
@@ -533,7 +522,7 @@
       }
       body.tv-mode * { -webkit-tap-highlight-color: transparent; }
 
-      /* Alt yönlendirme / buton tanıtım çubuğu (#tvBar): çok ince, zarif, yarı saydam ve ufak yazılı (akan metinle asla çakışmaz) */
+      /* Alt yönlendirme / buton tanıtım çubuğu (#tvBar) */
       #tvBar {
           display: none;
           position: fixed;
@@ -543,11 +532,11 @@
           background: rgba(7, 11, 20, 0.55);
           border-top: 1px solid rgba(255, 255, 255, 0.08);
           color: rgba(226, 232, 240, 0.85);
-          font: 400 0.76rem/1.2 system-ui, -apple-system, sans-serif;
+          font: 400 0.75rem/1.2 system-ui, -apple-system, sans-serif;
           letter-spacing: 0.02em;
           justify-content: space-between;
           align-items: center;
-          gap: 10px;
+          gap: 8px;
           pointer-events: none;
           transition: opacity 0.35s ease, transform 0.35s ease;
       }
@@ -582,14 +571,62 @@
             const dateStr = now.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long' });
             const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
             const st = getCurrentRadioStation();
-            const radioHtml = (st && isRadioPlaying()) ? `<span class="tv-radio-dot">📻 ${escapeHtml(st.shortName)}</span><span>•</span>` : '';
+            const radioHtml = (st && st.id !== 'off') ? `<span class="tv-radio-dot">📻 ${escapeHtml(st.shortName)}</span><span>•</span>` : '';
             cl.innerHTML = `${radioHtml}<span>${escapeHtml(dateStr)}</span><span style="opacity:0.55">•</span><span style="font-weight:500">${escapeHtml(timeStr)}</span>`;
         } catch (e) {}
     }
 
-    // ---------- Arka Plan Radyo Çalar ----------
+    // ---------- ZENGİNLEŞTİRİLMİŞ ARKA PLAN RADYO ÇALAR (GERÇEK TÜRKÜ, TSM, SLOW, POP, KLASİK, LO-FI, JAZZ + 2×◄► GEÇİŞİ) ----------
+    // Not: crossOrigin='anonymous' kaldırıldı çünkü Türk radyo sunucularında (TRT, Kral, Power vb.) CORS engeline takılıp yayını kesiyordu.
+    // Ayrıca Radio-Browser API üzerinden canlı çalışan Türk radyo akışları da dinamik olarak yedeklenir.
     const RADIO_STATIONS = [
-        { id: 'off', name: '🔇 Kapalı', shortName: '', urls: [] },
+        { id: 'off', name: '🔇 Radyo Kapalı', shortName: '', urls: [] },
+        {
+            id: 'turku',
+            name: '🪕 Türkü & Halk Müziği (TRT Türkü / Anadolu Türküleri)',
+            shortName: 'Türkü',
+            rbQuery: 'turku',
+            urls: [
+                'https://Radyo.impek.com/trtturku',
+                'https://listen.powerapp.com.tr/powerturku/mpeg/icecast.audio',
+                'https://radyo.dogannet.tv/kralturk',
+                'https://anadolu.liderhost.com.tr:10989/;',
+                'https://yayin.turkhosted.com:6006/;stream.mp3'
+            ]
+        },
+        {
+            id: 'tsm',
+            name: '🎼 Türk Sanat Müziği (TRT Nağme / Klasik TSM)',
+            shortName: 'TSM / Nağme',
+            rbQuery: 'sanat',
+            urls: [
+                'https://listen.powerapp.com.tr/powerulker/mpeg/icecast.audio',
+                'https://yayin.turkhosted.com:6054/;stream.mp3',
+                'https://stream.srg-ssr.ch/m/rsc_de/mp3_128'
+            ]
+        },
+        {
+            id: 'turkce_slow',
+            name: '🕯️ Türkçe Slow & Akustik (Slow Türk / Power Love)',
+            shortName: 'Türkçe Slow',
+            rbQuery: 'slow turk',
+            urls: [
+                'https://radyo.dogannet.tv/slowturk',
+                'https://listen.powerapp.com.tr/powerlove/mpeg/icecast.audio',
+                'https://playerservices.streamtheworld.com/api/livestream-redirect/JOY_TURK_AKUSTIK.mp3'
+            ]
+        },
+        {
+            id: 'turkce_pop',
+            name: '🇹🇷 Türkçe Pop & Güncel (PowerTürk / Süper FM)',
+            shortName: 'Türkçe Pop',
+            rbQuery: 'powerturk',
+            urls: [
+                'https://listen.powerapp.com.tr/powerturk/mpeg/icecast.audio',
+                'https://playerservices.streamtheworld.com/api/livestream-redirect/SUPER_FM.mp3',
+                'https://playerservices.streamtheworld.com/api/livestream-redirect/METRO_FM.mp3'
+            ]
+        },
         {
             id: 'classical',
             name: '🎻 Klasik Müzik (Swiss Classic / Venice Classic)',
@@ -601,22 +638,23 @@
             ]
         },
         {
+            id: 'piano',
+            name: '🎹 Sakin Piyano & Enstrümantal (Okuma Fon Müziği)',
+            shortName: 'Piyano',
+            urls: [
+                'https://ice5.somafm.com/n5md-128-mp3',
+                'https://stream.srg-ssr.ch/m/rsc_de/mp3_128',
+                'https://ice2.somafm.com/groovesalad-128-mp3'
+            ]
+        },
+        {
             id: 'study',
             name: '🎧 Study & Concentration (Lo-Fi / Odaklanma)',
-            shortName: 'Study',
+            shortName: 'Study Lo-Fi',
             urls: [
                 'https://streams.ilovemusic.de/iloveradio17.mp3',
                 'https://ice2.somafm.com/groovesalad-128-mp3',
                 'https://ice4.somafm.com/dronezone-128-mp3'
-            ]
-        },
-        {
-            id: 'turku',
-            name: '🪕 Türkü & Halk Müziği (Anadolu / Folk)',
-            shortName: 'Türkü',
-            urls: [
-                'https://ice2.somafm.com/suburbsofgoa-128-mp3',
-                'https://stream.srg-ssr.ch/m/rsc_de/mp3_128'
             ]
         },
         {
@@ -636,7 +674,7 @@
             urls: [
                 'https://ice2.somafm.com/underground80s-128-mp3',
                 'https://ice4.somafm.com/leftcoast-128-mp3',
-                'https://stream.srg-ssr.ch/m/rsp/mp3_128'
+                'https://ice2.somafm.com/seventies-128-mp3'
             ]
         },
         {
@@ -656,13 +694,37 @@
             urls: [
                 'https://ice2.somafm.com/deepspaceone-128-mp3',
                 'https://ice4.somafm.com/fluid-128-mp3',
-                'https://ice2.somafm.com/groovesalad-128-mp3'
+                'https://ice4.somafm.com/dronezone-128-mp3'
             ]
         }
     ];
 
     let radioAudio = null;
     let currentUrlIndex = 0;
+    const resolvedRbCache = new Map();
+
+    // Türk radyoları için Radio-Browser açık dizininden canlı çalışan MP3/AAC yayın adreslerini otomatik keşfeder
+    async function enrichStationWithLiveDirectory(st) {
+        if (!st || !st.rbQuery || resolvedRbCache.has(st.id)) return;
+        resolvedRbCache.set(st.id, true);
+        try {
+            const api = `https://de1.api.radio-browser.info/json/stations/search?countrycode=TR&name=${encodeURIComponent(st.rbQuery)}&hidebroken=true&order=clickcount&reverse=true&limit=8`;
+            const res = await fetch(api);
+            if (!res.ok) return;
+            const list = await res.json();
+            if (!Array.isArray(list)) return;
+            const liveUrls = [];
+            list.forEach(item => {
+                const u = (item && (item.url_resolved || item.url) || '').trim();
+                if (/^https:\/\//i.test(u) && !/\.m3u8(\?|$)/i.test(u) && !liveUrls.includes(u) && !st.urls.includes(u)) {
+                    liveUrls.push(u);
+                }
+            });
+            if (liveUrls.length) {
+                st.urls = liveUrls.concat(st.urls);
+            }
+        } catch (e) {}
+    }
 
     function getCurrentRadioStation() {
         const id = localStorage.getItem('tvRadioStation') || 'off';
@@ -679,54 +741,91 @@
         radioAudio.volume = (vol >= 0.05 && vol <= 1.0) ? vol : 0.45;
     }
 
-    function startOrSwitchRadio(stationId, showNotification) {
+    let radioRetryTimer = null;
+    async function startOrSwitchRadio(stationId, showNotification) {
         try {
+            clearTimeout(radioRetryTimer);
             if (stationId !== undefined) {
                 localStorage.setItem('tvRadioStation', String(stationId));
             }
             const st = getCurrentRadioStation();
+            const sel = document.getElementById('tvRadioStationSelect');
+            if (sel && sel.value !== st.id) sel.value = st.id;
+
             if (!st || st.id === 'off' || !st.urls.length) {
                 if (radioAudio) {
-                    try { radioAudio.pause(); radioAudio.src = ''; } catch (e) {}
+                    try { radioAudio.pause(); radioAudio.removeAttribute('src'); radioAudio.load(); } catch (e) {}
                 }
                 updateClockBadge();
                 if (showNotification && typeof showToastGlobal === 'function') {
-                    showToastGlobal('🔇 Radyo kapatıldı', 1400);
+                    showToastGlobal('🔇 Radyo: Kapalı', 1500);
                 }
                 return;
+            }
+
+            if (showNotification && typeof showToastGlobal === 'function') {
+                showToastGlobal('📻 Radyo: ' + st.name, 1800);
+            }
+
+            if (st.rbQuery && !resolvedRbCache.has(st.id)) {
+                await enrichStationWithLiveDirectory(st);
             }
 
             if (!radioAudio) {
                 radioAudio = new Audio();
                 radioAudio.preload = 'none';
-                radioAudio.crossOrigin = 'anonymous';
-                radioAudio.addEventListener('error', () => {
+                const tryNextStreamUrl = () => {
+                    clearTimeout(radioRetryTimer);
                     const curr = getCurrentRadioStation();
-                    if (!curr || curr.id === 'off') return;
+                    if (!curr || curr.id === 'off' || !curr.urls.length) return;
                     currentUrlIndex = (currentUrlIndex + 1) % curr.urls.length;
                     if (currentUrlIndex !== 0) {
                         radioAudio.src = curr.urls[currentUrlIndex];
                         applyRadioVolume();
                         radioAudio.play().catch(() => {});
                     }
+                };
+                radioAudio.addEventListener('error', tryNextStreamUrl);
+                radioAudio.addEventListener('playing', () => {
+                    clearTimeout(radioRetryTimer);
+                    updateClockBadge();
                 });
-                radioAudio.addEventListener('playing', updateClockBadge);
                 radioAudio.addEventListener('pause', updateClockBadge);
             }
 
             currentUrlIndex = 0;
             radioAudio.src = st.urls[0];
             applyRadioVolume();
+            updateClockBadge();
+
+            // Eğer ilk akış 4.5 sn içinde çalmaya başlamazsa otomatik olarak listedeki yedek akışa geç
+            radioRetryTimer = setTimeout(() => {
+                if (radioAudio && (radioAudio.paused || radioAudio.readyState < 2) && getCurrentRadioStation().id === st.id) {
+                    currentUrlIndex = (currentUrlIndex + 1) % st.urls.length;
+                    if (st.urls[currentUrlIndex]) {
+                        radioAudio.src = st.urls[currentUrlIndex];
+                        applyRadioVolume();
+                        radioAudio.play().catch(() => {});
+                    }
+                }
+            }, 4500);
+
             const playPromise = radioAudio.play();
             if (playPromise && typeof playPromise.then === 'function') {
                 playPromise.then(() => {
                     updateClockBadge();
-                    if (showNotification && typeof showToastGlobal === 'function') {
-                        showToastGlobal('📻 Çalıyor: ' + st.name, 1800);
-                    }
                 }).catch(() => {});
             }
         } catch (e) {}
+    }
+
+    // 2×◄ veya 2×► ile radyo istasyonunu sırayla değiştirir
+    function cycleRadioStation(step) {
+        const cur = getCurrentRadioStation();
+        let idx = RADIO_STATIONS.findIndex(s => s.id === cur.id);
+        if (idx < 0) idx = 0;
+        idx = (idx + step + RADIO_STATIONS.length) % RADIO_STATIONS.length;
+        startOrSwitchRadio(RADIO_STATIONS[idx].id, true);
     }
 
     window.tvSetRadioStation = function (val) {
@@ -741,6 +840,170 @@
         }
     };
 
+    // ---------- 4) RESİM OLMAYAN HABERLERDE BAŞLIKLA İLGİLİ FOTOĞRAF BULUCU + MANZARA FOTOĞRAFI YEDEĞİ ----------
+    const SCENIC_FALLBACK_PHOTOS = [
+        'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1280&q=80',
+        'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1280&q=80',
+        'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1280&q=80',
+        'https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?auto=format&fit=crop&w=1280&q=80',
+        'https://images.unsplash.com/photo-1501854140801-50d01698950b?auto=format&fit=crop&w=1280&q=80',
+        'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?auto=format&fit=crop&w=1280&q=80',
+        'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1280&q=80',
+        'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1280&q=80',
+        'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1280&q=80',
+        'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1280&q=80',
+        'https://images.unsplash.com/photo-1493246507139-91e8fad9978e?auto=format&fit=crop&w=1280&q=80',
+        'https://images.unsplash.com/photo-1518837695005-2083093ee35b?auto=format&fit=crop&w=1280&q=80',
+        'https://images.unsplash.com/photo-1433086966358-54859d0ed716?auto=format&fit=crop&w=1280&q=80',
+        'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=1280&q=80',
+        'https://images.unsplash.com/photo-1532274402911-5a369e4c4bb5?auto=format&fit=crop&w=1280&q=80',
+        'https://images.unsplash.com/photo-1475924156734-496f6cac6ec1?auto=format&fit=crop&w=1280&q=80'
+    ];
+
+    const CARD_PHOTO_CACHE = new Map();
+    const inflightPhotoSearch = new Map();
+
+    function pickScenicPhotoForKey(key) {
+        let h = 0;
+        const s = String(key || 'scrollary');
+        for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+        return SCENIC_FALLBACK_PHOTOS[Math.abs(h) % SCENIC_FALLBACK_PHOTOS.length];
+    }
+
+    function extractMetaImageFromHtml(html, baseUrl) {
+        if (!html || html.length < 200) return '';
+        try {
+            const m1 = html.match(/<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image|twitter:image:src)["'][^>]+content=["']([^"']+)["']/i)
+                || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["'](?:og:image|twitter:image|twitter:image:src)["']/i);
+            if (m1 && m1[1]) {
+                const u = new URL(m1[1].replace(/&amp;/g, '&'), baseUrl || 'https://news.google.com').href;
+                if (/^https?:\/\//i.test(u) && !/logo|icon|avatar|1x1|pixel|google|gstatic/i.test(u)) return u;
+            }
+        } catch (e) {}
+        return '';
+    }
+
+    // Başlıkla ilgili gerçek haber fotoğrafını (Bing Haberler RSS görseli veya makale og:image) arka planda arar
+    async function findHeadlineRelatedPhoto(art) {
+        if (!art || !art.link) return '';
+        if (CARD_PHOTO_CACHE.has(art.link)) return CARD_PHOTO_CACHE.get(art.link);
+        if (inflightPhotoSearch.has(art.link)) return inflightPhotoSearch.get(art.link);
+
+        const job = (async () => {
+            try {
+                // 1) Bing Haberler RSS içinde başlıkla eşleşen haberin gerçek basın fotoğrafını (<News:Image> veya <media:content>) ara
+                if (art.title && typeof fetchHtmlRace === 'function') {
+                    const cleanTitle = typeof gnSplitTitle === 'function' ? gnSplitTitle(art.title).clean : String(art.title).replace(/\s+-\s+[^-]+$/, '').trim();
+                    const shortQ = cleanTitle.split(/\s+/).filter(w => w.length > 2).slice(0, 7).join(' ');
+                    if (shortQ.length >= 6) {
+                        try {
+                            const xml = await fetchHtmlRace('https://www.bing.com/news/search?format=rss&setlang=tr&q=' + encodeURIComponent(shortQ));
+                            if (xml && !/^\s*(<!doctype|<html)/i.test(xml)) {
+                                const x = new DOMParser().parseFromString(xml, 'text/xml');
+                                const items = [...x.getElementsByTagName('item')];
+                                for (const item of items.slice(0, 5)) {
+                                    const itemXml = new XMLSerializer().serializeToString(item);
+                                    const imgMatch = itemXml.match(/<News:Image>([^<]+)<\/News:Image>/i)
+                                        || itemXml.match(/url=["'](https?:\/\/[^"']+(?:th\?id=|jpg|jpeg|png|webp)[^"']*)["']/i);
+                                    if (imgMatch && imgMatch[1]) {
+                                        let imgUrl = imgMatch[1].replace(/&amp;/g, '&').trim();
+                                        // Bing küçük resimlerini yüksek çözünürlüklü boyuta (w=1200) yükselt
+                                        if (imgUrl.includes('bing.com/th')) {
+                                            imgUrl = imgUrl.replace(/&pid=News.*$/i, '') + '&w=1200&h=675&c=7';
+                                        }
+                                        CARD_PHOTO_CACHE.set(art.link, imgUrl);
+                                        return imgUrl;
+                                    }
+                                }
+                            }
+                        } catch (e) {}
+                    }
+                }
+
+                // 2) Sayfa HTML önbellekte (HTML_SHARED) varsa og:image meta etiketini çek
+                if (typeof HTML_SHARED !== 'undefined') {
+                    for (const [u, entry] of HTML_SHARED.entries()) {
+                        try {
+                            const html = await Promise.race([entry.p, new Promise(r => setTimeout(() => r(''), 300))]);
+                            const og = extractMetaImageFromHtml(html, u);
+                            if (og) {
+                                CARD_PHOTO_CACHE.set(art.link, og);
+                                return og;
+                            }
+                        } catch (e) {}
+                    }
+                }
+            } catch (e) {}
+            return '';
+        })();
+
+        inflightPhotoSearch.set(art.link, job);
+        job.finally(() => inflightPhotoSearch.delete(art.link));
+        return job;
+    }
+
+    // Kartta resim yoksa (veya kırık/amblem ise) anında manzara fotoğrafı koyar ve arka planda başlıkla ilgili gerçek fotoğrafı bulursa yumuşakça değiştirir
+    function ensureCardHasPhoto(w, art) {
+        if (!w) return;
+        const imgWrap = w.querySelector('.card-img-wrapper');
+        if (!imgWrap) return;
+
+        let mainImg = imgWrap.querySelector('.main-img');
+        const hasValidMainImg = mainImg
+            && mainImg.getAttribute('src')
+            && !/icon\.png|placeholder|^about:/i.test(mainImg.getAttribute('src'))
+            && mainImg.style.display !== 'none';
+
+        if (!mainImg) {
+            mainImg = document.createElement('img');
+            mainImg.className = 'main-img';
+            mainImg.alt = '';
+            imgWrap.prepend(mainImg);
+        }
+
+        const linkKey = (art && art.link) || w.dataset.link || (art && art.title) || 'scenic';
+        const scenicUrl = pickScenicPhotoForKey(linkKey);
+
+        // Eğer resim yüklenemezse (onerror) asla boş veya amblem kalmasın, doğrudan manzara fotoğrafına geçsin
+        if (!mainImg.dataset.tvFallbackBound) {
+            mainImg.dataset.tvFallbackBound = '1';
+            mainImg.onerror = function () {
+                if (this.src !== scenicUrl) {
+                    this.style.display = 'block';
+                    this.src = scenicUrl;
+                }
+            };
+        }
+
+        if (hasValidMainImg) return;
+
+        mainImg.style.display = 'block';
+        const cachedHeadlinePhoto = CARD_PHOTO_CACHE.get(linkKey);
+        if (cachedHeadlinePhoto) {
+            mainImg.src = cachedHeadlinePhoto;
+            return;
+        }
+
+        // İlk anda hiç beklemeden yüksek çözünürlüklü manzara fotoğrafını göster
+        mainImg.src = scenicUrl;
+
+        // Arka planda başlıkla ilgili gerçek haber fotoğrafını ara; bulursa önyükleyip (kararma yapmadan) ekrana yansıt
+        if (art) {
+            findHeadlineRelatedPhoto(art).then(foundUrl => {
+                if (!foundUrl) return;
+                const pre = new Image();
+                pre.onload = () => {
+                    if (pre.naturalWidth >= 180) {
+                        art.image = foundUrl;
+                        mainImg.style.display = 'block';
+                        mainImg.src = foundUrl;
+                    }
+                };
+                pre.src = foundUrl;
+            }).catch(() => {});
+        }
+    }
+
     function buildBar() {
         const bar = document.createElement('div');
         bar.id = 'tvBar';
@@ -749,7 +1012,7 @@
     }
 
     const BAR = {
-        feed: '<span><b>◄</b> Ayarlar & Radyo</span><span><b>▲▼</b> Haber</span><span id="tvCount"></span><span><b>OK</b> Oku</span><span><b>2×OK</b> ✨ Detaylı Özet</span><span><b>►</b> Filtreler</span>',
+        feed: '<span><b>◄</b> Ayarlar</span><span><b>2×◄►</b> 📻 Radyo</span><span><b>▲▼</b> Haber</span><span id="tvCount"></span><span><b>OK</b> Oku</span><span><b>2×OK</b> ✨ Özet</span><span><b>►</b> Filtre</span>',
         news: '<span><b>◄</b> Okuma</span><span><b>►</b> Orijinal</span><span><b>OK</b> Boyut</span><span><b>2×OK</b> ✨ Özet</span><span><b>▲▼</b> Kaydır</span><span><b>GERİ</b> Kapat</span>',
         ai:   '<span><b>▲▼</b> Kaydır</span><span><b>OK</b> Boyut</span><span><b>2×OK / GERİ</b> Özeti kapat</span>',
         menu: '<span><b>▲▼◄►</b> Gez</span><span><b>OK</b> Seç / Ekle</span><span><b>GERİ</b> Kapat</span>'
@@ -899,7 +1162,6 @@
 
         const enhanceItems = () => {
             const children = Array.from(box.children).filter(el => {
-                // Yükleniyor veya hata mesajı değilse, tıklanabilir sonuç kartıdır
                 return el.tagName === 'BUTTON' || typeof el.onclick === 'function' || el.querySelector('.ai-add-badge, button');
             });
             if (!children.length) return;
@@ -910,7 +1172,6 @@
                     item.setAttribute('tabindex', '0');
                     item.setAttribute('role', 'button');
 
-                    // Tıklandığında pointerEvents: 'none' yüzünden kumanda odağının kaybolmasını önle ve sıradaki sonuca odaklan
                     const origClick = item.onclick;
                     if (typeof origClick === 'function' && !item.dataset.tvClickWrapped) {
                         item.dataset.tvClickWrapped = '1';
@@ -918,14 +1179,12 @@
                             if (this.dataset.tvAdded !== '1') {
                                 this.dataset.tvAdded = '1';
                                 origClick.call(this, ev);
-                                // autoFillAndAddRss'in açtığı manuel kayıt formunu tekrar kapat ki ekran kaymasın
                                 setTimeout(() => {
                                     const man = $('manualAddSection');
                                     if (man) man.classList.remove('show');
                                 }, 450);
                             }
                             this.style.pointerEvents = 'auto';
-                            // Varsa bir sonraki eklenmemiş sonuca odaklan
                             const siblings = Array.from(box.querySelectorAll('.tv-rss-item'));
                             const myIdx = siblings.indexOf(this);
                             const nextItem = siblings.slice(myIdx + 1).find(x => x.dataset.tvAdded !== '1')
@@ -937,7 +1196,6 @@
                 }
             });
 
-            // Sonuçlar ilk kez yüklendiğinde kumanda odağını otomatik olarak ilk bulunan kaynağın üzerine getir!
             const firstUnadded = children.find(x => x.dataset.tvAdded !== '1') || children[0];
             if (firstUnadded && document.body.classList.contains('tv-panel')) {
                 setTimeout(() => setFocus(firstUnadded), 80);
@@ -1065,7 +1323,6 @@
         throw new Error(lastErr);
     }
 
-    // Her çağrıda sıradaki API anahtarını seçer (Kart 1 -> Key #1, Kart 2 -> Key #2, Kart 3 -> Key #3...)
     async function groqChatRotatedWithMeta(messages, opts = {}) {
         const entries = getAllKeyEntries();
         if (!entries.length) throw new Error('API anahtarı eksik. Ayarlardan Groq veya Gemini anahtarı ekleyin.');
@@ -1147,7 +1404,7 @@
             const link = c.dataset.link || '';
             const h3 = c.querySelector('h3');
             const tk = fastTitleKey(h3 ? h3.textContent : '');
-            if (link === curLink) {
+            if (link === curLink || c.classList.contains('tv-current')) {
                 if (link) domLinks.add(link);
                 if (tk.length > 10) domKeys.add(tk);
                 continue;
@@ -1197,7 +1454,7 @@
         try {
             localStorage.setItem('tvTickerSpeed', String(speedVal));
             if (typeof showToastGlobal === 'function') {
-                showToastGlobal('⚡ Yukarı / yatay kayma hızı güncellendi', 1200);
+                showToastGlobal('⚡ Kayma hızı güncellendi (%' + Math.round((parseFloat(speedVal) || 1) * 100) + ')', 1200);
             }
         } catch (e) {}
         if (!overlayRoot()) attachCardLiveTickerAndReader(true);
@@ -1220,7 +1477,7 @@
             localStorage.setItem('tvTickerScale', String(s));
             document.documentElement.style.setProperty('--ticker-scale', String(s));
             if (typeof showToastGlobal === 'function') {
-                showToastGlobal('🔠 Akan metin boyutu güncellendi', 1200);
+                showToastGlobal('🔠 Akan metin boyutu güncellendi (%' + Math.round(s * 100) + ')', 1200);
             }
         } catch (e) {}
     };
@@ -1282,13 +1539,13 @@
         radioDetails.id = 'tvRadioSettingsDetail';
         const stationOptionsHtml = RADIO_STATIONS.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
         radioDetails.innerHTML = `
-            <summary>📻 Arka Plan Radyo & Müzik</summary>
+            <summary>📻 Arka Plan Radyo & Müzik (Kumanda: 2×◄ / 2×►)</summary>
             <div class="setting-detail">
                 <label class="tap-label" for="tvRadioStationSelect">Okurken Çalacak Radyo Yayını</label>
                 <select id="tvRadioStationSelect" class="tap-select" onchange="window.tvSetRadioStation(this.value)">
                     ${stationOptionsHtml}
                 </select>
-                <p style="color: var(--text-muted); font-size: 0.78rem; margin: 4px 0 10px 0;">Seçtiğiniz radyo istasyonu haberleri izlerken ve okurken arka planda kesintisiz çalar.</p>
+                <p style="color: var(--text-muted); font-size: 0.78rem; margin: 4px 0 10px 0;">Ana ekranda kumandadan <b>2 kez Sağ (2×►)</b> veya <b>2 kez Sol (2×◄)</b> ok tuşuna basarak da radyoyu anında değiştirebilirsiniz.</p>
 
                 <label class="tap-label" for="tvRadioVolSelect">Radyo Ses Seviyesi</label>
                 <select id="tvRadioVolSelect" class="tap-select" onchange="window.tvSetRadioVolume(this.value)">
@@ -1315,9 +1572,11 @@
 
                 <label class="tap-label" for="tvTitleScaleSelect">Haber Başlığı Yazı Boyutu</label>
                 <select id="tvTitleScaleSelect" class="tap-select" onchange="window.tvSetTitleScale(this.value)">
+                    <option value="0.45">Çok Çok Küçük (%45)</option>
+                    <option value="0.6">Çok Küçük (%60)</option>
                     <option value="0.75">Küçük (%75)</option>
                     <option value="0.9">Orta Küçük (%90)</option>
-                    <option value="1.0">Normal / Varsayılan (%100 - +%25 Büyütülmüş)</option>
+                    <option value="1.0">Normal / Varsayılan (%100)</option>
                     <option value="1.15">Büyük (%115)</option>
                     <option value="1.3">Çok Büyük (%130)</option>
                     <option value="1.5">Dev Başlık (%150)</option>
@@ -1326,8 +1585,13 @@
 
                 <label class="tap-label" for="tvTickerScaleSelect">Akan Metin Yazı Boyutu (Yukarı & Yatay)</label>
                 <select id="tvTickerScaleSelect" class="tap-select" onchange="window.tvSetTickerScale(this.value)">
-                    <option value="0.8">Küçük (%80)</option>
-                    <option value="1.0">Normal / Varsayılan (%100 - +%25 Büyütülmüş)</option>
+                    <option value="0.4">Çok Çok Küçük / Zarif (%40)</option>
+                    <option value="0.5">Çok Küçük (%50)</option>
+                    <option value="0.6">Küçük (%60)</option>
+                    <option value="0.7">Orta Küçük (%70)</option>
+                    <option value="0.8">Biraz Küçük (%80)</option>
+                    <option value="0.9">Dengeli (%90)</option>
+                    <option value="1.0">Normal / Varsayılan (%100)</option>
                     <option value="1.2">Büyük (%120)</option>
                     <option value="1.4">Çok Büyük (%140)</option>
                     <option value="1.6">Dev Boyut (%160)</option>
@@ -1339,9 +1603,12 @@
                     <option value="0.6">🐌 Çok Yavaş (%60)</option>
                     <option value="0.8">🐢 Yavaş (%80)</option>
                     <option value="1.0">⚡ Normal / Varsayılan (%100)</option>
-                    <option value="1.25">🚀 Hızlı (%125)</option>
-                    <option value="1.5">🏎️ Çok Hızlı (%150)</option>
-                    <option value="1.85">⚡⚡ Süper Hızlı (%185)</option>
+                    <option value="1.3">🚀 Hızlı (%130)</option>
+                    <option value="1.6">🏎️ Çok Hızlı (%160)</option>
+                    <option value="2.0">⚡⚡ Süper Hızlı (2x - %200)</option>
+                    <option value="2.5">🔥 Ultra Hızlı (2.5x - %250)</option>
+                    <option value="3.2">☄️ Turbo Hızlı (3.2x - %320)</option>
+                    <option value="4.0">🚀 Maksimum Hız (4x - %400)</option>
                 </select>
                 <p style="color: var(--text-muted); font-size: 0.78rem; margin: 4px 0 10px 0;">Hem aşağıdan yukarıya hem de sağdan sola akan metnin kayma hızını ayarlar.</p>
 
@@ -1388,6 +1655,7 @@
     let autoAdvanceTimer = null;
     let nextCardWarmTimer = null;
     let currentFetchStartTimer = null;
+    let activeCardElement = null;
 
     function advanceToNextCard() {
         if (overlayRoot() || aiOpen()) return;
@@ -1411,7 +1679,6 @@
         }
     }
 
-    // Bir cümlenin kart başlığının tekrarı olup olmadığını tespit eder (başlık zaten üstte göründüğü için akan metinde tekrar edilmez)
     function isSentenceRepeatingTitle(sentence, art) {
         if (!sentence || !art || !art.title) return false;
         const cleanTitle = typeof gnSplitTitle === 'function'
@@ -1441,7 +1708,6 @@
         return overlapRatio >= 0.70 && sWords.length <= tWords.length + 4;
     }
 
-    // Cümlenin başındaki başlık kopyasını ("Başlık - " veya "Başlık: ") temizler ve başlıkla aynı olan cümleleri eler
     function removeTitleRepetitions(sentences, art) {
         if (!Array.isArray(sentences) || !sentences.length) return [];
         const cleanTitle = (art && art.title)
@@ -1462,7 +1728,6 @@
         return filtered;
     }
 
-    // mergeShort=false olduğunda (özet modu) her cümleyi ayrı bir satır/kutu olarak tutar, asla tek cümlede birleştirmez
     function splitIntoSentences(text, mergeShort = false) {
         if (!text) return [];
         const raw = String(text)
@@ -1495,7 +1760,6 @@
         return out;
     }
 
-    // Başlıktaki anahtar kelimelerle cümlenin ilgisini ölçer (ilgisiz yan haber/reklam cümlelerini elemek için)
     function filterRelevantParagraphs(paras, art) {
         if (!Array.isArray(paras) || !paras.length) return [];
         if (!art || !art.title) return paras;
@@ -1521,7 +1785,6 @@
             .map(x => x.p);
     }
 
-    // API anahtarı yoksa veya internet dalgalanmasında 5N1K (kim, nerede, ne zaman, niçin, nasıl) odaklı 3-4 kritik cümleyi seçen yedek özetleyici
     function buildSmartExtractiveSummary(paras, art, maxSentences = 4) {
         const relevantParas = filterRelevantParagraphs(paras, art);
         const all = [];
@@ -1551,7 +1814,6 @@
         return chosen;
     }
 
-    // Site doğrudan kazımayı engellediyse Bing Haberler RSS ve DuckDuckGo üzerinden başlıkla eşleşen 5N1K haber özetini çeker
     async function fetchSearchSnippetsForTitle(art) {
         if (!art || !art.title || typeof fetchHtmlRace !== 'function') return [];
         const cleanTitle = typeof gnSplitTitle === 'function' ? gnSplitTitle(art.title).clean : String(art.title).replace(/\s+-\s+[^-]+$/, '').trim();
@@ -1573,6 +1835,19 @@
                         splitIntoSentences(cleanD, false).forEach(s => {
                             if (s.length >= 25 && !isSentenceRepeatingTitle(s, art) && !out.includes(s)) out.push(s);
                         });
+                    }
+                    // Aynı zamanda Bing News RSS içindeki haber fotoğrafını da önbelleğe al
+                    if (art.link && !CARD_PHOTO_CACHE.has(art.link)) {
+                        const itemXml = new XMLSerializer().serializeToString(item);
+                        const imgMatch = itemXml.match(/<News:Image>([^<]+)<\/News:Image>/i)
+                            || itemXml.match(/url=["'](https?:\/\/[^"']+(?:th\?id=|jpg|jpeg|png|webp)[^"']*)["']/i);
+                        if (imgMatch && imgMatch[1]) {
+                            let imgUrl = imgMatch[1].replace(/&amp;/g, '&').trim();
+                            if (imgUrl.includes('bing.com/th')) {
+                                imgUrl = imgUrl.replace(/&pid=News.*$/i, '') + '&w=1200&h=675&c=7';
+                            }
+                            CARD_PHOTO_CACHE.set(art.link, imgUrl);
+                        }
                     }
                     if (out.length >= 5) break;
                 }
@@ -1600,7 +1875,6 @@
 
     const inflightArticleFetch = new Map();
 
-    // Okuma modu (openModal) ile birebir aynı kaynakları + yayıncı RSS + esnek HTML + Arama snippet yedeğini kullanır
     async function fetchArticleParasForPeek(art) {
         if (!art || !art.link) return { ok: false, paras: [] };
 
@@ -1630,10 +1904,13 @@
                 if (typeof workerBase === 'function' && workerBase() && typeof workerRead === 'function') {
                     try {
                         const w = await workerRead(url, art);
-                        if (w && Array.isArray(w.paras) && w.paras.length >= 2) {
-                            if (typeof workerRemember === 'function') workerRemember(url, w);
-                            if (typeof READER_CACHE !== 'undefined') READER_CACHE.set(art.link, { paras: w.paras, via: 'hızlı sunucu' });
-                            return { ok: true, paras: w.paras };
+                        if (w) {
+                            if (w.image && !CARD_PHOTO_CACHE.has(art.link)) CARD_PHOTO_CACHE.set(art.link, w.image);
+                            if (Array.isArray(w.paras) && w.paras.length >= 2) {
+                                if (typeof workerRemember === 'function') workerRemember(url, w);
+                                if (typeof READER_CACHE !== 'undefined') READER_CACHE.set(art.link, { paras: w.paras, via: 'hızlı sunucu' });
+                                return { ok: true, paras: w.paras };
+                            }
                         }
                     } catch (e) {}
                 }
@@ -1652,6 +1929,14 @@
                 if (!/news\.google\.com/.test(url) && typeof extractArticle === 'function') {
                     try {
                         const res = await extractArticle(url, art, false);
+                        // Sayfa HTML'i indirildiyse og:image fotoğrafını da yakala
+                        if (!CARD_PHOTO_CACHE.has(art.link) && typeof HTML_SHARED !== 'undefined' && HTML_SHARED.has(url)) {
+                            try {
+                                const rawH = await HTML_SHARED.get(url).p;
+                                const og = extractMetaImageFromHtml(rawH, url);
+                                if (og) CARD_PHOTO_CACHE.set(art.link, og);
+                            } catch (e) {}
+                        }
                         if (res && Array.isArray(res.paras) && res.paras.length) {
                             if (typeof READER_CACHE !== 'undefined') READER_CACHE.set(art.link, res);
                             return { ok: true, paras: res.paras };
@@ -1676,6 +1961,8 @@
                 if (!/news\.google\.com/.test(url) && typeof getHtmlShared === 'function' && typeof extractFromHtml === 'function') {
                     try {
                         const rawHtml = await getHtmlShared(url, false);
+                        const og = extractMetaImageFromHtml(rawHtml, url);
+                        if (og && !CARD_PHOTO_CACHE.has(art.link)) CARD_PHOTO_CACHE.set(art.link, og);
                         const ps = extractFromHtml(rawHtml, art);
                         if (Array.isArray(ps) && ps.length >= 1 && ps.join(' ').length >= 140) {
                             if (typeof READER_CACHE !== 'undefined') READER_CACHE.set(art.link, { paras: ps, via: 'sayfa-esnek' });
@@ -1698,7 +1985,6 @@
     }
 
     // ---------- KART ÜZERİ 3-5 CÜMLELİK 5N1K KRİTİK ÖZETLEYİCİ (BAŞLIK TEKRARSIZ + SIRALI API ANAHTARI) ----------
-    // CARD_AI_CACHE: link -> { sents: string[], keyInfo: string, isAi: boolean }
     const CARD_AI_CACHE = new Map();
     const inflightCardAi = new Map();
 
@@ -1798,7 +2084,7 @@
         return job;
     }
 
-    // Bir kart açıkken sıradaki haberin özetini (veya metnini) arka planda sıradaki API anahtarıyla önceden hazırlar
+    // Bir kart açıkken sıradaki haberin özetini, metnini ve fotoğrafını arka planda önceden hazırlar
     function prefetchUpcomingCardInBackground(myToken) {
         clearTimeout(nextCardWarmTimer);
         nextCardWarmTimer = setTimeout(() => {
@@ -1811,10 +2097,13 @@
                 const candidateCard = l[(curIndex() + step) % l.length];
                 if (!candidateCard || !candidateCard.dataset.link) continue;
                 const link = candidateCard.dataset.link;
+                const nextArt = filteredArticles.find(a => a && a.link === link);
+                if (nextArt && !nextArt.image && !CARD_PHOTO_CACHE.has(link)) {
+                    findHeadlineRelatedPhoto(nextArt).catch(() => {});
+                }
                 if (summaryMode && CARD_AI_CACHE.has(link)) continue;
                 if (!summaryMode && typeof READER_CACHE !== 'undefined' && READER_CACHE.has(link)) continue;
 
-                const nextArt = filteredArticles.find(a => a && a.link === link);
                 if (nextArt) {
                     if (summaryMode) {
                         getCardMiniAISummaryData(nextArt).catch(() => {});
@@ -1867,8 +2156,7 @@
         return cleanHtml;
     }
 
-    // Kart açılır açılmaz önce yalnızca Başlık + "Haber özeti/metni çekiliyor..." gösterir;
-    // içerik çekildiği anda (veya arka planda önceden hazırsa anında) başlık tekrarı olmadan 2 tur kaydırıp sonrakine geçer!
+    // Kart açılır açılmaz fotoğrafını tamamlar ve akan özet/metin alanını kurar
     function attachCardLiveTickerAndReader(forceRestart) {
         if (overlayRoot() || aiOpen()) return;
 
@@ -1881,6 +2169,16 @@
             w.classList.add('tv-current');
             curLink = w.dataset.link;
         }
+        activeCardElement = w;
+
+        let art = findCurrentArticleObj();
+        if (!art) {
+            const h3 = w.querySelector('h3');
+            art = { link: w.dataset.link || '', title: h3 ? h3.textContent.trim() : '', description: '' };
+        }
+
+        // Resim olmayan haberde Scrollary amblemi yerine başlıkla ilgili fotoğrafı veya manzara fotoğrafını yerleştir
+        ensureCardHasPhoto(w, art);
 
         if (!forceRestart && w.querySelector('.tv-card-reader')) {
             return;
@@ -1891,12 +2189,6 @@
         const cardEl = w.querySelector('.news-card');
         const contentEl = w.querySelector('.news-content');
         if (!cardEl || !contentEl) return;
-
-        let art = findCurrentArticleObj();
-        if (!art) {
-            const h3 = contentEl.querySelector('h3');
-            art = { link: w.dataset.link || '', title: h3 ? h3.textContent.trim() : '', description: '' };
-        }
 
         const myToken = ++tickerToken;
         const autoAdvanceEnabled = localStorage.getItem('tvAutoAdvance') !== '0';
@@ -1928,6 +2220,9 @@
             if (myToken !== tickerToken) return;
             readerWrap.innerHTML = '';
 
+            // Metin çekilirken makale fotoğrafı (og:image / Bing) bulunduysa kart görselini de güncelle
+            ensureCardHasPhoto(w, art);
+
             let trackEl = null;
             if (isHorizontal) {
                 const tickerWrap = document.createElement('div');
@@ -1952,8 +2247,11 @@
             trackEl.dataset.chars = String(totalChars);
             const multiplier = parseFloat(localStorage.getItem('tvTickerSpeed')) || 1.0;
             const baseFactor = isHorizontal ? 0.11 : 0.082;
-            const singlePassSec = Math.max(9, Math.round((totalChars * baseFactor) / multiplier));
+            // Yüksek hız seçeneklerinin (2x, 3x, 4x) tam etki etmesi için alt sınır 3.5 saniyeye indirildi
+            const singlePassSec = Math.max(3.5, Math.round(((totalChars * baseFactor) / multiplier) * 10) / 10);
             trackEl.style.setProperty('--ticker-dur', singlePassSec + 's');
+            trackEl.dataset.startedAt = String(Date.now());
+            trackEl.dataset.durSec = String(singlePassSec);
             trackEl.style.animation = 'none';
             void trackEl.offsetWidth;
             trackEl.style.animation = '';
@@ -1964,7 +2262,7 @@
 
             if (autoAdvanceEnabled) {
                 clearTimeout(autoAdvanceTimer);
-                const advanceDelayMs = (singlePassSec * 2 * 1000) + 400;
+                const advanceDelayMs = Math.round(singlePassSec * 2 * 1000) + 400;
                 autoAdvanceTimer = setTimeout(() => {
                     if (myToken !== tickerToken || overlayRoot() || aiOpen()) return;
                     advanceToNextCard();
@@ -2074,7 +2372,7 @@
         }
     }
 
-    // ---------- Tek kart yönetimi ----------
+    // ---------- Tek kart yönetimi ve KARARMA / KENDİLİĞİNDEN YENİLENME KORUMASI ----------
     let curLink = null, lastUpTap = 0;
 
     const cards = () => Array.from(document.querySelectorAll('#newsGrid .swipe-wrapper'));
@@ -2096,6 +2394,7 @@
         if (!target) return;
 
         if (target.classList.contains('tv-current') && curLink === target.dataset.link && target.querySelector('.tv-card-reader')) {
+            activeCardElement = target;
             refreshCount();
             return;
         }
@@ -2103,10 +2402,12 @@
         const prevLink = curLink;
         stopCardTicker();
 
-        const prevActive = document.querySelector('#newsGrid .swipe-wrapper.tv-current');
-        if (prevActive && prevActive !== target) prevActive.classList.remove('tv-current');
+        document.querySelectorAll('#newsGrid .swipe-wrapper.tv-current').forEach(c => {
+            if (c !== target) c.classList.remove('tv-current');
+        });
 
         target.classList.add('tv-current');
+        activeCardElement = target;
         curLink = target.dataset.link;
 
         if (prevLink && prevLink !== curLink) {
@@ -2118,26 +2419,56 @@
         if (allowMore && i >= l.length - 3) loadMore();
     }
 
+    // Arka planda RSS kaynakları yüklenirken ui.js #newsGrid'i sıfırlayıp yeniden çizdiğinde,
+    // ekrandaki mevcut kartın (activeCardElement) silinip kararmasını ve akışın baştan başlamasını 0ms'de engeller!
     function ensureCurrent() {
         const grid = $('newsGrid');
         if (!grid) return;
-        deduplicateDomCardsLight();
-        const l = cards();
-        if (!l.length) return;
 
-        const activeNow = document.querySelector('#newsGrid .swipe-wrapper.tv-current');
-        if (activeNow && (!curLink || activeNow.dataset.link === curLink)) {
-            curLink = activeNow.dataset.link;
+        const rawWrappers = Array.from(grid.querySelectorAll('.swipe-wrapper'));
+        if (!rawWrappers.length) return;
+
+        // 1) Eğer izlenen kart (activeCardElement) hala grid içindeyse hiçbir şeyi bozma!
+        if (activeCardElement && grid.contains(activeCardElement) && activeCardElement.classList.contains('tv-current')) {
+            curLink = activeCardElement.dataset.link || curLink;
+            deduplicateDomCardsLight();
             refreshCount();
             ensureCardTickerPresent();
             return;
         }
+
+        // 2) Eğer ui.js arka plan yenilemesi sırasında grid.innerHTML'i değiştirdiyse ve activeCardElement koparıldıysa,
+        //    aynı haber yeni listede varsa yeni ham kartın yerine mevcut çalışan kartımızı (resmi ve kayan metniyle) 0ms'de geri tak!
+        if (activeCardElement && curLink && !grid.contains(activeCardElement)) {
+            const replacement = rawWrappers.find(c => c.dataset.link === curLink);
+            if (replacement) {
+                rawWrappers.forEach(c => c.classList.remove('tv-current'));
+                activeCardElement.classList.add('tv-current');
+                replacement.replaceWith(activeCardElement);
+
+                // Kayan metin animasyonunun kaldığı saniyeden kesintisiz devam etmesini sağla
+                const track = activeCardElement.querySelector('.tv-vscroll-track, .tv-ticker-track');
+                if (track && track.dataset.startedAt) {
+                    const elapsedSec = ((Date.now() - parseInt(track.dataset.startedAt, 10)) / 1000);
+                    const durSec = parseFloat(track.dataset.durSec) || 20;
+                    track.style.animationDelay = '-' + (elapsedSec % durSec).toFixed(2) + 's';
+                }
+                deduplicateDomCardsLight();
+                refreshCount();
+                return;
+            }
+        }
+
+        deduplicateDomCardsLight();
+        const l = cards();
+        if (!l.length) return;
 
         if (curLink) {
             const match = l.find(c => c.dataset.link === curLink);
             if (match) {
                 document.querySelectorAll('#newsGrid .swipe-wrapper.tv-current').forEach(c => { if (c !== match) c.classList.remove('tv-current'); });
                 match.classList.add('tv-current');
+                activeCardElement = match;
                 refreshCount();
                 ensureCardTickerPresent();
                 return;
@@ -2312,7 +2643,6 @@
         return true;
     };
 
-    // Kumanda ile odaklanabilecek tüm öğeler (AI Kaynak Ekle ve URL arama sonuç kartları dahil)
     function candidates(root) {
         setupAddSourceEnhancements();
         const sel = 'button, a[href], select, input:not([type=hidden]), textarea, summary, [role=button], .chip, .cat-chip, .c-tab, [onclick], .tv-rss-item, #aiRssResults > div, #rssSearchResults > div';
@@ -2352,8 +2682,6 @@
         const from = curFocus(root);
         if (!from) { setFocus(list[0]); return true; }
 
-        // Eğer bir metin kutusundayken (örn: #aiRssTopic, #searchRssUrl, #newGroqKeyInput) sağa (►) veya aşağı (▼) basıldıysa
-        // ve aynı satırın sağında "Bul / Ekle" butonu varsa önce doğrudan o butona geçebilsin
         if ((dir === 'right' || dir === 'down') && from.tagName === 'INPUT' && from.parentElement) {
             const rowBtn = Array.from(from.parentElement.querySelectorAll('button')).find(b => b !== from && visible(b));
             if (rowBtn && dir === 'right') {
@@ -2565,13 +2893,18 @@
         }
     }
 
-    // ---------- Kumanda Tuş Algılayıcı ----------
+    // ---------- Kumanda Tuş Algılayıcı (Tek Sol/Sağ: Ayarlar/Filtre, 2×Sol/Sağ: Radyo Değiştir) ----------
     let okDownAt = 0;
     let okUsedCombo = false;
     let okSingleTimer = null;
     let lastOkTapAt = 0;
     let feedOkTimer = null;
     let lastFeedOkAt = 0;
+
+    let leftSingleTimer = null;
+    let lastLeftTapAt = 0;
+    let rightSingleTimer = null;
+    let lastRightTapAt = 0;
 
     function getDirectionFromEvent(e) {
         const k = e.key || '';
@@ -2637,7 +2970,6 @@
         }
         if (dir) {
             if (inText && (dir === 'left' || dir === 'right')) {
-                // Metin kutusunda imleç en sondayken (veya kutu boşken) sağ oka (►) basılırsa yandaki "Bul / Ekle" butonuna geçebilsin
                 const atEnd = !t.value || (typeof t.selectionStart === 'number' && t.selectionStart >= t.value.length);
                 const atStart = !t.value || (typeof t.selectionStart === 'number' && t.selectionStart === 0);
                 if (!((dir === 'right' && atEnd) || (dir === 'left' && atStart))) {
@@ -2646,22 +2978,64 @@
             }
             e.preventDefault(); e.stopImmediatePropagation();
             if (!ov) {
-                if (dir === 'down') showCard(curIndex() + 1, true);
+                if (dir === 'down') {
+                    if (leftSingleTimer) { clearTimeout(leftSingleTimer); leftSingleTimer = null; }
+                    if (rightSingleTimer) { clearTimeout(rightSingleTimer); rightSingleTimer = null; }
+                    showCard(curIndex() + 1, true);
+                }
                 else if (dir === 'up') {
+                    if (leftSingleTimer) { clearTimeout(leftSingleTimer); leftSingleTimer = null; }
+                    if (rightSingleTimer) { clearTimeout(rightSingleTimer); rightSingleTimer = null; }
                     if (curIndex() > 0) showCard(curIndex() - 1, false);
                     else {
                         const now = Date.now();
-                        if (now - lastUpTap < 2500) { lastUpTap = 0; curLink = null; if (typeof showToastGlobal === 'function') showToastGlobal('🔄 Yenileniyor...', 2000); try { fetchAllRSS(true); } catch (x) {} }
+                        if (now - lastUpTap < 2500) {
+                            lastUpTap = 0;
+                            curLink = null;
+                            activeCardElement = null;
+                            if (typeof showToastGlobal === 'function') showToastGlobal('🔄 Yenileniyor...', 2000);
+                            try { fetchAllRSS(true); } catch (x) {}
+                        }
                         else { lastUpTap = now; if (typeof showToastGlobal === 'function') showToastGlobal('Yenilemek için ▲ tekrar basın', 2200); }
                     }
                 }
                 else if (dir === 'left') {
-                    stopCardTicker();
-                    ensureHistoryGuard();
-                    if (typeof openModalSafe === 'function') openModalSafe('settingsModal');
-                    setTimeout(sync, 30);
+                    if (e.repeat) return;
+                    const now = Date.now();
+                    if (now - lastLeftTapAt < 380) {
+                        if (leftSingleTimer) { clearTimeout(leftSingleTimer); leftSingleTimer = null; }
+                        lastLeftTapAt = 0;
+                        cycleRadioStation(-1);
+                    } else {
+                        lastLeftTapAt = now;
+                        if (leftSingleTimer) clearTimeout(leftSingleTimer);
+                        leftSingleTimer = setTimeout(() => {
+                            leftSingleTimer = null;
+                            lastLeftTapAt = 0;
+                            stopCardTicker();
+                            ensureHistoryGuard();
+                            if (typeof openModalSafe === 'function') openModalSafe('settingsModal');
+                            setTimeout(sync, 30);
+                        }, 340);
+                    }
                 }
-                else if (dir === 'right') openPanel();
+                else if (dir === 'right') {
+                    if (e.repeat) return;
+                    const now = Date.now();
+                    if (now - lastRightTapAt < 380) {
+                        if (rightSingleTimer) { clearTimeout(rightSingleTimer); rightSingleTimer = null; }
+                        lastRightTapAt = 0;
+                        cycleRadioStation(1);
+                    } else {
+                        lastRightTapAt = now;
+                        if (rightSingleTimer) clearTimeout(rightSingleTimer);
+                        rightSingleTimer = setTimeout(() => {
+                            rightSingleTimer = null;
+                            lastRightTapAt = 0;
+                            openPanel();
+                        }, 340);
+                    }
+                }
                 return;
             }
             if (ov.id === 'newsModal') {
@@ -2829,12 +3203,12 @@
             }
         }, 600);
 
+        // #newsGrid üzerinde 0ms gecikmesiz (senkron mikro-görev) koruma:
+        // Arka planda yeni RSS kaynakları eklendiğinde ekranın kararmasını ve kartın sıfırlanmasını engeller!
         const grid = $('newsGrid');
         if (grid) {
-            let gridDebounce = null;
             new MutationObserver(() => {
-                clearTimeout(gridDebounce);
-                gridDebounce = setTimeout(ensureCurrent, 40);
+                ensureCurrent();
             }).observe(grid, { childList: true });
         }
 
@@ -2843,7 +3217,7 @@
             if (el) new MutationObserver(scheduleSync).observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
         });
 
-        setTimeout(ensureCurrent, 300);
+        setTimeout(ensureCurrent, 250);
     }
     if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
 })();
