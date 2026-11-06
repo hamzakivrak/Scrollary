@@ -333,22 +333,77 @@
           font-size: 1.05rem !important;
       }
       body.tv-mode #settingsModal details.setting-item {
-          margin-bottom: 8px !important;
+          margin-bottom: 9px !important;
           border-radius: 10px !important;
+          overflow: visible !important;
+          background: rgba(15, 23, 42, 0.72) !important;
+          border: 1.5px solid rgba(148, 163, 184, 0.22) !important;
+          transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease !important;
+      }
+      /* Üzerinde olunan veya içinde gezinilen Ayar Grubu kutusu net şekilde parlar */
+      body.tv-mode #settingsModal details.setting-item.tv-focus-group {
+          background: rgba(30, 41, 59, 0.96) !important;
+          border: 2.5px solid #facc15 !important;
+          box-shadow: 0 0 18px rgba(250, 204, 21, 0.42), inset 0 0 12px rgba(250, 204, 21, 0.08) !important;
       }
       body.tv-mode #settingsModal details.setting-item > summary {
-          font-size: 0.88rem !important;
-          padding: 8px 12px !important;
-          line-height: 1.3 !important;
+          position: relative !important;
+          font-size: 0.9rem !important;
+          padding: 9px 14px !important;
+          line-height: 1.32 !important;
+          border-radius: 8px !important;
+          color: rgba(226, 232, 240, 0.92) !important;
+          background: transparent !important;
+          border-left: 5px solid transparent !important;
+          transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease !important;
+      }
+      /* Doğrudan grup başlığı (summary) seçiliyken çok net sarı vurgu + ▶ ok işareti */
+      body.tv-mode #settingsModal details.setting-item > summary.tv-focus {
+          background: linear-gradient(90deg, rgba(250, 204, 21, 0.36) 0%, rgba(250, 204, 21, 0.12) 100%) !important;
+          color: #fef08a !important;
+          font-weight: 700 !important;
+          border-left: 7px solid #facc15 !important;
+          outline: 2.5px solid #facc15 !important;
+          outline-offset: 0px !important;
+          box-shadow: 0 0 16px rgba(250, 204, 21, 0.5) !important;
+          transform: translateX(3px) !important;
+      }
+      body.tv-mode #settingsModal details.setting-item > summary.tv-focus::before {
+          content: "▶  ";
+          color: #facc15;
+          font-weight: 900;
+      }
+      /* Grup açıkken ve içindeki alt seçeneklerde gezinirken grup başlığı da aktif mavi-altın şeritle belli olur */
+      body.tv-mode #settingsModal details.setting-item[open].tv-focus-group > summary:not(.tv-focus) {
+          background: linear-gradient(90deg, rgba(56, 189, 248, 0.25) 0%, rgba(56, 189, 248, 0.06) 100%) !important;
+          color: #38bdf8 !important;
+          font-weight: 700 !important;
+          border-left: 6px solid #38bdf8 !important;
+      }
+      body.tv-mode #settingsModal details.setting-item[open].tv-focus-group > summary:not(.tv-focus)::before {
+          content: "▼  ";
+          color: #38bdf8;
+          font-weight: 900;
       }
       body.tv-mode #settingsModal .setting-detail {
-          padding: 10px 12px !important;
+          padding: 10px 14px 12px 14px !important;
           font-size: 0.8rem !important;
+          border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
       }
       body.tv-mode #settingsModal .tap-label,
       body.tv-mode #settingsModal label {
           font-size: 0.8rem !important;
           margin-bottom: 4px !important;
+          transition: color 0.15s ease !important;
+      }
+      body.tv-mode #settingsModal label.tv-active-label {
+          color: #facc15 !important;
+          font-weight: 700 !important;
+      }
+      body.tv-mode #settingsModal label.tv-active-label::before {
+          content: "▶ ";
+          color: #facc15;
+          font-weight: 900;
       }
       body.tv-mode #settingsModal select,
       body.tv-mode #settingsModal input:not([type="checkbox"]),
@@ -359,6 +414,18 @@
           min-height: 0 !important;
           height: auto !important;
           border-radius: 8px !important;
+      }
+      body.tv-mode #settingsModal select.tv-focus,
+      body.tv-mode #settingsModal input.tv-focus,
+      body.tv-mode #settingsModal button.tv-focus,
+      body.tv-mode #settingsModal textarea.tv-focus,
+      body.tv-mode #settingsModal a.tv-focus,
+      body.tv-mode #settingsModal .tap-select.tv-focus {
+          background-color: rgba(250, 204, 21, 0.22) !important;
+          border: 2px solid #facc15 !important;
+          color: #fef08a !important;
+          font-weight: 600 !important;
+          box-shadow: 0 0 14px rgba(250, 204, 21, 0.5) !important;
       }
       body.tv-mode #settingsModal p {
           font-size: 0.75rem !important;
@@ -1616,6 +1683,11 @@
         const selDir = document.getElementById('tvTickerDirSelect'); if (selDir) selDir.value = curDir;
         const selHide = document.getElementById('tvHideReadSelect'); if (selHide) selHide.value = curHideRead;
         const selAuto = document.getElementById('tvAutoAdvanceSelect'); if (selAuto) selAuto.value = curAuto;
+
+        modalBody.querySelectorAll('details.setting-item > summary').forEach(sum => {
+            sum.setAttribute('tabindex', '0');
+            sum.setAttribute('role', 'button');
+        });
     }
 
     // ---------- Ana Ekranda Kart Üzerinde Aşağıdan Yukarıya (veya Yatay) Akan Özet/Metin & 2 Tur Sonunda Otomatik Geçiş ----------
@@ -2651,16 +2723,40 @@
     }
     function setFocus(el) {
         if (!el) return;
-        if (!el.hasAttribute('tabindex') && !/^(BUTTON|A|INPUT|SELECT|TEXTAREA|SUMMARY)$/.test(el.tagName)) el.setAttribute('tabindex', '0');
+        if (!el.hasAttribute('tabindex') && !/^(BUTTON|INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) {
+            el.setAttribute('tabindex', '0');
+        }
         document.querySelectorAll('.tv-focus').forEach(x => x.classList.remove('tv-focus'));
+        document.querySelectorAll('.tv-focus-group').forEach(x => x.classList.remove('tv-focus-group'));
+        document.querySelectorAll('.tv-active-label').forEach(x => x.classList.remove('tv-active-label'));
+
         el.classList.add('tv-focus');
-        try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); }
-        try { el.scrollIntoView({ block: 'center', inline: 'nearest' }); } catch (e) {}
+
+        const group = el.closest('details.setting-item');
+        if (group) group.classList.add('tv-focus-group');
+
+        if (el.id) {
+            const lbl = document.querySelector(`label[for="${el.id}"]`);
+            if (lbl) lbl.classList.add('tv-active-label');
+        } else if (el.previousElementSibling && el.previousElementSibling.tagName === 'LABEL') {
+            el.previousElementSibling.classList.add('tv-active-label');
+        }
+
+        try { el.focus({ preventScroll: true }); } catch (e) { try { el.focus(); } catch (err) {} }
+        try { el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {}
     }
-    function curFocus(root) { const a = document.activeElement; return a && a !== document.body && root.contains(a) ? a : null; }
+    function curFocus(root) {
+        if (!root) return null;
+        const tvf = root.querySelector('.tv-focus');
+        if (tvf && visible(tvf)) return tvf;
+        const a = document.activeElement;
+        return a && a !== document.body && root.contains(a) && visible(a) ? a : null;
+    }
     function focusIn(root) {
+        if (!root) return;
+        if (root.id === 'settingsModal') injectTvSettings();
         const list = candidates(root);
-        const first = list.find(e => !e.classList.contains('btn-close')) || list[0];
+        const first = list.find(e => e.tagName === 'SUMMARY') || list.find(e => !e.classList.contains('btn-close')) || list[0];
         if (first) setFocus(first);
     }
     function move(dir, root) {
@@ -3017,9 +3113,24 @@
             }
             if (e.repeat) { e.preventDefault(); return; }
             const el = curFocus(ov);
-            if (!el) return;
-            if (el.tagName === 'SELECT' || inText) return;
+            if (!el) { focusIn(ov); return; }
+            if (el.tagName === 'SELECT' || inText) {
+                try { el.focus(); } catch (err) {}
+                return;
+            }
             e.preventDefault(); e.stopImmediatePropagation();
+            if (el.tagName === 'SUMMARY' && el.parentElement && el.parentElement.tagName === 'DETAILS') {
+                const det = el.parentElement;
+                const willOpen = !det.open;
+                if (willOpen && ov.id === 'settingsModal') {
+                    ov.querySelectorAll('details.setting-item[open]').forEach(other => {
+                        if (other !== det) other.open = false;
+                    });
+                }
+                det.open = willOpen;
+                setFocus(el);
+                return;
+            }
             el.click();
             return;
         }
@@ -3084,8 +3195,13 @@
                         if (overlayRoot() || aiOpen() || Date.now() < navCooldownUntil || Date.now() < radioBurstUntil) return;
                         stopCardTicker();
                         ensureHistoryGuard();
+                        injectTvSettings();
                         if (typeof openModalSafe === 'function') openModalSafe('settingsModal');
-                        setTimeout(sync, 30);
+                        setTimeout(() => {
+                            sync();
+                            const sm = $('settingsModal');
+                            if (sm && sm.style.display === 'flex' && !curFocus(sm)) focusIn(sm);
+                        }, 40);
                     }, 520);
                 }
                 return;
