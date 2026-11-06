@@ -577,7 +577,6 @@
     }
 
     // ---------- ZENGİNLEŞTİRİLMİŞ ARKA PLAN RADYO ÇALAR (SIFIR GECİKMELİ DOĞRUDAN AKIŞ + ARKA PLAN TEMİZLİĞİ) ----------
-    // Ağ üzerinden istasyon arama gecikmesi kaldırıldı; doğrudan çalışan akış adresleri kullanılır.
     const RADIO_STATIONS = [
         { id: 'off', name: '🔇 Radyo Kapalı', shortName: '', urls: [] },
         {
@@ -797,7 +796,6 @@
         } catch (e) {}
     }
 
-    // 2×◄ veya 2×► ile radyo istasyonunu sırayla değiştirir
     function cycleRadioStation(step) {
         const cur = getCurrentRadioStation();
         let idx = RADIO_STATIONS.findIndex(s => s.id === cur.id);
@@ -2481,12 +2479,23 @@
     const openStack = [];
     let directAiEntry = false;
     let navCooldownUntil = 0;
+    let radioBurstUntil = 0;
+    let lastRadioStepAt = 0;
+
+    let leftSingleTimer = null;
+    let lastLeftTapAt = 0;
+    let rightSingleTimer = null;
+    let lastRightTapAt = 0;
+    let feedArrowDownDir = null;
+    let feedArrowDownAt = 0;
 
     function clearPendingArrowTimers() {
         if (leftSingleTimer) { clearTimeout(leftSingleTimer); leftSingleTimer = null; }
         if (rightSingleTimer) { clearTimeout(rightSingleTimer); rightSingleTimer = null; }
         lastLeftTapAt = 0;
         lastRightTapAt = 0;
+        feedArrowDownDir = null;
+        feedArrowDownAt = 0;
     }
 
     function isOverlayOpen(id) {
@@ -2523,11 +2532,13 @@
     let closingGuard = false;
     function closeTopmostOverlay(fromPopState) {
         clearPendingArrowTimers();
-        navCooldownUntil = Date.now() + 450;
+        // Kapatma sonrası kumandanın sağ tuşundan gelebilecek hayalet/sıçrama sinyallerini 1.1 saniye boyunca engelle
+        navCooldownUntil = Date.now() + 1100;
+        radioBurstUntil = 0;
 
         if (closingGuard) return true;
         closingGuard = true;
-        setTimeout(() => { closingGuard = false; }, 160);
+        setTimeout(() => { closingGuard = false; }, 180);
 
         const nm = $('newsModal');
         const ai = aiOpen();
@@ -2595,6 +2606,7 @@
 
     window.addEventListener('popstate', (e) => {
         clearPendingArrowTimers();
+        navCooldownUntil = Date.now() + 1100;
         if (aiOpen() || overlayRoot()) {
             e.stopImmediatePropagation();
             closeTopmostOverlay(true);
@@ -2871,18 +2883,13 @@
         }
     }
 
-    // ---------- Kumanda Tuş Algılayıcı (Tek Sol/Sağ: Ayarlar/Filtre, 2×Sol/Sağ: Radyo Değiştir - Çakışmasız KeyUp Mimarisi) ----------
+    // ---------- Kumanda Tuş Algılayıcı (Sağ Tuş Sıçrama/Bounce Kalkanı + Radyo Burst Modu) ----------
     let okDownAt = 0;
     let okUsedCombo = false;
     let okSingleTimer = null;
     let lastOkTapAt = 0;
     let feedOkTimer = null;
     let lastFeedOkAt = 0;
-
-    let leftSingleTimer = null;
-    let lastLeftTapAt = 0;
-    let rightSingleTimer = null;
-    let lastRightTapAt = 0;
 
     function getDirectionFromEvent(e) {
         const k = e.key || '';
@@ -2956,11 +2963,15 @@
             }
             e.preventDefault(); e.stopImmediatePropagation();
             if (!ov) {
-                // Ana ekranda Sol (◄) ve Sağ (►) tuşları keyup üzerinde işlenir ki basılı tutma/repeat ve çifte tetikleme hiç yaşanmasın!
                 if (dir === 'left' || dir === 'right') {
+                    if (!e.repeat && !feedArrowDownDir) {
+                        feedArrowDownDir = dir;
+                        feedArrowDownAt = Date.now();
+                    }
                     return;
                 }
                 clearPendingArrowTimers();
+                radioBurstUntil = 0;
                 if (dir === 'down') {
                     showCard(curIndex() + 1, true);
                 }
@@ -3029,18 +3040,40 @@
         const ov = overlayRoot();
         const dir = getDirectionFromEvent(e);
 
-        // Ana haber ekranındayken Sol (◄) ve Sağ (►) tuşlarını keyup'ta işle (460ms penceresi: tek basış Ayarlar/Filtre, çift basış Radyo)
         if (!ov && !inText && (dir === 'left' || dir === 'right')) {
             e.preventDefault(); e.stopImmediatePropagation();
             const now = Date.now();
-            if (now < navCooldownUntil) return;
+            const matchedDown = (feedArrowDownDir === dir);
+            const heldMs = feedArrowDownAt ? (now - feedArrowDownAt) : 0;
+            feedArrowDownDir = null;
+            feedArrowDownAt = 0;
+
+            // Başka bir pencere içindeyken basılıp ana ekrana düşen veya soğuma süresindeki tuşları yoksay
+            if (!matchedDown || heldMs > 700 || now < navCooldownUntil) return;
+
+            // EĞER RADYO DEĞİŞTİRME SERİSİ (BURST MODU) AKTİFSE:
+            // Kumandanın sağ tuşu fazladan sıçrama (3. veya 4. sinyali) gönderse bile KESİNLİKLE Filtre/Ayarlar açılmaz!
+            if (now < radioBurstUntil) {
+                if (leftSingleTimer) { clearTimeout(leftSingleTimer); leftSingleTimer = null; }
+                if (rightSingleTimer) { clearTimeout(rightSingleTimer); rightSingleTimer = null; }
+                lastLeftTapAt = 0;
+                lastRightTapAt = 0;
+                // 320ms içindeki mekanik kontak sıçramalarını (bounce) yut; 320ms sonrasındaki bilinçli basışta sıradaki radyoya geç
+                if (now - lastRadioStepAt >= 320) {
+                    lastRadioStepAt = now;
+                    radioBurstUntil = now + 2200;
+                    cycleRadioStation(dir === 'right' ? 1 : -1);
+                }
+                return;
+            }
 
             if (dir === 'left') {
                 if (rightSingleTimer) { clearTimeout(rightSingleTimer); rightSingleTimer = null; lastRightTapAt = 0; }
-                if (now - lastLeftTapAt < 460) {
+                if (now - lastLeftTapAt < 500) {
                     if (leftSingleTimer) { clearTimeout(leftSingleTimer); leftSingleTimer = null; }
                     lastLeftTapAt = 0;
-                    navCooldownUntil = now + 350;
+                    lastRadioStepAt = now;
+                    radioBurstUntil = now + 2200;
                     cycleRadioStation(-1);
                 } else {
                     lastLeftTapAt = now;
@@ -3048,22 +3081,23 @@
                     leftSingleTimer = setTimeout(() => {
                         leftSingleTimer = null;
                         lastLeftTapAt = 0;
-                        if (overlayRoot() || aiOpen() || Date.now() < navCooldownUntil) return;
+                        if (overlayRoot() || aiOpen() || Date.now() < navCooldownUntil || Date.now() < radioBurstUntil) return;
                         stopCardTicker();
                         ensureHistoryGuard();
                         if (typeof openModalSafe === 'function') openModalSafe('settingsModal');
                         setTimeout(sync, 30);
-                    }, 460);
+                    }, 520);
                 }
                 return;
             }
 
             if (dir === 'right') {
                 if (leftSingleTimer) { clearTimeout(leftSingleTimer); leftSingleTimer = null; lastLeftTapAt = 0; }
-                if (now - lastRightTapAt < 460) {
+                if (now - lastRightTapAt < 500) {
                     if (rightSingleTimer) { clearTimeout(rightSingleTimer); rightSingleTimer = null; }
                     lastRightTapAt = 0;
-                    navCooldownUntil = now + 350;
+                    lastRadioStepAt = now;
+                    radioBurstUntil = now + 2200;
                     cycleRadioStation(1);
                 } else {
                     lastRightTapAt = now;
@@ -3071,9 +3105,9 @@
                     rightSingleTimer = setTimeout(() => {
                         rightSingleTimer = null;
                         lastRightTapAt = 0;
-                        if (overlayRoot() || aiOpen() || Date.now() < navCooldownUntil) return;
+                        if (overlayRoot() || aiOpen() || Date.now() < navCooldownUntil || Date.now() < radioBurstUntil) return;
                         openPanel();
-                    }, 460);
+                    }, 520);
                 }
                 return;
             }
@@ -3139,8 +3173,6 @@
     }, true);
 
     // ---------- UYGULAMADAN ÇIKILDIĞINDA (ARKA PLANA DÜŞTÜĞÜNDE) TÜM İŞLEMLERİ VE RADYOYU DURDURMA ----------
-    // Mi Stick'te uygulamadan çıkıldığında WebView arka planda radyo ve zamanlayıcı çalıştırmaya devam ederse
-    // cihazın 1 GB RAM'i ve Bluetooth kumanda kuyruğu şişer; bu dinleyici çıkış anında her şeyi sıfırlar.
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
             clearPendingArrowTimers();
