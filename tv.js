@@ -59,10 +59,33 @@
       body.tv-mode .swipe-bg { display: none !important; }
       body.tv-mode .swipe-wrapper.tv-current .news-card { position: relative !important; width: 100% !important; height: 100vh !important; margin: 0 !important; border-radius: 0 !important;
           display: block !important; background: #0b1220 !important; overflow: hidden; border: 0 !important; animation: none !important; transition: none !important; }
-      body.tv-mode .swipe-wrapper.tv-current .card-img-wrapper { position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; aspect-ratio: auto !important; }
-      body.tv-mode .swipe-wrapper.tv-current .main-img { width: 100% !important; height: 100% !important; object-fit: cover !important; transition: opacity 0.35s ease; }
-      /* Scrollary amblemi (fallback-logo) TV modunda tamamen gizlendi; yerine başlıkla ilgili fotoğraf veya manzara fotoğrafı gösterilir */
-      body.tv-mode .fallback-logo { display: none !important; }
+      body.tv-mode .swipe-wrapper.tv-current .card-img-wrapper {
+          position: absolute !important;
+          inset: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
+          aspect-ratio: auto !important;
+          display: block !important;
+          background-color: #0f172a !important;
+          background-size: cover !important;
+          background-position: center center !important;
+          background-repeat: no-repeat !important;
+      }
+      body.tv-mode .swipe-wrapper.tv-current .main-img,
+      body.tv-mode .swipe-wrapper.tv-current img.tv-active-photo {
+          position: absolute !important;
+          inset: 0 !important;
+          display: block !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+          width: 100% !important;
+          height: 100% !important;
+          object-fit: cover !important;
+          transition: opacity 0.35s ease;
+          z-index: 1 !important;
+      }
+      /* Scrollary amblemi (fallback-logo) TV modunda gizlenir; ancak ui.js'in aynı img etiketine hem main-img hem fallback-logo eklemesi durumunda tv-active-photo görünür kalır */
+      body.tv-mode .fallback-logo:not(.tv-active-photo) { display: none !important; }
 
       /* Haber kaynağı rozeti: ÜST ORTA kısımda, zarif, ince yazılı */
       body.tv-mode .swipe-wrapper.tv-current .source-badge {
@@ -903,14 +926,35 @@
         'https://images.unsplash.com/photo-1475924156734-496f6cac6ec1?auto=format&fit=crop&w=1280&q=80'
     ];
 
+    const PICSUM_SCENIC_IDS = [10, 11, 13, 15, 16, 17, 19, 28, 29, 37, 42, 46, 54, 57, 65, 74];
+
     const CARD_PHOTO_CACHE = new Map();
     const inflightPhotoSearch = new Map();
 
-    function pickScenicPhotoForKey(key) {
+    function hashStringToInt(key) {
         let h = 0;
         const s = String(key || 'scrollary');
         for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
-        return SCENIC_FALLBACK_PHOTOS[Math.abs(h) % SCENIC_FALLBACK_PHOTOS.length];
+        return Math.abs(h);
+    }
+
+    function pickScenicPhotoForKey(key) {
+        const h = hashStringToInt(key);
+        return SCENIC_FALLBACK_PHOTOS[h % SCENIC_FALLBACK_PHOTOS.length];
+    }
+
+    function pickBackupScenicPhotoForKey(key) {
+        const h = hashStringToInt(key);
+        const pid = PICSUM_SCENIC_IDS[h % PICSUM_SCENIC_IDS.length];
+        return `https://picsum.photos/id/${pid}/1280/720`;
+    }
+
+    function isRealNewsPhotoUrl(url) {
+        if (!url || typeof url !== 'string') return false;
+        const u = url.trim();
+        if (!/^https?:\/\//i.test(u)) return false;
+        if (/icon\.png|fallback|placeholder|default|avatar|1x1|pixel|spacer|blank|logo|googleusercontent\.com\/.*=s\d+|gstatic\.com/i.test(u)) return false;
+        return true;
     }
 
     function extractMetaImageFromHtml(html, baseUrl) {
@@ -920,54 +964,149 @@
                 || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["'](?:og:image|twitter:image|twitter:image:src)["']/i);
             if (m1 && m1[1]) {
                 const u = new URL(m1[1].replace(/&amp;/g, '&'), baseUrl || 'https://news.google.com').href;
-                if (/^https?:\/\//i.test(u) && !/logo|icon|avatar|1x1|pixel|google|gstatic/i.test(u)) return u;
+                if (isRealNewsPhotoUrl(u)) return u;
             }
         } catch (e) {}
         return '';
     }
 
+    function probeImageLoad(url, timeoutMs = 4500, minWidth = 180) {
+        return new Promise((resolve) => {
+            if (!url) { resolve(''); return; }
+            let done = false;
+            const finish = (resUrl) => {
+                if (done) return;
+                done = true;
+                resolve(resUrl);
+            };
+            const timer = setTimeout(() => finish(''), timeoutMs);
+            const img = new Image();
+            img.referrerPolicy = 'no-referrer';
+            img.onload = () => {
+                clearTimeout(timer);
+                if (img.naturalWidth >= minWidth && img.naturalHeight >= 100) {
+                    finish(url);
+                } else {
+                    finish('');
+                }
+            };
+            img.onerror = () => {
+                clearTimeout(timer);
+                finish('');
+            };
+            img.src = url;
+        });
+    }
+
+    function buildDirectHeadlinePhotoUrl(art) {
+        if (!art || !art.title) return '';
+        const cleanTitle = typeof gnSplitTitle === 'function'
+            ? gnSplitTitle(art.title).clean
+            : String(art.title).replace(/\s+-\s+[^-]+$/, '').trim();
+        const words = cleanTitle
+            .replace(/["'“”‘’?!:;()\[\]]/g, ' ')
+            .split(/\s+/)
+            .filter(w => w.length > 2)
+            .slice(0, 7)
+            .join(' ');
+        if (words.length < 5) return '';
+        const h = hashStringToInt(art.link || cleanTitle);
+        const sub = (h % 4) + 1;
+        return `https://tse${sub}.mm.bing.net/th?q=${encodeURIComponent(words + ' haber')}&w=1280&h=720&c=7&rs=1&p=0`;
+    }
+
+    function applyPhotoToCardDom(w, photoUrl, isHeadlinePhoto) {
+        if (!w || !photoUrl) return;
+        const imgWrap = w.querySelector('.card-img-wrapper');
+        if (!imgWrap) return;
+        imgWrap.style.backgroundImage = `url("${photoUrl}")`;
+        let mainImg = imgWrap.querySelector('img.tv-active-photo') || imgWrap.querySelector('.main-img') || imgWrap.querySelector('img');
+        if (mainImg) {
+            mainImg.classList.remove('fallback-logo', 'hidden');
+            mainImg.classList.add('main-img', 'tv-active-photo');
+            mainImg.removeAttribute('onerror');
+            mainImg.style.setProperty('display', 'block', 'important');
+            mainImg.style.setProperty('opacity', '1', 'important');
+            mainImg.style.setProperty('visibility', 'visible', 'important');
+            mainImg.src = photoUrl;
+            if (isHeadlinePhoto) {
+                mainImg.dataset.tvHasHeadlinePhoto = '1';
+                delete mainImg.dataset.tvIsScenic;
+            }
+        }
+    }
+
+    function notifyHeadlinePhotoDiscovered(link, photoUrl) {
+        if (!link || !isRealNewsPhotoUrl(photoUrl)) return;
+        CARD_PHOTO_CACHE.set(link, photoUrl);
+        const curW = document.querySelector('#newsGrid .swipe-wrapper.tv-current');
+        if (curW && (curW.dataset.link === link || curLink === link)) {
+            probeImageLoad(photoUrl, 4500, 180).then(validUrl => {
+                if (validUrl && curW.classList.contains('tv-current')) {
+                    applyPhotoToCardDom(curW, validUrl, true);
+                }
+            });
+        }
+    }
+
     async function findHeadlineRelatedPhoto(art) {
-        if (!art || !art.link) return '';
-        if (CARD_PHOTO_CACHE.has(art.link)) return CARD_PHOTO_CACHE.get(art.link);
-        if (inflightPhotoSearch.has(art.link)) return inflightPhotoSearch.get(art.link);
+        if (!art) return '';
+        const key = art.link || art.title || '';
+        if (!key) return '';
+        if (CARD_PHOTO_CACHE.has(key)) return CARD_PHOTO_CACHE.get(key);
+        if (inflightPhotoSearch.has(key)) return inflightPhotoSearch.get(key);
 
         const job = (async () => {
             try {
-                if (art.title && typeof fetchHtmlRace === 'function') {
-                    const cleanTitle = typeof gnSplitTitle === 'function' ? gnSplitTitle(art.title).clean : String(art.title).replace(/\s+-\s+[^-]+$/, '').trim();
-                    const shortQ = cleanTitle.split(/\s+/).filter(w => w.length > 2).slice(0, 7).join(' ');
-                    if (shortQ.length >= 6) {
+                // 1) Doğrudan başlıkla ilgili Bing Haber Görsel CDN'i (CORS proxy gerektirmez, ~150-300ms içinde yüklenir)
+                const directBingThumb = buildDirectHeadlinePhotoUrl(art);
+                if (directBingThumb) {
+                    const okDirect = await probeImageLoad(directBingThumb, 3200, 200);
+                    if (okDirect) {
+                        CARD_PHOTO_CACHE.set(key, okDirect);
+                        return okDirect;
+                    }
+                }
+
+                // 2) Bellekteki indirilen haber HTML'lerinden og:image / twitter:image yakala
+                if (typeof HTML_SHARED !== 'undefined') {
+                    for (const [u, entry] of HTML_SHARED.entries()) {
                         try {
-                            const xml = await fetchHtmlRace('https://www.bing.com/news/search?format=rss&setlang=tr&q=' + encodeURIComponent(shortQ));
-                            if (xml && !/^\s*(<!doctype|<html)/i.test(xml)) {
-                                const x = new DOMParser().parseFromString(xml, 'text/xml');
-                                const items = [...x.getElementsByTagName('item')];
-                                for (const item of items.slice(0, 5)) {
-                                    const itemXml = new XMLSerializer().serializeToString(item);
-                                    const imgMatch = itemXml.match(/<News:Image>([^<]+)<\/News:Image>/i)
-                                        || itemXml.match(/url=["'](https?:\/\/[^"']+(?:th\?id=|jpg|jpeg|png|webp)[^"']*)["']/i);
-                                    if (imgMatch && imgMatch[1]) {
-                                        let imgUrl = imgMatch[1].replace(/&amp;/g, '&').trim();
-                                        if (imgUrl.includes('bing.com/th')) {
-                                            imgUrl = imgUrl.replace(/&pid=News.*$/i, '') + '&w=1200&h=675&c=7';
-                                        }
-                                        CARD_PHOTO_CACHE.set(art.link, imgUrl);
-                                        return imgUrl;
-                                    }
+                            const html = await Promise.race([entry.p, new Promise(r => setTimeout(() => r(''), 350))]);
+                            const og = extractMetaImageFromHtml(html, u);
+                            if (og) {
+                                const okOg = await probeImageLoad(og, 3500, 180);
+                                if (okOg) {
+                                    CARD_PHOTO_CACHE.set(key, okOg);
+                                    return okOg;
                                 }
                             }
                         } catch (e) {}
                     }
                 }
 
-                if (typeof HTML_SHARED !== 'undefined') {
-                    for (const [u, entry] of HTML_SHARED.entries()) {
+                // 3) Bing News RSS veya HTML sayfasından görsel yakala
+                if (art.title && typeof fetchHtmlRace === 'function') {
+                    const cleanTitle = typeof gnSplitTitle === 'function' ? gnSplitTitle(art.title).clean : String(art.title).replace(/\s+-\s+[^-]+$/, '').trim();
+                    const shortQ = cleanTitle.split(/\s+/).filter(w => w.length > 2).slice(0, 7).join(' ');
+                    if (shortQ.length >= 6) {
                         try {
-                            const html = await Promise.race([entry.p, new Promise(r => setTimeout(() => r(''), 300))]);
-                            const og = extractMetaImageFromHtml(html, u);
-                            if (og) {
-                                CARD_PHOTO_CACHE.set(art.link, og);
-                                return og;
+                            const raw = await fetchHtmlRace('https://www.bing.com/news/search?format=rss&setlang=tr&q=' + encodeURIComponent(shortQ));
+                            if (raw) {
+                                const imgMatch = raw.match(/<News:Image>([^<]+)<\/News:Image>/i)
+                                    || raw.match(/url=["'](https?:\/\/[^"']+(?:th\?id=|jpg|jpeg|png|webp)[^"']*)["']/i)
+                                    || raw.match(/src=["'](https?:\/\/[^"']*bing\.com\/th\?id=[^"']+)["']/i);
+                                if (imgMatch && imgMatch[1]) {
+                                    let imgUrl = imgMatch[1].replace(/&amp;/g, '&').trim();
+                                    if (imgUrl.includes('bing.com/th')) {
+                                        imgUrl = imgUrl.replace(/&pid=News.*$/i, '') + '&w=1200&h=675&c=7';
+                                    }
+                                    const okBing = await probeImageLoad(imgUrl, 3500, 180);
+                                    if (okBing) {
+                                        CARD_PHOTO_CACHE.set(key, okBing);
+                                        return okBing;
+                                    }
+                                }
                             }
                         } catch (e) {}
                     }
@@ -976,65 +1115,107 @@
             return '';
         })();
 
-        inflightPhotoSearch.set(art.link, job);
-        job.finally(() => inflightPhotoSearch.delete(art.link));
+        inflightPhotoSearch.set(key, job);
+        job.finally(() => inflightPhotoSearch.delete(key));
         return job;
     }
 
     function ensureCardHasPhoto(w, art) {
         if (!w) return;
-        const imgWrap = w.querySelector('.card-img-wrapper');
-        if (!imgWrap) return;
-
-        let mainImg = imgWrap.querySelector('.main-img');
-        const hasValidMainImg = mainImg
-            && mainImg.getAttribute('src')
-            && !/icon\.png|placeholder|^about:/i.test(mainImg.getAttribute('src'))
-            && mainImg.style.display !== 'none';
-
-        if (!mainImg) {
-            mainImg = document.createElement('img');
-            mainImg.className = 'main-img';
-            mainImg.alt = '';
-            imgWrap.prepend(mainImg);
+        const cardEl = w.querySelector('.news-card') || w;
+        let imgWrap = w.querySelector('.card-img-wrapper');
+        if (!imgWrap) {
+            imgWrap = document.createElement('div');
+            imgWrap.className = 'card-img-wrapper';
+            cardEl.prepend(imgWrap);
         }
 
         const linkKey = (art && art.link) || w.dataset.link || (art && art.title) || 'scenic';
         const scenicUrl = pickScenicPhotoForKey(linkKey);
+        const backupScenicUrl = pickBackupScenicPhotoForKey(linkKey);
 
-        if (!mainImg.dataset.tvFallbackBound) {
-            mainImg.dataset.tvFallbackBound = '1';
-            mainImg.onerror = function () {
-                if (this.src !== scenicUrl) {
-                    this.style.display = 'block';
-                    this.src = scenicUrl;
-                }
-            };
+        // Her durumda arka plana manzara resmini taban olarak döşe ki ASLA siyah ekran kalmasın
+        if (!imgWrap.style.backgroundImage) {
+            imgWrap.style.backgroundImage = `url("${scenicUrl}"), url("${backupScenicUrl}")`;
         }
 
-        if (hasValidMainImg) return;
+        let mainImg = imgWrap.querySelector('img.tv-active-photo') || imgWrap.querySelector('.main-img') || imgWrap.querySelector('img');
+        if (!mainImg) {
+            mainImg = document.createElement('img');
+            imgWrap.prepend(mainImg);
+        }
 
-        mainImg.style.display = 'block';
-        const cachedHeadlinePhoto = CARD_PHOTO_CACHE.get(linkKey);
-        if (cachedHeadlinePhoto) {
-            mainImg.src = cachedHeadlinePhoto;
+        // ui.js'in eklediği gizleyici veya fallback-logo sınıflarını ve diğer fazlalık img etiketlerini temizle
+        Array.from(imgWrap.querySelectorAll('img')).forEach(other => {
+            if (other !== mainImg) other.style.setProperty('display', 'none', 'important');
+        });
+
+        const wasFallbackLogo = mainImg.classList.contains('fallback-logo');
+        const rawSrc = (mainImg.getAttribute('src') || '').trim();
+        const failedAlready = mainImg.complete && mainImg.naturalWidth < 100;
+
+        mainImg.classList.remove('fallback-logo', 'hidden');
+        mainImg.classList.add('main-img', 'tv-active-photo');
+        mainImg.removeAttribute('onerror');
+        mainImg.referrerPolicy = 'no-referrer';
+        mainImg.style.setProperty('display', 'block', 'important');
+        mainImg.style.setProperty('opacity', '1', 'important');
+        mainImg.style.setProperty('visibility', 'visible', 'important');
+
+        const hasGenuinePhoto = !wasFallbackLogo
+            && !mainImg.dataset.tvIsScenic
+            && isRealNewsPhotoUrl(rawSrc)
+            && !failedAlready;
+
+        // Kırık linklere karşı iki kademeli (Unsplash -> Picsum) garantili manzara koruması
+        mainImg.onerror = function () {
+            if (this.src !== scenicUrl && this.dataset.tvTriedScenic !== '1') {
+                this.dataset.tvTriedScenic = '1';
+                this.dataset.tvIsScenic = '1';
+                this.style.setProperty('display', 'block', 'important');
+                this.src = scenicUrl;
+            } else if (this.src !== backupScenicUrl && this.dataset.tvTriedBackup !== '1') {
+                this.dataset.tvTriedBackup = '1';
+                this.dataset.tvIsScenic = '1';
+                this.style.setProperty('display', 'block', 'important');
+                this.src = backupScenicUrl;
+            }
+        };
+
+        if (hasGenuinePhoto) {
+            // Eğer resmin yüklenmesi sonradan küçük bir ikon çıkarsa (örn. Google News 16x16 ikonu) yine yakala
+            if (!mainImg.complete) {
+                mainImg.onload = function () {
+                    if (this.naturalWidth < 120 && !this.dataset.tvIsScenic) {
+                        this.dataset.tvIsScenic = '1';
+                        this.src = CARD_PHOTO_CACHE.get(linkKey) || scenicUrl;
+                    }
+                };
+            }
             return;
         }
 
-        mainImg.src = scenicUrl;
+        // Cache'de bu başlık için önceden bulunmuş haber fotoğrafı varsa anında göster
+        const cachedHeadlinePhoto = CARD_PHOTO_CACHE.get(linkKey);
+        if (cachedHeadlinePhoto) {
+            applyPhotoToCardDom(w, cachedHeadlinePhoto, true);
+            return;
+        }
 
-        if (art) {
-            findHeadlineRelatedPhoto(art).then(foundUrl => {
+        // 0. milisaniyede manzara fotoğrafını hemen göster (siyah ekran veya amblem asla görünmesin)
+        if (!mainImg.dataset.tvHasHeadlinePhoto) {
+            mainImg.dataset.tvIsScenic = '1';
+            mainImg.src = scenicUrl;
+        }
+
+        // Aynı anda başlıkla ilgili gerçek haber fotoğrafını arayıp bulunca yumuşakça üzerine koy
+        const artObj = art || { link: linkKey, title: (w.querySelector('h3') ? w.querySelector('h3').textContent.trim() : '') };
+        if (artObj && artObj.title) {
+            findHeadlineRelatedPhoto(artObj).then(foundUrl => {
                 if (!foundUrl) return;
-                const pre = new Image();
-                pre.onload = () => {
-                    if (pre.naturalWidth >= 180) {
-                        art.image = foundUrl;
-                        mainImg.style.display = 'block';
-                        mainImg.src = foundUrl;
-                    }
-                };
-                pre.src = foundUrl;
+                if (w.classList.contains('tv-current') || w.dataset.link === linkKey) {
+                    applyPhotoToCardDom(w, foundUrl, true);
+                }
             }).catch(() => {});
         }
     }
@@ -1885,7 +2066,7 @@
                             if (imgUrl.includes('bing.com/th')) {
                                 imgUrl = imgUrl.replace(/&pid=News.*$/i, '') + '&w=1200&h=675&c=7';
                             }
-                            CARD_PHOTO_CACHE.set(art.link, imgUrl);
+                            notifyHeadlinePhotoDiscovered(art.link, imgUrl);
                         }
                     }
                     if (out.length >= 5) break;
@@ -1944,7 +2125,7 @@
                     try {
                         const w = await workerRead(url, art);
                         if (w) {
-                            if (w.image && !CARD_PHOTO_CACHE.has(art.link)) CARD_PHOTO_CACHE.set(art.link, w.image);
+                            if (w.image && !CARD_PHOTO_CACHE.has(art.link)) notifyHeadlinePhotoDiscovered(art.link, w.image);
                             if (Array.isArray(w.paras) && w.paras.length >= 2) {
                                 if (typeof workerRemember === 'function') workerRemember(url, w);
                                 if (typeof READER_CACHE !== 'undefined') READER_CACHE.set(art.link, { paras: w.paras, via: 'hızlı sunucu' });
@@ -1972,7 +2153,7 @@
                             try {
                                 const rawH = await HTML_SHARED.get(url).p;
                                 const og = extractMetaImageFromHtml(rawH, url);
-                                if (og) CARD_PHOTO_CACHE.set(art.link, og);
+                                if (og) notifyHeadlinePhotoDiscovered(art.link, og);
                             } catch (e) {}
                         }
                         if (res && Array.isArray(res.paras) && res.paras.length) {
@@ -2000,7 +2181,7 @@
                     try {
                         const rawHtml = await getHtmlShared(url, false);
                         const og = extractMetaImageFromHtml(rawHtml, url);
-                        if (og && !CARD_PHOTO_CACHE.has(art.link)) CARD_PHOTO_CACHE.set(art.link, og);
+                        if (og && !CARD_PHOTO_CACHE.has(art.link)) notifyHeadlinePhotoDiscovered(art.link, og);
                         const ps = extractFromHtml(rawHtml, art);
                         if (Array.isArray(ps) && ps.length >= 1 && ps.join(' ').length >= 140) {
                             if (typeof READER_CACHE !== 'undefined') READER_CACHE.set(art.link, { paras: ps, via: 'sayfa-esnek' });
