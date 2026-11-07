@@ -251,78 +251,106 @@
           100% { opacity: 1; transform: scale(1.2); }
       }
 
-      /* 1) Dikey (Aşağıdan Yukarıya) Akış Modu */
+      /* 1) Dikey (Aşağıdan Yukarıya) Akış Modu - 60 FPS Donanım Hızlandırmalı */
       .tv-vscroll-viewport {
           position: relative;
           width: 100%;
-          height: 45vh;
-          max-height: 45vh;
+          height: 44vh;
+          max-height: 44vh;
           overflow: hidden;
           padding: 0 10px;
           box-sizing: border-box;
           background: transparent !important;
+          contain: layout paint;
+          -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 8%, #000 92%, transparent 100%);
+          mask-image: linear-gradient(to bottom, transparent 0%, #000 8%, #000 92%, transparent 100%);
       }
       .tv-vscroll-track {
           display: flex;
           flex-direction: column;
-          gap: 16px;
-          padding-top: 26vh;
-          padding-bottom: 42vh;
+          gap: 14px;
+          padding-top: 18vh;
+          padding-bottom: 24vh;
           will-change: transform;
+          backface-visibility: hidden;
+          -webkit-backface-visibility: hidden;
+          transform: translate3d(0, 0, 0);
           animation: tvVerticalRoll var(--ticker-dur, 28s) linear infinite;
           background: transparent !important;
       }
       .tv-vscroll-sentence {
-          font-size: calc(2.0rem * var(--ticker-scale, 1)) !important;
+          font-size: calc(1.95rem * var(--ticker-scale, 1)) !important;
           font-weight: 600 !important;
-          line-height: 1.42 !important;
-          font-family: system-ui, sans-serif;
+          line-height: 1.44 !important;
+          letter-spacing: 0.015em !important;
+          word-spacing: 0.05em !important;
+          font-family: system-ui, -apple-system, sans-serif;
           color: #ffffff;
-          background: rgba(7, 11, 20, 0.28);
+          background: rgba(7, 11, 20, 0.42);
           border-radius: 0 10px 10px 0;
-          padding: 6px 14px 6px 16px;
-          text-shadow: 0 2px 8px rgba(0, 0, 0, 0.98), 0 0 4px rgba(0, 0, 0, 0.95);
+          padding: 7px 16px 7px 16px;
+          text-shadow: 0 2px 3px rgba(0, 0, 0, 0.95);
           border-left: 4px solid #38bdf8;
+          backface-visibility: hidden;
       }
       .tv-vscroll-sentence:nth-child(even) {
-          border-left-color: #a855f7;
+          border-left-color: #facc15;
+          color: #fef9c3;
       }
       @keyframes tvVerticalRoll {
           0%   { transform: translate3d(0, 0, 0); }
           100% { transform: translate3d(0, -100%, 0); }
       }
 
-      /* 2) Yatay (Sağdan Sola) Akış Modu - Saydamlaştırılmış Arka Plan */
+      /* 2) Yatay (Sağdan Sola) Akış Modu - 60 FPS Yağ Gibi Akıcı Broadcast Haber Bandı */
       .tv-ticker-wrap {
           position: relative;
           width: 100%;
           overflow: hidden;
-          background: rgba(15, 23, 42, 0.42);
-          border: 1px solid rgba(255, 255, 255, 0.18);
+          background: linear-gradient(90deg, rgba(7, 11, 20, 0.82) 0%, rgba(15, 23, 42, 0.72) 50%, rgba(7, 11, 20, 0.82) 100%);
+          border: 1px solid rgba(255, 255, 255, 0.20);
           border-left: 5px solid #e11d48;
-          border-radius: 10px;
-          padding: 10px 0;
+          border-radius: 12px;
+          padding: 12px 0;
+          contain: layout paint;
+          -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 3%, #000 97%, transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0%, #000 3%, #000 97%, transparent 100%);
       }
       .tv-ticker-track {
           display: inline-block;
           white-space: nowrap;
-          padding-left: 100%;
-          font-size: calc(2.1rem * var(--ticker-scale, 1)) !important;
+          padding-left: 0 !important;
+          font-size: calc(2.05rem * var(--ticker-scale, 1)) !important;
           font-weight: 600 !important;
-          line-height: 1.35 !important;
-          font-family: system-ui, sans-serif;
+          line-height: 1.38 !important;
+          letter-spacing: 0.025em !important;
+          word-spacing: 0.08em !important;
+          font-family: system-ui, -apple-system, sans-serif;
           color: #ffffff;
-          text-shadow: 0 2px 8px rgba(0, 0, 0, 0.98), 0 0 4px rgba(0, 0, 0, 0.9);
+          text-shadow: 0 2px 3px rgba(0, 0, 0, 0.96);
           will-change: transform;
+          backface-visibility: hidden;
+          -webkit-backface-visibility: hidden;
+          transform: translate3d(0, 0, 0);
+          -webkit-font-smoothing: antialiased;
           animation: tvTickerScroll var(--ticker-dur, 28s) linear infinite;
       }
+      .tv-ticker-sent {
+          display: inline;
+          color: #ffffff;
+      }
+      .tv-ticker-sent.even {
+          color: #fef08a;
+      }
       .tv-ticker-track .tv-sep {
-          color: #facc15;
-          margin: 0 32px;
+          display: inline-block;
+          color: #38bdf8;
+          margin: 0 28px;
           font-weight: 800;
+          transform: scale(0.9);
       }
       @keyframes tvTickerScroll {
-          0%   { transform: translate3d(0, 0, 0); }
+          0%   { transform: translate3d(22vw, 0, 0); }
           100% { transform: translate3d(-100%, 0, 0); }
       }
 
@@ -2438,14 +2466,19 @@
 
             ensureCardHasPhoto(w, art);
 
+            // Yatay modda Mi Stick GPU doku sınırını (MAX_TEXTURE_SIZE: 4096px-8192px) aşmamak için en önemli cümleleri al
+            const renderList = (isHorizontal && list.length > 8) ? list.slice(0, 8) : list;
+
             let trackEl = null;
             if (isHorizontal) {
                 const tickerWrap = document.createElement('div');
                 tickerWrap.className = 'tv-ticker-wrap';
                 trackEl = document.createElement('div');
                 trackEl.className = 'tv-ticker-track';
-                const joined = list.map(s => escapeHtml(s)).join('<span class="tv-sep">●</span>');
-                trackEl.innerHTML = joined + '<span class="tv-sep">●</span>';
+                const joined = renderList
+                    .map((s, idx) => `<span class="tv-ticker-sent${idx % 2 === 1 ? ' even' : ''}">${escapeHtml(s)}</span>`)
+                    .join('<span class="tv-sep">◆</span>');
+                trackEl.innerHTML = joined + '<span class="tv-sep">◆</span>';
                 tickerWrap.appendChild(trackEl);
                 readerWrap.appendChild(tickerWrap);
             } else {
@@ -2453,16 +2486,30 @@
                 vViewport.className = 'tv-vscroll-viewport';
                 trackEl = document.createElement('div');
                 trackEl.className = 'tv-vscroll-track';
-                trackEl.innerHTML = list.map(s => `<div class="tv-vscroll-sentence">${escapeHtml(s)}</div>`).join('');
+                trackEl.innerHTML = renderList.map(s => `<div class="tv-vscroll-sentence">${escapeHtml(s)}</div>`).join('');
                 vViewport.appendChild(trackEl);
                 readerWrap.appendChild(vViewport);
             }
 
-            const totalChars = list.join(' ').length;
+            const totalChars = renderList.join(' ').length;
             trackEl.dataset.chars = String(totalChars);
-            const multiplier = parseFloat(localStorage.getItem('tvTickerSpeed')) || 1.0;
-            const baseFactor = isHorizontal ? 0.11 : 0.082;
-            const singlePassSec = Math.max(3.5, Math.round(((totalChars * baseFactor) / multiplier) * 10) / 10);
+            const rawMult = parseFloat(localStorage.getItem('tvTickerSpeed')) || 1.0;
+            // Yüksek hızlarda (2x-4x) LCD TV göz takibi sınırını aşmamak için yumuşatılmış ergonomik hız çarpanı
+            const effectiveMult = rawMult <= 1.0 ? rawMult : (1.0 + (rawMult - 1.0) * 0.68);
+
+            let singlePassSec = 18;
+            if (isHorizontal) {
+                const trackPx = Math.max(600, trackEl.scrollWidth || (totalChars * 18));
+                const totalTravelPx = trackPx + (window.innerWidth * 0.22);
+                const basePxPerSec = 105; // 60Hz TV'de sıfır titreme ve net okuma hızı (~1.75 px/kare)
+                singlePassSec = Math.max(5.5, Math.round((totalTravelPx / (basePxPerSec * effectiveMult)) * 10) / 10);
+            } else {
+                const trackHeightPx = Math.max(240, trackEl.scrollHeight || (totalChars * 1.8));
+                const baseVertPxPerSec = 36;
+                const charBasedSec = (totalChars * 0.082) / effectiveMult;
+                const pxBasedSec = trackHeightPx / (baseVertPxPerSec * effectiveMult);
+                singlePassSec = Math.max(4.5, Math.round(((charBasedSec * 0.55) + (pxBasedSec * 0.45)) * 10) / 10);
+            }
             trackEl.style.setProperty('--ticker-dur', singlePassSec + 's');
             trackEl.dataset.startedAt = String(Date.now());
             trackEl.dataset.durSec = String(singlePassSec);
