@@ -218,7 +218,8 @@ function setGridSize(size, btnElement, skipSave = false) {
     } 
 }
 
-function filterCategory(catKey, btnElement) { 
+function filterCategory(catKey, btnElement) {
+    if (window.sdSetActive) sdSetActive(false, true);   // Son Dakika modundan çık
     isArchiveView = (catKey === 'Arşiv' || catKey === 'Archive');
     document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active')); 
     if(btnElement) btnElement.classList.add('active'); 
@@ -373,7 +374,8 @@ async function addDiscoveredRss(name, url) {
     document.querySelectorAll('.cat-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
 
     if (result) result.innerHTML = '<span style="color:#10b981;font-weight:bold;margin-top:10px;display:block;">⏳ Haberler çekiliyor...</span>';
-    const arts = await fetchFeedData(feed);
+    let arts = await fetchFeedData(feed);
+    if (window.sdAssess) arts = window.sdAssess(feed, arts);
     if (arts.length) {
         const seen = new Set(allArticles.map(a => normLink(a.link)));
         let added = 0;
@@ -587,8 +589,9 @@ function handleSearch(isSilentRefresh = false) {
         const searchSpace = (art.title + " " + art.description + " " + (art.categories ? art.categories.join(' ') : "") + " " + art.source).toLowerCase();
         return searchTerms.length === 0 || searchTerms.every(term => searchSpace.includes(term)); 
     });
-    if (!isSilentRefresh) { 
-        document.getElementById('newsGrid').innerHTML = ''; 
+    if (window.sdActive && window.sdApply) filteredArticles = sdApply(filteredArticles);   // Son Dakika: yeni + tekrarsız
+    if (!isSilentRefresh) {
+        document.getElementById('newsGrid').innerHTML = '';
         displayedCount = 0;
     } else { 
         document.getElementById('newsGrid').innerHTML = ''; 
@@ -597,7 +600,7 @@ function handleSearch(isSilentRefresh = false) {
     
     if (filteredArticles.length === 0) { 
         const t = TRANSLATIONS[currentRegion];
-        const statusMsg = isFetchingRefresh ? t.waitingText : t.notFoundText;
+        const statusMsg = isFetchingRefresh ? t.waitingText : (window.sdActive && window.sdEmptyText ? sdEmptyText() : t.notFoundText);
         const icon = isFetchingRefresh ? '⏳' : '🔍';
         document.getElementById('newsGrid').innerHTML = `<div class="status-msg"><div style="font-size:3rem; margin-bottom:15px;">${icon}</div>${statusMsg}</div>`; 
         return; 
@@ -625,8 +628,9 @@ function renderNextBatch(forceClear = false) {
         const dateObj = new Date(art.date); 
         const today = new Date();
         let dateStr = (dateObj.getDate() === today.getDate() && dateObj.getMonth() === today.getMonth()) ? dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : dateObj.toLocaleDateString([], { day: '2-digit', month: 'short' }) + " " + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        let catText = ""; 
-        if(art.categories && art.categories.length > 0) { 
+        if (window.sdActive && window.sdRelTime) dateStr = sdRelTime(art, dateStr);   // Son Dakika'da "12 dk önce"
+        let catText = "";
+        if(art.categories && art.categories.length > 0) {
             let rawCat = art.categories[0];
             catText = t.cats[rawCat] || rawCat; 
         }
@@ -642,7 +646,7 @@ function renderNextBatch(forceClear = false) {
                     <div class="source-badge" onclick="openSourceFilterModal(event)">${escapeHtml(art.source)} ${catText ? '• '+escapeHtml(catText) : ''}</div>
                     ${imgHtml}
                 </div>
-                <div class="news-content"><h3>${escapeHtml(art.title)}</h3><div class="meta"><span>🕒 ${dateStr}</span>${/news\.google\.com/.test(art.link || '') ? '<span class="gn-hint"></span>' : ''}<span class="read-more">${t.readMore || 'Oku →'}</span></div></div>
+                <div class="news-content"><h3>${escapeHtml(art.title)}</h3><div class="meta"><span>🕒 ${dateStr}</span>${art._also ? `<span class="sd-also">${sdAlsoText(art._also)}</span>` : ''}${/news\.google\.com/.test(art.link || '') ? '<span class="gn-hint"></span>' : ''}<span class="read-more">${t.readMore || 'Oku →'}</span></div></div>
             </div>
         `;
 

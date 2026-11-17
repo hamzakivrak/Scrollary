@@ -255,7 +255,8 @@ async function fetchAllRSS(isSilent = false, isAuto = false) {
     const worker = async () => {
         while (queue.length) {
             const feed = queue.shift();
-            const arts = await fetchFeedData(feed);
+            let arts = await fetchFeedData(feed);
+            if (window.sdAssess) arts = window.sdAssess(feed, arts);   // sondakika.js: ilk görülme kaydı + tarih tutarlılığı
             done++;
             if (!arts.length) failed++;
             let added = false;

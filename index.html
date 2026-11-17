@@ -20,7 +20,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics-compat.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=5.2">
+    <link rel="stylesheet" href="style.css?v=5.3">
     <style id="readerUiV2">
         /* ===== Haber penceresi v2: dar çubuklar, geniş okuma alanı ===== */
         #newsModal .modal-header{padding:6px 10px 0!important}
@@ -71,6 +71,7 @@
                     <span style="cursor:pointer; display: flex; align-items: center; overflow: hidden; min-width:0;"><span style="margin-right:5px; flex-shrink:0;">🔎</span> <span id="menuTitle" data-i18n="menuTitle">Haber Ara...</span></span>
                 </div>
                 <div class="menu-right-part">
+                    <button id="sdBtn" class="sd-btn" onclick="sdToggle(event)" title="Son dakika haberleri">⚡ <span id="sdBtnTxt">Son Dk</span></button>
                     <select id="regionSelect" class="sticky-region-select" onchange="switchGlobalRegion(this.value); event.stopPropagation();" onclick="event.stopPropagation();">
                         <option value="EN">🌐 English (Global/US)</option>
                         <option value="TR">🇹🇷 Türkçe (Türkiye)</option>
@@ -494,13 +495,14 @@ i.value=v;if(v&&s)s.textContent='✅ Kayıtlı: hızlı sunucu açık';})();
 <script>
 (function(){var s=document.getElementById('voiceIdleSec');if(!s)return;var v=null;try{v=localStorage.getItem('voiceIdleSec');}catch(e){}s.value=(v===null||v==='')?'6':v;})();
 </script>
-<script src="config.js?v=5.2"></script>
-<script src="auth.js?v=5.2"></script>
-<script src="api.js?v=5.2"></script>
-<script src="ai.js?v=5.2"></script>
-<script src="ui.js?v=5.2"></script>
-<script src="reader.js?v=5.2"></script>
-<script src="sesli-asistan.js?v=5.2"></script>
-<script src="tv.js?v=5.2"></script>
+<script src="config.js?v=5.3"></script>
+<script src="auth.js?v=5.3"></script>
+<script src="api.js?v=5.3"></script>
+<script src="ai.js?v=5.3"></script>
+<script src="ui.js?v=5.3"></script>
+<script src="sondakika.js?v=5.3"></script>
+<script src="reader.js?v=5.3"></script>
+<script src="sesli-asistan.js?v=5.3"></script>
+<script src="tv.js?v=5.3"></script>
 </body>
 </html>
