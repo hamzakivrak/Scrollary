@@ -803,3 +803,10 @@ border: 1px solid var(--accent); padding: 12px; border-radius: 8px; font-weight:
 .sd-bar-win button.on { background: var(--primary); border-color: var(--primary); color: #fff; }
 .sd-also { background: rgba(255,255,255,0.1); border-radius: 10px; padding: 1px 8px; font-size: 0.72rem; font-weight: 700; color: var(--accent); }
 @media (max-width: 600px) { .sd-btn { height: 32px; padding: 0 9px; font-size: 0.75rem; } }
+
+/* Üst satır: ⚙️ ❓ solda, 🔄 sağda; çubuktaki kopyaları yalnızca TV modunda görünür */
+.header-left-btns { position: absolute; top: 15px; left: 15px; display: flex; gap: 8px; z-index: 1000; }
+.header-left-btns .hard-refresh-btn { position: static; }
+.header-left-btns .hard-refresh-btn:hover { transform: none; }
+.bar-tv-only { display: none !important; }
+body.tv-mode .bar-tv-only { display: flex !important; }
