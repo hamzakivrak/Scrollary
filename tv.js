@@ -3250,6 +3250,39 @@
         return origTvZoom(d);
     };
 
+    // ---------- OK TUŞU BASILI TUTULUNCA METİN AKIŞI 2x ----------
+    let okBoostTimer = null;
+    let okBoostSafety = null;
+    let okBoostActive = false;
+    const OK_BOOST_DELAY_MS = 350;   // bu kadar basılı kalınca hızlanır
+    const OK_BOOST_RATE = 2;
+
+    function setTickerRate(rate) {
+        document.querySelectorAll('.tv-vscroll-track, .tv-ticker-track').forEach(el => {
+            try { el.getAnimations().forEach(a => { a.playbackRate = rate; }); } catch (err) {}
+        });
+    }
+
+    function stopOkBoost() {
+        if (okBoostTimer) { clearTimeout(okBoostTimer); okBoostTimer = null; }
+        if (okBoostSafety) { clearTimeout(okBoostSafety); okBoostSafety = null; }
+        if (okBoostActive) { okBoostActive = false; setTickerRate(1); }
+    }
+
+    function armOkBoost() {
+        // keyup hiç gelmezse (bazı Android TV WebView'leri) hız takılı kalmasın
+        if (okBoostSafety) clearTimeout(okBoostSafety);
+        okBoostSafety = setTimeout(stopOkBoost, 1200);
+        if (okBoostActive || okBoostTimer) return;
+        okBoostTimer = setTimeout(() => {
+            okBoostTimer = null;
+            if (!okDownAt || overlayRoot() || aiOpen()) return;
+            okBoostActive = true;
+            okUsedCombo = true;      // bırakınca kısa basış işlevi (kartı aç) çalışmasın
+            setTickerRate(OK_BOOST_RATE);
+        }, OK_BOOST_DELAY_MS);
+    }
+
     document.addEventListener('keydown', (e) => {
         if (e.ctrlKey || e.altKey || e.metaKey) return;
         const t = e.target, k = e.key || '';
@@ -3337,6 +3370,7 @@
                     okDownAt = Date.now();
                     okUsedCombo = false;
                 }
+                if (!ov && okDownAt) armOkBoost();   // sadece ana akış ekranında
                 return;
             }
             if (e.repeat) { e.preventDefault(); return; }
@@ -3461,6 +3495,7 @@
 
         if (!ov && !inText) {
             e.preventDefault(); e.stopImmediatePropagation();
+            stopOkBoost();
             const heldMs = okDownAt ? (Date.now() - okDownAt) : 0;
             const wasCombo = okUsedCombo;
             okDownAt = 0;
@@ -3484,6 +3519,7 @@
             return;
         }
 
+        stopOkBoost();
         if (!ov || ov.id !== 'newsModal' || inText) {
             okDownAt = 0; okUsedCombo = false;
             return;
