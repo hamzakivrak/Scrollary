@@ -20,7 +20,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics-compat.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=5.6">
+    <link rel="stylesheet" href="style.css?v=5.8">
     <style id="readerUiV2">
         /* ===== Haber penceresi v2: dar çubuklar, geniş okuma alanı ===== */
         #newsModal .modal-header{padding:6px 10px 0!important}
@@ -325,6 +325,18 @@
                 </details>
 
                 <details class="setting-item">
+                    <summary>⚡ Performans Modu</summary>
+                    <div class="setting-detail">
+                        <div class="view-controls" id="perfModeBtns" style="margin-bottom:6px;">
+                            <button type="button" class="view-btn vm-btn" data-mode="auto" onclick="setPerfMode('auto')">🔄 Otomatik</button>
+                            <button type="button" class="view-btn vm-btn" data-mode="on" onclick="setPerfMode('on')">⚡ Açık</button>
+                            <button type="button" class="view-btn vm-btn" data-mode="off" onclick="setPerfMode('off')">✨ Kapalı</button>
+                        </div>
+                        <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0 0 6px;">Açıkken arka plandaki hareketli bulanık lekeler, dönen amblemler ve bulanıklık efektleri kapanır; kaydırma akıcı olur. <b>Otomatik:</b> Android uygulamasında ve zayıf cihazlarda açık. Kaydırma takılırsa <b>Açık</b> yap.</p>
+                    </div>
+                </details>
+
+                <details class="setting-item">
                     <summary>🖥️ Görünüm Modu</summary>
                     <div class="setting-detail">
                         <div class="view-controls" id="viewModeBtns" style="margin-bottom:6px;">
@@ -344,6 +356,17 @@
                             <button type="button" class="accent-dot" data-color="#8b5cf6" style="background:#8b5cf6" onclick="setAccent('#8b5cf6')" title="Mor"></button>
                             <button type="button" class="accent-dot" data-color="#ec4899" style="background:#ec4899" onclick="setAccent('#ec4899')" title="Pembe"></button>
                         </div>
+                    </div>
+                </details>
+
+                <details class="setting-item">
+                    <summary>🖼️ Fotoğrafı Olmayan Haberler</summary>
+                    <div class="setting-detail">
+                        <div class="view-controls" id="cardPhotoBtns" style="margin-bottom:6px;">
+                            <button type="button" class="view-btn vm-btn" data-mode="on" onclick="setCardPhotoFind('on')">✅ Görsel bul</button>
+                            <button type="button" class="view-btn vm-btn" data-mode="off" onclick="setCardPhotoFind('off')">⛔ Kapalı</button>
+                        </div>
+                        <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0 0 6px;">Fotoğrafı olmayan (veya fotoğrafı açılmayan) kartlara, başlığa ve varsa özete göre ilgili bir görsel aranır. Bulunan görselin köşesinde <b>"ilgili görsel"</b> yazar; haberin kendi fotoğrafı olmayabilir. Bulunamazsa amblem kalır. Yalnızca ekrana yaklaşan kartlar aranır. TV'de etkisizdir.</p>
                     </div>
                 </details>
 
@@ -528,7 +551,8 @@ i.value=v;if(v&&s)s.textContent='✅ Kayıtlı: hızlı sunucu açık';})();
 <script src="auth.js?v=5.4"></script>
 <script src="api.js?v=5.4"></script>
 <script src="ai.js?v=5.4"></script>
-<script src="ui.js?v=5.6"></script>
+<script src="ui.js?v=5.8"></script>
+<script src="kartfoto.js?v=5.8"></script>
 <script src="sondakika.js?v=5.4"></script>
 <script src="reader.js?v=5.4"></script>
 <script src="sesli-asistan.js?v=5.4"></script>

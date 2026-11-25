@@ -26,6 +26,7 @@ window.onload = () => {
     changeTheme(currentTheme);
     applyViewMode();
     applyAccent();
+    applyPerfMode();
     setGridSize(currentLayout, null, true);
 
     const cached = JSON.parse(localStorage.getItem('savedNewsArticles')) || [];
@@ -714,6 +715,7 @@ function renderNextBatch(forceClear = false) {
         };
         const gh = wrapper.querySelector('.gn-hint'); if (gh) gh.textContent = gnHintText();
         grid.appendChild(wrapper);
+        if (window.cardPhotoHook) cardPhotoHook(wrapper, art);   // fotoğrafı olmayan karta başlığa göre görsel bul (kartfoto.js)
     }); 
     displayedCount += nextBatch.length;
 }
@@ -909,24 +911,31 @@ function resetPullToRefresh() {
     }, 300);
 }
 
-window.addEventListener('scroll', () => { 
-    const cWrap = document.getElementById('controlsWrapper');
-    if (window.scrollY > 60) { 
-        cWrap.classList.add('is-scrolled'); 
-    } else { 
-        cWrap.classList.remove('is-scrolled'); 
-    }
-    
-    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 400) { 
-        if (displayedCount < filteredArticles.length) { 
-            const spinner = document.getElementById('scrollSpinner'); 
-            spinner.style.display = 'block'; 
-            setTimeout(() => { renderNextBatch(); spinner.style.display = 'none'; }, 100); 
-        } else if (filteredArticles.length > 0 && !isFetchingRefresh && Date.now() - lastFetchAt > 60000) { 
-            fetchAllRSS(true); 
+let _scrollTick = false, _loadingMore = false;
+window.addEventListener('scroll', () => {
+    if (_scrollTick) return;                       // saniyede onlarca scroll olayı yerine kare başına en fazla 1 işlem
+    _scrollTick = true;
+    requestAnimationFrame(() => {
+        _scrollTick = false;
+        const cWrap = document.getElementById('controlsWrapper');
+        if (window.scrollY > 60) { 
+            cWrap.classList.add('is-scrolled'); 
+        } else { 
+            cWrap.classList.remove('is-scrolled'); 
+        }
+        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 400) { 
+            if (displayedCount < filteredArticles.length) { 
+                if (_loadingMore) return;          // önceden her scroll olayı ayrı bir parti kart basıyordu (5-6 parti birden)
+                _loadingMore = true;
+                const spinner = document.getElementById('scrollSpinner'); 
+                spinner.style.display = 'block'; 
+                setTimeout(() => { renderNextBatch(); spinner.style.display = 'none'; _loadingMore = false; }, 100); 
+            } else if (filteredArticles.length > 0 && !isFetchingRefresh && Date.now() - lastFetchAt > 60000) { 
+                fetchAllRSS(true); 
+            } 
         } 
-    } 
-});
+    });
+}, { passive: true });
 
 function copyPapara() {
     const paparaInput = document.getElementById("paparaInput");
@@ -1012,3 +1021,28 @@ window.formatTextWithControls = function(paragraphsArray, containerElement) {
         return `<div class="p-container"><p><span class="p-text" id="p_${idx}">${words}</span><span class="p-tools"><button type="button" class="btn-action-p" onclick="listenParagraph(${idx}, this)" title="Dinle" aria-label="Dinle">🔊</button><button type="button" class="btn-action-p" onclick="translateParagraph(${idx}, this)" title="Çevir" aria-label="Çevir">🌐</button></span></p><div class="translated-text" id="trans_${idx}"></div></div>`;
     }).join('');
 };
+
+
+/* ===== Performans modu: ağır efektleri kapatır (APK/WebView ve zayıf telefonlarda kaydırma donmasını önler) =====
+   auto (varsayılan): uygulama (APK) içinde veya zayıf cihazda (<=4 GB RAM / <=4 çekirdek) açık; diğer durumda kapalı.
+   TV modunda hiçbir şey yapmaz. */
+function perfModePref() { try { return localStorage.getItem('perfMode') || 'auto'; } catch (e) { return 'auto'; } }
+function perfShouldBeOn() {
+    const pref = perfModePref();
+    if (pref === 'on') return true;
+    if (pref === 'off') return false;
+    const inApp = /ScrollaryApp/i.test(navigator.userAgent);
+    const weak = (navigator.deviceMemory && navigator.deviceMemory <= 4) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
+    return !!(inApp || weak);
+}
+function applyPerfMode() {
+    document.body.classList.toggle('lite-fx', !window.IS_TV && perfShouldBeOn());
+    const pref = perfModePref();
+    document.querySelectorAll('#perfModeBtns .vm-btn').forEach(el => el.classList.toggle('active', el.dataset.mode === pref));
+}
+function setPerfMode(mode) {
+    if (mode !== 'on' && mode !== 'off') mode = 'auto';
+    try { localStorage.setItem('perfMode', mode); } catch (e) {}
+    applyPerfMode();
+    showToastGlobal('⚡ Performans: ' + ({ auto: 'Otomatik', on: 'Açık (hafif efektler)', off: 'Kapalı (tüm efektler)' })[mode], 1800);
+}

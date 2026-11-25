@@ -859,3 +859,19 @@ body.view-pc .grid-large  .card-img-wrapper { height: 170px; }
 body.view-pc .source-badge { top: 8px; left: 8px; padding: 3px 8px; font-size: 0.68rem; }
 body.view-pc .external-link-btn { top: 8px; right: 8px; width: 30px; height: 30px; font-size: 0.85rem; }
 body.view-pc .meta { font-size: 0.72rem; }
+
+/* Başlığa göre bulunan görseller için küçük bilgi rozeti (kartfoto.js) */
+.card-img-wrapper[data-headline-photo="1"]::after { content: '🖼️ ilgili görsel'; position: absolute; left: 8px; bottom: 8px; font-size: 0.62rem; padding: 2px 7px; border-radius: 6px; background: rgba(15,23,42,0.62); color: #cbd5e1; pointer-events: none; z-index: 9; }
+body.tv-mode .card-img-wrapper[data-headline-photo="1"]::after { display: none; }
+
+
+/* ===== Performans modu (body.lite-fx): sürekli animasyon, dev katman ve blur'lar kapanır ===== */
+body.lite-fx:not(.tv-mode) .ambient-blob { animation: none !important; filter: none; opacity: 0.18; }
+body.lite-fx:not(.tv-mode) .fallback-logo { width: 100% !important; height: 100% !important; animation: none !important; filter: none !important; opacity: 0.55 !important; }
+body.lite-fx:not(.tv-mode) .img-skeleton { animation: none !important; }
+body.lite-fx:not(.tv-mode) .hologram-header, body.lite-fx:not(.tv-mode) .hologram-header * { animation: none !important; }
+body.lite-fx:not(.tv-mode) .controls-wrapper, body.lite-fx:not(.tv-mode) .sticky-tabs, body.lite-fx:not(.tv-mode) .source-badge,
+body.lite-fx:not(.tv-mode) .external-link-btn, body.lite-fx:not(.tv-mode) .news-card { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+body.lite-fx:not(.tv-mode) .controls-wrapper { background: rgba(15, 23, 42, 0.96); }
+body.lite-fx:not(.tv-mode) .news-card { transition: none; }
+body.lite-fx:not(.tv-mode) .swipe-wrapper { contain: layout paint; }
