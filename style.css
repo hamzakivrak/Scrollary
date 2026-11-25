@@ -810,3 +810,52 @@ border: 1px solid var(--accent); padding: 12px; border-radius: 8px; font-weight:
 .header-left-btns .hard-refresh-btn:hover { transform: none; }
 .bar-tv-only { display: none !important; }
 body.tv-mode .bar-tv-only { display: flex !important; }
+
+
+/* ===== Ek temalar (yalnızca renk değişkenleri; --primary/--accent temaya göre değişir) ===== */
+body[data-theme="amoled"]  { --bg-dark: #000; --blob-1: #0a0a0a; --blob-2: #000; --blob-3: #111; --surface: #0b0b0d; --surface-light: #1f2937; }
+body[data-theme="ocean"]   { --bg-dark: #031525; --blob-1: rgba(14,165,233,0.35); --blob-2: rgba(20,184,166,0.30); --blob-3: rgba(37,99,235,0.30); --primary: #0ea5e9; --primary-hover: #0284c7; --accent: #2dd4bf; }
+body[data-theme="forest"]  { --bg-dark: #07130d; --blob-1: rgba(34,197,94,0.30); --blob-2: rgba(132,204,22,0.22); --blob-3: rgba(16,185,129,0.28); --primary: #22c55e; --primary-hover: #16a34a; --accent: #a3e635; }
+body[data-theme="sunset"]  { --bg-dark: #1a0b12; --blob-1: rgba(249,115,22,0.35); --blob-2: rgba(236,72,153,0.30); --blob-3: rgba(234,179,8,0.25); --primary: #f97316; --primary-hover: #ea580c; --accent: #f472b6; }
+body[data-theme="royal"]   { --bg-dark: #0f0a24; --blob-1: rgba(139,92,246,0.35); --blob-2: rgba(217,70,239,0.28); --blob-3: rgba(99,102,241,0.30); --primary: #8b5cf6; --primary-hover: #7c3aed; --accent: #e879f9; }
+body[data-theme="ocean"] .news-card, body[data-theme="forest"] .news-card, body[data-theme="sunset"] .news-card, body[data-theme="royal"] .news-card,
+body[data-theme="ocean"] .controls-wrapper, body[data-theme="forest"] .controls-wrapper, body[data-theme="sunset"] .controls-wrapper, body[data-theme="royal"] .controls-wrapper,
+body[data-theme="ocean"] .modal-content, body[data-theme="forest"] .modal-content, body[data-theme="sunset"] .modal-content, body[data-theme="royal"] .modal-content {
+    background: rgba(15, 23, 42, 0.62); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.09); }
+body[data-theme="amoled"] .news-card, body[data-theme="amoled"] .controls-wrapper, body[data-theme="amoled"] .modal-content { border: 1px solid #1f2937; }
+
+/* Vurgu rengi seçici (Ayarlar > Görünüm) */
+.accent-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+.accent-dot { width: 38px; height: 38px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; padding: 0; outline: none; }
+.accent-dot.active { border-color: #fff; box-shadow: 0 0 0 2px rgba(255,255,255,0.25); }
+.accent-dot.reset { background: var(--surface-light); color: #fff; font-size: 1rem; line-height: 1; }
+
+/* ===== Görünüm modu (Ayarlar > Görünüm Modu) =====
+   auto   : eski davranış (ekran genişliğine göre, hiçbir şey değişmez)
+   mobile : her cihazda tek sütun, telefon düzeni (bilgisayarda ortalanmış dar sütun)
+   pc     : her cihazda çok sütunlu geniş düzen (telefonda yan yana 2 sütun, bilgisayarda 4-6 sütun)
+   TV modu (body.tv-mode) bu kurallardan etkilenmez; applyViewMode() TV'de sınıf eklemez. */
+body.view-mobile .container { max-width: 560px; }
+body.view-mobile .news-grid.grid-small,
+body.view-mobile .news-grid.grid-medium,
+body.view-mobile .news-grid.grid-large { grid-template-columns: 1fr; gap: 16px; }
+body.view-mobile .modal-content { max-width: 560px; }
+body.view-mobile header { padding-top: 56px; }
+
+body.view-pc:not(.shorts-mode) { padding: 0 10px 20px 10px; }
+body.view-pc .container { max-width: 1800px; }
+body.view-pc .news-grid { gap: 12px; }
+body.view-pc .news-grid.grid-small  { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+body.view-pc .news-grid.grid-medium { grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); }
+body.view-pc .news-grid.grid-large  { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+body.view-pc .grid-medium .news-content h3 { font-size: 0.92rem; -webkit-line-clamp: 4; }
+body.view-pc .grid-large .news-content h3 { font-size: 1.05rem; }
+body.view-pc .grid-medium .news-content, body.view-pc .grid-small .news-content { padding: 10px; }
+body.view-pc .modal-content { max-width: 1100px; }
+body.view-pc header { padding-top: 44px; }
+body.view-pc .grid-small  .card-img-wrapper { height: 90px; }
+body.view-pc .grid-medium .card-img-wrapper { height: 125px; }
+body.view-pc .grid-large  .card-img-wrapper { height: 170px; }
+body.view-pc .source-badge { top: 8px; left: 8px; padding: 3px 8px; font-size: 0.68rem; }
+body.view-pc .external-link-btn { top: 8px; right: 8px; width: 30px; height: 30px; font-size: 0.85rem; }
+body.view-pc .meta { font-size: 0.72rem; }

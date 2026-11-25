@@ -1,5 +1,5 @@
-// sw.js v4 — ağ öncelikli: güncellemeler anında gelir, internet yoksa önbellekten açılır
-const CACHE = 'scrollary-shell-v4';
+// sw.js v5 — ağ öncelikli: güncellemeler anında gelir, internet yoksa önbellekten açılır
+const CACHE = 'scrollary-shell-v5';
 const SHELL = ['./', './index.html', './style.css', './config.js', './auth.js', './api.js', './ai.js', './ui.js', './sondakika.js', './reader.js', './sesli-asistan.js', './manifest.json', './icon.png', './splash.png'];
 
 self.addEventListener('install', e => {

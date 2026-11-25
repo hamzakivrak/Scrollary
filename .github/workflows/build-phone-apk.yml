@@ -1,0 +1,377 @@
+name: Android Telefon APK
+
+# Telefon için APK üretir. Android projesi bu dosyanın içinden otomatik oluşturulur
+# (TV workflow'u ayrıdır: "Android TV APK"; ona dokunulmaz, paket adları farklıdır, ikisi yan yana kurulabilir).
+#
+# Kullanım: Actions sekmesi > "Android Telefon APK" > Run workflow
+# Sonuç iki yerde olur:
+#   1) Releases > "Scrollary Telefon APK" (telefonun tarayıcısından doğrudan .apk indirilir)
+#   2) Çalışmanın altındaki Artifacts > Scrollary-Telefon-apk (zip)
+#
+# Uygulama, GitHub Pages'teki sürümü açar: https://KULLANICI.github.io/DEPO/
+# Yani web tarafını güncelleyince APK'yı yeniden üretmen gerekmez; yalnızca kabuğu (WebView) değiştirirsen gerekir.
+# Pages kapalıysa veya özel alan adı kullanıyorsan "app_url" kutusuna adresi yaz.
+on:
+  workflow_dispatch:
+    inputs:
+      app_url:
+        description: 'Açılacak adres (boş bırakırsan https://KULLANICI.github.io/DEPO/)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      # Her çalışmada yeni imza anahtarı üretilirse yeni APK eskisinin üstüne kurulamaz ("uygulama yüklenemedi").
+      # Anahtarı önbellekte tutarak imzayı sabit tutuyoruz. GitHub 7 gün hiç kullanılmayan önbelleği siler;
+      # o durumda bir kez eski uygulamayı kaldırıp yenisini kurmak gerekir.
+      - name: Imza anahtarini onbellekten al
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: scrollary-phone-debug-keystore-v1
+
+      - name: Android projesini olustur
+        env:
+          INPUT_URL: ${{ github.event.inputs.app_url }}
+        run: |
+          mkdir -p phoneproj && cd phoneproj
+          cat > settings.gradle <<'EOF_FILE'
+          pluginManagement {
+              repositories { google(); mavenCentral(); gradlePluginPortal() }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories { google(); mavenCentral() }
+          }
+          rootProject.name = "ScrollaryPhone"
+          include(":app")
+          EOF_FILE
+          cat > build.gradle <<'EOF_FILE'
+          plugins {
+              id 'com.android.application' version '8.3.2' apply false
+          }
+          EOF_FILE
+          cat > gradle.properties <<'EOF_FILE'
+          org.gradle.jvmargs=-Xmx2048m
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
+          EOF_FILE
+          mkdir -p app
+          cat > app/build.gradle <<'EOF_FILE'
+          plugins {
+              id 'com.android.application'
+          }
+
+          // Uygulamanın açacağı adres ve sürüm numarası workflow'dan gelir:
+          //   gradle assembleDebug -PappUrl=https://adresin/ -PverCode=12
+          def appUrl  = project.findProperty('appUrl') ?: 'https://KULLANICI.github.io/DEPO/'
+          def verCode = (project.findProperty('verCode') ?: '1').toInteger()
+
+          android {
+              namespace 'com.scrollary.app'
+              compileSdk 34
+
+              defaultConfig {
+                  applicationId 'com.scrollary.app'
+                  minSdk 21
+                  targetSdk 34
+                  versionCode verCode
+                  versionName "1.0.${verCode}"
+                  buildConfigField 'String', 'APP_URL', "\"${appUrl}\""
+              }
+              buildFeatures { buildConfig true }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+              buildTypes {
+                  release { minifyEnabled false }
+              }
+          }
+          EOF_FILE
+          mkdir -p app/src/main
+          cat > app/src/main/AndroidManifest.xml <<'EOF_FILE'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+              <uses-permission android:name="android.permission.RECORD_AUDIO" />
+              <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
+              <uses-feature android:name="android.hardware.microphone" android:required="false" />
+
+              <application
+                  android:allowBackup="true"
+                  android:icon="@mipmap/ic_launcher"
+                  android:label="Scrollary"
+                  android:usesCleartextTraffic="true"
+                  android:hardwareAccelerated="true"
+                  android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:windowSoftInputMode="adjustResize"
+                      android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|keyboard|navigation|uiMode">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF_FILE
+          mkdir -p app/src/main/java/com/scrollary/app
+          cat > app/src/main/java/com/scrollary/app/MainActivity.java <<'EOF_FILE'
+          package com.scrollary.app;
+
+          import android.Manifest;
+          import android.annotation.SuppressLint;
+          import android.app.Activity;
+          import android.content.Intent;
+          import android.content.pm.PackageManager;
+          import android.graphics.Bitmap;
+          import android.graphics.Color;
+          import android.net.Uri;
+          import android.os.Build;
+          import android.os.Bundle;
+          import android.os.Message;
+          import android.view.KeyEvent;
+          import android.webkit.CookieManager;
+          import android.webkit.PermissionRequest;
+          import android.webkit.ValueCallback;
+          import android.webkit.WebChromeClient;
+          import android.webkit.WebResourceError;
+          import android.webkit.WebResourceRequest;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+          import android.widget.Toast;
+
+          /** Scrollary'yi tam ekran bir WebView içinde açar. Arayüz ve özellikler GitHub'daki web sürümünden gelir. */
+          public class MainActivity extends Activity {
+              private static final int REQ_FILE = 101;
+              private static final int REQ_AUDIO = 102;
+
+              private WebView web;
+              private ValueCallback<Uri[]> filePathCallback;   // "Dosya seç" (ör. API anahtarı .txt aktarımı)
+              private PermissionRequest pendingPermission;     // mikrofon izni beklerken
+
+              @SuppressLint("SetJavaScriptEnabled")
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  getWindow().setStatusBarColor(Color.parseColor("#0f172a"));
+                  getWindow().setNavigationBarColor(Color.parseColor("#0f172a"));
+
+                  web = new WebView(this);
+                  web.setBackgroundColor(Color.parseColor("#0f172a"));
+                  setContentView(web);
+
+                  WebSettings s = web.getSettings();
+                  s.setJavaScriptEnabled(true);
+                  s.setDomStorageEnabled(true);
+                  s.setDatabaseEnabled(true);
+                  s.setMediaPlaybackRequiresUserGesture(false);
+                  s.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
+                  s.setCacheMode(WebSettings.LOAD_DEFAULT);
+                  s.setSupportMultipleWindows(true);   // window.open -> onCreateWindow (tarayıcıda aç)
+                  s.setJavaScriptCanOpenWindowsAutomatically(true);
+                  // Not: "TV" ifadesi içermez; web uygulaması bunu TV modu sanmasın
+                  s.setUserAgentString(s.getUserAgentString() + " ScrollaryApp");
+                  CookieManager.getInstance().setAcceptCookie(true);
+                  CookieManager.getInstance().setAcceptThirdPartyCookies(web, true);
+
+                  web.setWebChromeClient(new WebChromeClient() {
+                      @Override
+                      public boolean onShowFileChooser(WebView v, ValueCallback<Uri[]> cb, FileChooserParams params) {
+                          if (filePathCallback != null) filePathCallback.onReceiveValue(null);
+                          filePathCallback = cb;
+                          try {
+                              startActivityForResult(params.createIntent(), REQ_FILE);
+                          } catch (Exception e) {
+                              filePathCallback = null;
+                              return false;
+                          }
+                          return true;
+                      }
+
+                      @Override
+                      public void onPermissionRequest(final PermissionRequest request) {
+                          runOnUiThread(() -> {
+                              boolean wantsAudio = false;
+                              for (String r : request.getResources()) {
+                                  if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(r)) wantsAudio = true;
+                              }
+                              if (!wantsAudio) { request.deny(); return; }
+                              if (Build.VERSION.SDK_INT >= 23
+                                      && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                                  pendingPermission = request;
+                                  requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_AUDIO);
+                              } else {
+                                  request.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
+                              }
+                          });
+                      }
+
+                      // window.open(...) çağrıları ("tarayıcıda orijinal site") telefonun tarayıcısında açılır
+                      @Override
+                      public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
+                          WebView tmp = new WebView(MainActivity.this);
+                          tmp.setWebViewClient(new WebViewClient() {
+                              private boolean done = false;
+                              private void go(String url) {
+                                  if (done || url == null || url.startsWith("about:")) return;
+                                  done = true;
+                                  openExternal(Uri.parse(url));
+                              }
+                              @Override
+                              public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) {
+                                  go(r.getUrl().toString());
+                                  return true;
+                              }
+                              @Override
+                              public void onPageStarted(WebView v, String url, Bitmap favicon) {
+                                  go(url);
+                                  v.stopLoading();
+                              }
+                          });
+                          WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
+                          transport.setWebView(tmp);
+                          resultMsg.sendToTarget();
+                          return true;
+                      }
+                  });
+
+                  web.setWebViewClient(new WebViewClient() {
+                      @Override
+                      public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) {
+                          Uri u = r.getUrl();
+                          String scheme = u.getScheme();
+                          if (!"http".equals(scheme) && !"https".equals(scheme)) {
+                              openExternal(u);                 // mailto:, tel:, intent: vb.
+                              return true;
+                          }
+                          if (!r.isForMainFrame()) return false;   // gömülü orijinal site (iframe) uygulama içinde kalsın
+                          String host = u.getHost();
+                          String appHost = Uri.parse(BuildConfig.APP_URL).getHost();
+                          if (host != null && host.equals(appHost)) return false;
+                          openExternal(u);                     // başka siteye giden bağlantı telefonun tarayıcısında açılır
+                          return true;
+                      }
+
+                      @Override
+                      public void onReceivedError(WebView v, WebResourceRequest r, WebResourceError e) {
+                          if (r.isForMainFrame()) {
+                              Toast.makeText(MainActivity.this, "Bağlantı sorunu: internet veya adres kontrol edilmeli", Toast.LENGTH_LONG).show();
+                          }
+                      }
+                  });
+
+                  web.loadUrl(BuildConfig.APP_URL);
+                  web.requestFocus();
+              }
+
+              private void openExternal(Uri uri) {
+                  try {
+                      startActivity(new Intent(Intent.ACTION_VIEW, uri));
+                  } catch (Exception e) {
+                      Toast.makeText(this, "Açılamadı: " + uri, Toast.LENGTH_SHORT).show();
+                  }
+              }
+
+              @Override
+              protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+                  if (requestCode == REQ_FILE) {
+                      if (filePathCallback != null) {
+                          filePathCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data));
+                          filePathCallback = null;
+                      }
+                      return;
+                  }
+                  super.onActivityResult(requestCode, resultCode, data);
+              }
+
+              @Override
+              public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+                  super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+                  if (requestCode == REQ_AUDIO && pendingPermission != null) {
+                      if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                          pendingPermission.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
+                      } else {
+                          pendingPermission.deny();
+                      }
+                      pendingPermission = null;
+                  }
+              }
+
+              // GERİ tuşu: önce web uygulamasındaki pencere/sayfa kapanır, kök ekranda uygulamadan çıkılır
+              @Override
+              public boolean onKeyDown(int keyCode, KeyEvent event) {
+                  if (keyCode == KeyEvent.KEYCODE_BACK && web != null && web.canGoBack()) {
+                      web.goBack();
+                      return true;
+                  }
+                  return super.onKeyDown(keyCode, event);
+              }
+
+              @Override protected void onPause() { super.onPause(); if (web != null) web.onPause(); }
+              @Override protected void onResume() { super.onResume(); if (web != null) web.onResume(); }
+          }
+          EOF_FILE
+          # Uygulama simgesi: depodaki icon.png (512x512)
+          mkdir -p app/src/main/res/mipmap-xxxhdpi
+          cp "$GITHUB_WORKSPACE/icon.png" app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+
+          # Açılacak adres: kutuya yazıldıysa o, yoksa GitHub Pages adresi
+          APP_URL="$INPUT_URL"
+          if [ -z "$APP_URL" ]; then
+            APP_URL="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/"
+          fi
+          echo "$APP_URL" > app_url.txt
+          echo "Acilacak adres: $APP_URL"
+
+      - name: APK derle
+        working-directory: phoneproj
+        run: |
+          gradle assembleDebug -PappUrl="$(cat app_url.txt)" -PverCode=${{ github.run_number }} --no-daemon
+
+      - name: APK dosyasini hazirla
+        run: cp phoneproj/app/build/outputs/apk/debug/app-debug.apk Scrollary-Telefon.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Scrollary-Telefon-apk
+          path: Scrollary-Telefon.apk
+
+      # Telefonun tarayıcısından zip açmadan doğrudan indirilebilsin diye Releases'a da koyar.
+      # Bu adım başarısız olursa (ör. Actions yazma izni kapalı) yukarıdaki Artifacts yine kullanılabilir.
+      - name: Releases sayfasina yukle
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete phone-latest --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" || true
+          gh release create phone-latest Scrollary-Telefon.apk \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Scrollary Telefon APK (build ${{ github.run_number }})" \
+            --notes "Telefonda bu sayfadan Scrollary-Telefon.apk dosyasini indirip kur. Acilan adres: $(cat phoneproj/app_url.txt)" \
+            --prerelease

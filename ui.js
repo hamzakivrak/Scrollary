@@ -24,6 +24,8 @@ window.onload = () => {
     applyTranslations(currentRegion, true); 
     loadCustomFeeds(); 
     changeTheme(currentTheme);
+    applyViewMode();
+    applyAccent();
     setGridSize(currentLayout, null, true);
 
     const cached = JSON.parse(localStorage.getItem('savedNewsArticles')) || [];
@@ -171,7 +173,51 @@ function changeTheme(themeName, btnElement) {
     document.body.setAttribute('data-theme', themeName); 
     currentTheme = themeName; 
     localStorage.setItem('appTheme', themeName); 
+    // Durum çubuğu / PWA başlık rengi temayla uyumlu olsun
+    try {
+        const m = document.querySelector('meta[name="theme-color"]');
+        const bg = getComputedStyle(document.body).getPropertyValue('--bg-dark').trim();
+        if (m && bg) m.setAttribute('content', bg);
+    } catch (e) {}
     syncToCloud();
+}
+
+/* ===== Görünüm modu: Otomatik / Mobil / PC (TV modunda hiçbir şey yapmaz) ===== */
+function applyViewMode() {
+    const b = document.body;
+    b.classList.remove('view-mobile', 'view-pc');
+    if (!window.IS_TV && (viewMode === 'mobile' || viewMode === 'pc')) b.classList.add('view-' + viewMode);
+    document.querySelectorAll('#viewModeBtns .vm-btn').forEach(el => el.classList.toggle('active', el.dataset.mode === viewMode));
+}
+
+function setViewMode(mode) {
+    if (mode !== 'mobile' && mode !== 'pc') mode = 'auto';
+    viewMode = mode;
+    try { localStorage.setItem('viewMode', mode); } catch (e) {}
+    applyViewMode();
+    const names = { auto: 'Otomatik', mobile: 'Mobil görünüm', pc: 'PC görünümü' };
+    showToastGlobal('🖥️ ' + names[mode], 1500);
+}
+
+/* ===== Vurgu rengi (temadan bağımsız; boş = temanın kendi rengi) ===== */
+function applyAccent() {
+    const b = document.body;
+    if (!window.IS_TV && accentColor) {
+        b.style.setProperty('--primary', accentColor);
+        let hover = accentColor;
+        try { if (CSS.supports('color', 'color-mix(in srgb, red, black)')) hover = 'color-mix(in srgb, ' + accentColor + ' 80%, black)'; } catch (e) {}
+        b.style.setProperty('--primary-hover', hover);
+    } else {
+        b.style.removeProperty('--primary');
+        b.style.removeProperty('--primary-hover');
+    }
+    document.querySelectorAll('#accentBtns .accent-dot').forEach(el => el.classList.toggle('active', (el.dataset.color || '') === accentColor));
+}
+
+function setAccent(color) {
+    accentColor = color || '';
+    try { if (accentColor) localStorage.setItem('accentColor', accentColor); else localStorage.removeItem('accentColor'); } catch (e) {}
+    applyAccent();
 }
 
 function toggleReadVisibility(show) { 

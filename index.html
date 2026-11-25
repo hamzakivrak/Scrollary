@@ -20,7 +20,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics-compat.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=5.4">
+    <link rel="stylesheet" href="style.css?v=5.6">
     <style id="readerUiV2">
         /* ===== Haber penceresi v2: dar çubuklar, geniş okuma alanı ===== */
         #newsModal .modal-header{padding:6px 10px 0!important}
@@ -325,6 +325,29 @@
                 </details>
 
                 <details class="setting-item">
+                    <summary>🖥️ Görünüm Modu</summary>
+                    <div class="setting-detail">
+                        <div class="view-controls" id="viewModeBtns" style="margin-bottom:6px;">
+                            <button type="button" class="view-btn vm-btn" data-mode="auto" onclick="setViewMode('auto')">🔄 Otomatik</button>
+                            <button type="button" class="view-btn vm-btn" data-mode="mobile" onclick="setViewMode('mobile')">📱 Mobil</button>
+                            <button type="button" class="view-btn vm-btn" data-mode="pc" onclick="setViewMode('pc')">🖥️ PC</button>
+                        </div>
+                        <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0 0 14px;"><b>Otomatik:</b> ekran genişliğine göre (eskisi gibi). <b>Mobil:</b> her cihazda tek sütun, telefon düzeni. <b>PC:</b> her cihazda çok sütunlu geniş düzen (telefonda yan yana 2 sütun). Bu seçim yalnızca bu cihaz için geçerlidir.</p>
+                        <label class="tap-label">Vurgu rengi</label>
+                        <div class="accent-row" id="accentBtns">
+                            <button type="button" class="accent-dot reset" data-color="" onclick="setAccent('')" title="Temanın kendi rengi">↺</button>
+                            <button type="button" class="accent-dot" data-color="#e11d48" style="background:#e11d48" onclick="setAccent('#e11d48')" title="Kırmızı"></button>
+                            <button type="button" class="accent-dot" data-color="#f97316" style="background:#f97316" onclick="setAccent('#f97316')" title="Turuncu"></button>
+                            <button type="button" class="accent-dot" data-color="#eab308" style="background:#eab308" onclick="setAccent('#eab308')" title="Sarı"></button>
+                            <button type="button" class="accent-dot" data-color="#22c55e" style="background:#22c55e" onclick="setAccent('#22c55e')" title="Yeşil"></button>
+                            <button type="button" class="accent-dot" data-color="#0ea5e9" style="background:#0ea5e9" onclick="setAccent('#0ea5e9')" title="Mavi"></button>
+                            <button type="button" class="accent-dot" data-color="#8b5cf6" style="background:#8b5cf6" onclick="setAccent('#8b5cf6')" title="Mor"></button>
+                            <button type="button" class="accent-dot" data-color="#ec4899" style="background:#ec4899" onclick="setAccent('#ec4899')" title="Pembe"></button>
+                        </div>
+                    </div>
+                </details>
+
+                <details class="setting-item">
                     <summary data-i18n="themeTitle">🎨 Tema Seçimi</summary>
                     <div class="setting-detail">
                         <div class="view-controls" id="themeBtnsWrapper" style="margin-bottom:0;"></div>
@@ -501,11 +524,11 @@ i.value=v;if(v&&s)s.textContent='✅ Kayıtlı: hızlı sunucu açık';})();
 <script>
 (function(){var s=document.getElementById('voiceIdleSec');if(!s)return;var v=null;try{v=localStorage.getItem('voiceIdleSec');}catch(e){}s.value=(v===null||v==='')?'6':v;})();
 </script>
-<script src="config.js?v=5.4"></script>
+<script src="config.js?v=5.6"></script>
 <script src="auth.js?v=5.4"></script>
 <script src="api.js?v=5.4"></script>
 <script src="ai.js?v=5.4"></script>
-<script src="ui.js?v=5.4"></script>
+<script src="ui.js?v=5.6"></script>
 <script src="sondakika.js?v=5.4"></script>
 <script src="reader.js?v=5.4"></script>
 <script src="sesli-asistan.js?v=5.4"></script>
