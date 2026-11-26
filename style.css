@@ -875,3 +875,8 @@ body.lite-fx:not(.tv-mode) .external-link-btn, body.lite-fx:not(.tv-mode) .news-
 body.lite-fx:not(.tv-mode) .controls-wrapper { background: rgba(15, 23, 42, 0.96); }
 body.lite-fx:not(.tv-mode) .news-card { transition: none; }
 body.lite-fx:not(.tv-mode) .swipe-wrapper { contain: layout paint; }
+
+/* Modal (haber penceresi) dahil her yerde bulanıklık yok: WebView'de açılıp kapanınca takılmayı önler */
+body.lite-fx:not(.tv-mode) *, body.lite-fx:not(.tv-mode) *::before, body.lite-fx:not(.tv-mode) *::after { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+body.lite-fx:not(.tv-mode) .modal { background: rgba(15, 23, 42, 0.96); }
+body.lite-fx:not(.tv-mode) .modal-content { animation: none !important; }

@@ -152,6 +152,8 @@ jobs:
           import android.net.Uri;
           import android.os.Build;
           import android.os.Bundle;
+          import android.os.Handler;
+          import android.os.Looper;
           import android.os.Message;
           import android.view.KeyEvent;
           import android.webkit.CookieManager;
@@ -241,6 +243,8 @@ jobs:
                                   if (done || url == null || url.startsWith("about:")) return;
                                   done = true;
                                   openExternal(Uri.parse(url));
+                                  // Geçici pencere işini bitirince yok edilir (sızıntı olmasın)
+                                  new Handler(Looper.getMainLooper()).postDelayed(() -> { try { tmp.stopLoading(); tmp.destroy(); } catch (Exception ignored) {} }, 500);
                               }
                               @Override
                               public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) {
@@ -332,8 +336,8 @@ jobs:
                   return super.onKeyDown(keyCode, event);
               }
 
-              @Override protected void onPause() { super.onPause(); if (web != null) web.onPause(); }
-              @Override protected void onResume() { super.onResume(); if (web != null) web.onResume(); }
+              // Not: WebView.onPause()/onResume() bilerek elle çağrılmıyor. Chromium WebView görünürlüğü kendisi yönetir;
+              // elle çağrı bazı cihazlarda tarayıcıdan/başka uygulamadan dönünce kaydırmanın donmasına yol açabiliyor.
           }
           EOF_FILE
           # Uygulama simgesi: depodaki icon.png (512x512)

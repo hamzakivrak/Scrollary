@@ -74,13 +74,14 @@ window.addEventListener('popstate', (e) => {
         document.getElementById('toggleIcon').innerText = '▼';
     }
 
-    document.body.style.overflow = 'auto';
+    document.body.style.overflow = '';
+    healTouchState();
 });
 
 function closeModalSafe(modalId) {
     // 1. ŞARTSIZ ŞURTSUZ ÖNCE EKRANI KAPAT VE TEMİZLİĞİ YAP
     document.getElementById(modalId).style.display = 'none';
-    document.body.style.overflow = 'auto';
+    document.body.style.overflow = '';
 
     if(modalId === 'newsModal') {
         window.speechSynthesis.cancel();
@@ -929,7 +930,7 @@ window.addEventListener('scroll', () => {
                 _loadingMore = true;
                 const spinner = document.getElementById('scrollSpinner'); 
                 spinner.style.display = 'block'; 
-                setTimeout(() => { renderNextBatch(); spinner.style.display = 'none'; _loadingMore = false; }, 100); 
+                setTimeout(() => { try { renderNextBatch(); } catch (e) { console.error(e); } finally { spinner.style.display = 'none'; _loadingMore = false; } }, 100); 
             } else if (filteredArticles.length > 0 && !isFetchingRefresh && Date.now() - lastFetchAt > 60000) { 
                 fetchAllRSS(true); 
             } 
@@ -1046,3 +1047,32 @@ function setPerfMode(mode) {
     applyPerfMode();
     showToastGlobal('⚡ Performans: ' + ({ auto: 'Otomatik', on: 'Açık (hafif efektler)', off: 'Kapalı (tüm efektler)' })[mode], 1800);
 }
+
+
+/* ===== Dokunma/kaydırma durumu onarımı (özellikle Android WebView için) =====
+   Sistem bir dokunuşu iptal ederse (geri hareketi, uygulama değişimi, tarayıcıdan dönüş) 'touchend' hiç gelmez;
+   yarım kalan kart kaydırma / çekip yenile durumu ve gövde kilidi kalıntısı temizlenir. */
+const _MODAL_IDS = ['newsModal', 'settingsModal', 'sourceFilterModal', 'guideModal', 'voiceModal'];
+function anyModalOpen() {
+    return _MODAL_IDS.some(id => { const e = document.getElementById(id); return e && e.style.display !== 'none' && getComputedStyle(e).display !== 'none'; });
+}
+function healTouchState(nudge) {
+    try {
+        if (swipingCard) { swipingCard.classList.remove('swiping'); swipingCard.style.transform = 'translateX(0px)'; swipingCard = null; }
+        isVerticalScroll = false; swipeCurrentX = 0; touchStartY = 0; pullDistance = 0;
+        if (typeof resetPullToRefresh === 'function') resetPullToRefresh();
+        if (!anyModalOpen() && document.body.style.overflow) document.body.style.overflow = '';
+        if (nudge && !document.hidden && !anyModalOpen()) {
+            // WebView geri geldiğinde kaydırma katmanını yeniden uyandırmak için 1 px'lik gidip gelme
+            requestAnimationFrame(() => { const y = window.scrollY; window.scrollTo(0, y + 1); window.scrollTo(0, y); });
+        }
+    } catch (e) {}
+}
+document.addEventListener('touchcancel', () => healTouchState(), { passive: true });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) healTouchState(true); });
+window.addEventListener('pageshow', () => healTouchState(true));
+window.addEventListener('focus', () => healTouchState(true));
+// Herhangi bir modal açık değilken gövde kilitli kaldıysa, kullanıcının ilk dokunuşunda çözülür
+document.addEventListener('touchstart', () => {
+    if (document.body.style.overflow === 'hidden' && !anyModalOpen()) document.body.style.overflow = '';
+}, { passive: true, capture: true });
