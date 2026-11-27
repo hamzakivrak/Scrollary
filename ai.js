@@ -615,6 +615,22 @@ async function gtChunk(c, tl, errs) {
     return '';
 }
 
+const AI_LANG_NAMES = { tr:'Türkçe', en:'İngilizce', de:'Almanca', fr:'Fransızca', es:'İspanyolca', it:'İtalyanca', ru:'Rusça', ar:'Arapça', pt:'Portekizce', nl:'Felemenkçe', ja:'Japonca', ko:'Korece', 'zh-CN':'Çince', zh:'Çince', pl:'Lehçe', uk:'Ukraynaca', fa:'Farsça', az:'Azerbaycanca' };
+let aiTrOff = 0;   // yapay zeka çevirisi başarısız olursa kısa süre devre dışı (kota/ağ)
+async function aiTranslateChunk(c, tl) {
+    if (Date.now() < aiTrOff || typeof groqChat !== 'function' || !allAIKeys().length) return '';
+    if (c.split(/\s+/).length < 3) return '';   // tek kelime/kısa ifade: kotayı harcama, Google yeterli
+    try {
+        const lang = AI_LANG_NAMES[tl] || tl;
+        const out = (await groqChat([
+            { role: 'system', content: 'Sen profesyonel bir haber çevirmenisin. Verilen metni doğal, akıcı ve doğru biçimde ' + lang + ' diline çevir. Anlamı değiştirme, ekleme yapma, yorum ya da açıklama yazma, özel isimleri koru. Metin zaten ' + lang + ' ise olduğu gibi döndür. SADECE çeviriyi yaz.' },
+            { role: 'user', content: c }
+        ], { temperature: 0.2, maxTokens: 2048 })).trim();
+        if (!out || out.length < c.length * 0.25) return '';
+        return out;
+    } catch (e) { aiTrOff = Date.now() + 60000; return ''; }
+}
+
 async function getTranslation(text, targetLang) {
     text = String(text || '').trim();
     if (!text) return '';
@@ -622,7 +638,7 @@ async function getTranslation(text, targetLang) {
     if (GT_CACHE.has(key)) return GT_CACHE.get(key);
     const chunks = gtSplit(text, 1200);   // uzun paragraflar GET isteğine sığmaz
     const errs = [];
-    const parts = await Promise.all(chunks.map(c => gtChunk(c, targetLang, errs)));
+    const parts = await Promise.all(chunks.map(async c => (await aiTranslateChunk(c, targetLang)) || gtChunk(c, targetLang, errs)));
     if (parts.some(p => !p)) {
         try { console.warn('Çeviri hatası:', errs.join(' | ')); } catch (e) {}
         return '⚠️ Çeviri bağlantı hatası (' + errs.slice(0, 3).join('; ').slice(0, 110) + ')';
