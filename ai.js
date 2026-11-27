@@ -616,19 +616,23 @@ async function gtChunk(c, tl, errs) {
 }
 
 const AI_LANG_NAMES = { tr:'Türkçe', en:'İngilizce', de:'Almanca', fr:'Fransızca', es:'İspanyolca', it:'İtalyanca', ru:'Rusça', ar:'Arapça', pt:'Portekizce', nl:'Felemenkçe', ja:'Japonca', ko:'Korece', 'zh-CN':'Çince', zh:'Çince', pl:'Lehçe', uk:'Ukraynaca', fa:'Farsça', az:'Azerbaycanca' };
-let aiTrOff = 0;   // yapay zeka çevirisi başarısız olursa kısa süre devre dışı (kota/ağ)
-async function aiTranslateChunk(c, tl) {
-    if (Date.now() < aiTrOff || typeof groqChat !== 'function' || !allAIKeys().length) return '';
-    if (c.split(/\s+/).length < 3) return '';   // tek kelime/kısa ifade: kotayı harcama, Google yeterli
-    try {
-        const lang = AI_LANG_NAMES[tl] || tl;
-        const out = (await groqChat([
-            { role: 'system', content: 'Sen profesyonel bir haber çevirmenisin. Verilen metni doğal, akıcı ve doğru biçimde ' + lang + ' diline çevir. Anlamı değiştirme, ekleme yapma, yorum ya da açıklama yazma, özel isimleri koru. Metin zaten ' + lang + ' ise olduğu gibi döndür. SADECE çeviriyi yaz.' },
-            { role: 'user', content: c }
-        ], { temperature: 0.2, maxTokens: 2048 })).trim();
-        if (!out || out.length < c.length * 0.25) return '';
-        return out;
-    } catch (e) { aiTrOff = Date.now() + 60000; return ''; }
+const AI_TR_CACHE = new Map();
+// Kullanıcı isteyince: kendi Groq/Gemini anahtarlarıyla yapay zeka çevirisi. Başarısızsa hata fırlatır.
+async function getAITranslation(text, tl) {
+    text = String(text || '').trim();
+    if (!text) return '';
+    if (!allAIKeys().length) throw new Error('Ayarlardan Groq veya Gemini anahtarı ekleyin');
+    const key = tl + '|' + text;
+    if (AI_TR_CACHE.has(key)) return AI_TR_CACHE.get(key);
+    const lang = AI_LANG_NAMES[tl] || tl;
+    const out = (await groqChat([
+        { role: 'system', content: 'Sen profesyonel bir haber çevirmenisin. Verilen metni doğal, akıcı ve doğru biçimde ' + lang + ' diline çevir. Anlamı değiştirme, ekleme yapma, yorum ya da açıklama yazma, özel isimleri koru. Metin zaten ' + lang + ' ise olduğu gibi döndür. SADECE çeviriyi yaz.' },
+        { role: 'user', content: text }
+    ], { temperature: 0.2, maxTokens: 2048 })).trim();
+    if (!out) throw new Error('boş yanıt');
+    if (AI_TR_CACHE.size > 200) AI_TR_CACHE.clear();
+    AI_TR_CACHE.set(key, out);
+    return out;
 }
 
 async function getTranslation(text, targetLang) {
@@ -638,7 +642,7 @@ async function getTranslation(text, targetLang) {
     if (GT_CACHE.has(key)) return GT_CACHE.get(key);
     const chunks = gtSplit(text, 1200);   // uzun paragraflar GET isteğine sığmaz
     const errs = [];
-    const parts = await Promise.all(chunks.map(async c => (await aiTranslateChunk(c, targetLang)) || gtChunk(c, targetLang, errs)));
+    const parts = await Promise.all(chunks.map(c => gtChunk(c, targetLang, errs)));
     if (parts.some(p => !p)) {
         try { console.warn('Çeviri hatası:', errs.join(' | ')); } catch (e) {}
         return '⚠️ Çeviri bağlantı hatası (' + errs.slice(0, 3).join('; ').slice(0, 110) + ')';
@@ -662,11 +666,39 @@ async function translateParagraph(idx, btnEl) {
     }
     btnEl.classList.add('on');
     transDiv.style.display = 'block';
-    if (transDiv.dataset.lang === targetLang && transDiv.dataset.done) { transDiv.textContent = transDiv.dataset.done; return; }
+    if (transDiv.dataset.lang === targetLang && transDiv.dataset.done) { renderTrans(transDiv, idx, transDiv.dataset.done, transDiv.dataset.ai === '1'); return; }
     transDiv.textContent = '⏳ …';
     const translated = await getTranslation(pEl.innerText, targetLang);
-    transDiv.textContent = translated;
-    if (!translated.startsWith('⚠️')) { transDiv.dataset.lang = targetLang; transDiv.dataset.done = translated; }
+    if (translated.startsWith('⚠️')) { transDiv.textContent = translated; return; }
+    transDiv.dataset.lang = targetLang; transDiv.dataset.done = translated; transDiv.dataset.ai = '0';
+    renderTrans(transDiv, idx, translated, false);
+}
+
+// Çeviri balonu: metin + küçük ✨ düğmesi (kendi yapay zeka anahtarınla daha iyi çeviri)
+function renderTrans(transDiv, idx, text, isAI) {
+    transDiv.textContent = '';
+    transDiv.appendChild(document.createTextNode(text));
+    if (isAI) return;
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'ai-tr-btn'; b.textContent = '✨';
+    b.title = 'Yapay zeka ile çevir (kendi API anahtarınla)'; b.setAttribute('aria-label', 'Yapay zeka ile çevir');
+    b.onclick = (e) => { e.stopPropagation(); aiRetranslateParagraph(idx, b); };
+    transDiv.appendChild(b);
+}
+
+async function aiRetranslateParagraph(idx, btn) {
+    const pEl = document.getElementById('p_' + idx), transDiv = document.getElementById('trans_' + idx);
+    if (!pEl || !transDiv) return;
+    const lang = document.getElementById('targetLangSelect').value;
+    btn.disabled = true; btn.textContent = '⏳';
+    try {
+        const t = await getAITranslation(pEl.innerText, lang);
+        transDiv.dataset.lang = lang; transDiv.dataset.done = t; transDiv.dataset.ai = '1';
+        renderTrans(transDiv, idx, t, true);
+    } catch (e) {
+        btn.disabled = false; btn.textContent = '✨';
+        if (typeof showToastGlobal === 'function') showToastGlobal('⚠️ AI çeviri yapılamadı: ' + String(e.message || e).slice(0, 80), 3500);
+    }
 }
 
 function translateSingleWord(spanEl, event) {
@@ -722,6 +754,21 @@ async function showTooltip(text, rect) {
             <span style="background: rgba(255,255,255,0.2); border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; pointer-events: none;">🔊</span>
         </div>
     `;
+    if (!translated.startsWith('⚠️')) {
+        const ab = document.createElement('button');
+        ab.type = 'button'; ab.className = 'ai-tr-btn'; ab.textContent = '✨'; ab.title = 'Yapay zeka ile çevir';
+        const stop = (e) => e.stopPropagation();
+        ab.onmousedown = stop; ab.ontouchstart = stop;
+        ab.onclick = async (e) => {
+            e.stopPropagation(); ab.disabled = true; ab.textContent = '⏳';
+            try {
+                const t = await getAITranslation(text, targetLang);
+                const sp = tooltip.querySelector('span'); if (sp) sp.textContent = t;
+                ab.remove();
+            } catch (er) { ab.disabled = false; ab.textContent = '✨'; if (typeof showToastGlobal === 'function') showToastGlobal('⚠️ AI çeviri yapılamadı: ' + String(er.message || er).slice(0, 80), 3500); }
+        };
+        tooltip.appendChild(ab);
+    }
     setTimeout(() => {
         const tRect = tooltip.getBoundingClientRect();
         if (tRect.right > window.innerWidth) {

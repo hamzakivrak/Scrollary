@@ -880,3 +880,9 @@ body.lite-fx:not(.tv-mode) .swipe-wrapper { contain: layout paint; }
 body.lite-fx:not(.tv-mode) *, body.lite-fx:not(.tv-mode) *::before, body.lite-fx:not(.tv-mode) *::after { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 body.lite-fx:not(.tv-mode) .modal { background: rgba(15, 23, 42, 0.96); }
 body.lite-fx:not(.tv-mode) .modal-content { animation: none !important; }
+
+/* Çeviri balonundaki minimal "AI ile çevir" simgesi */
+.ai-tr-btn { background: none; border: 0; padding: 0 0 0 8px; margin: 0; font-size: .8em; line-height: 1; opacity: .55; cursor: pointer; vertical-align: baseline; color: inherit; -webkit-tap-highlight-color: transparent; }
+.ai-tr-btn:hover, .ai-tr-btn:active { opacity: 1; }
+.ai-tr-btn:disabled { opacity: .4; }
+#wordTooltip .ai-tr-btn { position: absolute; top: -8px; right: -8px; width: 22px; height: 22px; padding: 0; border-radius: 50%; background: var(--accent, #3b82f6); opacity: .95; font-size: .7rem; display: flex; align-items: center; justify-content: center; }
