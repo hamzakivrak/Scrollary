@@ -117,6 +117,11 @@ jobs:
 
               <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
+              <queries>
+                  <intent><action android:name="android.speech.RecognitionService" /></intent>
+                  <intent><action android:name="android.intent.action.TTS_SERVICE" /></intent>
+              </queries>
+
               <application
                   android:allowBackup="true"
                   android:icon="@mipmap/ic_launcher"
@@ -166,6 +171,15 @@ jobs:
           import android.webkit.WebView;
           import android.webkit.WebViewClient;
           import android.widget.Toast;
+          import android.speech.RecognitionListener;
+          import android.speech.RecognizerIntent;
+          import android.speech.SpeechRecognizer;
+          import android.speech.tts.TextToSpeech;
+          import android.speech.tts.UtteranceProgressListener;
+          import android.webkit.JavascriptInterface;
+          import java.util.ArrayList;
+          import java.util.Locale;
+          import org.json.JSONObject;
 
           /** Scrollary'yi tam ekran bir WebView içinde açar. Arayüz ve özellikler GitHub'daki web sürümünden gelir. */
           public class MainActivity extends Activity {
@@ -198,6 +212,7 @@ jobs:
                   s.setJavaScriptCanOpenWindowsAutomatically(true);
                   // Not: "TV" ifadesi içermez; web uygulaması bunu TV modu sanmasın
                   s.setUserAgentString(s.getUserAgentString() + " ScrollaryApp");
+          web.addJavascriptInterface(new NativeVoice(), "ScrollaryNative");   // mikrofon + sesli okuma köprüsü (native-voice.js)
                   CookieManager.getInstance().setAcceptCookie(true);
                   CookieManager.getInstance().setAcceptThirdPartyCookies(web, true);
 
@@ -316,6 +331,15 @@ jobs:
               @Override
               public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
                   super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+                  if (requestCode == REQ_STT) {
+                      boolean ok = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+                      if (sttWantStart) {
+                          sttWantStart = false;
+                          if (ok) startListening(sttLang);
+                          else { js("window.__nvSTT.ev('error','not-allowed');"); js("window.__nvSTT.ev('end');"); }
+                      }
+                      return;
+                  }
                   if (requestCode == REQ_AUDIO && pendingPermission != null) {
                       if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                           pendingPermission.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
@@ -326,7 +350,188 @@ jobs:
                   }
               }
 
-              // GERİ tuşu: önce web uygulamasındaki pencere/sayfa kapanır, kök ekranda uygulamadan çıkılır
+              // ---------- Yerel ses köprüsü: web tarafı native-voice.js bunları çağırır ----------
+          private static final int REQ_STT = 103;
+          private SpeechRecognizer recognizer;
+          private boolean sttWantStart = false;
+          private String sttLang = "tr-TR";
+          private TextToSpeech tts;
+          private boolean ttsReady = false;
+          private boolean ttsFailed = false;
+          private final ArrayList<Runnable> ttsQueue = new ArrayList<>();
+          private final ArrayList<String> ttsQueuedIds = new ArrayList<>();
+
+          private void js(final String code) {
+              runOnUiThread(new Runnable() { public void run() { if (web != null) web.evaluateJavascript(code, null); } });
+          }
+
+          public class NativeVoice {
+              @JavascriptInterface public void sttStart(final String lang) {
+                  runOnUiThread(new Runnable() { public void run() { startListening(lang); } });
+              }
+              @JavascriptInterface public void sttStop() {
+                  runOnUiThread(new Runnable() { public void run() { if (recognizer != null) recognizer.stopListening(); } });
+              }
+              @JavascriptInterface public void sttAbort() {
+                  runOnUiThread(new Runnable() { public void run() { sttWantStart = false; destroyRecognizer(); } });
+              }
+              @JavascriptInterface public void ttsSpeak(final String id, final String text, final String lang, final double rate, final double pitch) {
+                  runOnUiThread(new Runnable() { public void run() { speak(id, text, lang, (float) rate, (float) pitch); } });
+              }
+              @JavascriptInterface public void ttsCancel() {
+                  runOnUiThread(new Runnable() { public void run() {
+                      ttsQueue.clear(); ttsQueuedIds.clear();
+                      if (tts != null && ttsReady) tts.stop();
+                  } });
+              }
+          }
+
+          private void destroyRecognizer() {
+              if (recognizer != null) {
+                  try { recognizer.cancel(); } catch (Exception e) { }
+                  try { recognizer.destroy(); } catch (Exception e) { }
+                  recognizer = null;
+              }
+          }
+
+          private String sttErr(int code) {
+              switch (code) {
+                  case SpeechRecognizer.ERROR_NO_MATCH:
+                  case SpeechRecognizer.ERROR_SPEECH_TIMEOUT: return "no-speech";
+                  case SpeechRecognizer.ERROR_AUDIO: return "audio-capture";
+                  case SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS: return "not-allowed";
+                  case SpeechRecognizer.ERROR_NETWORK:
+                  case SpeechRecognizer.ERROR_NETWORK_TIMEOUT:
+                  case SpeechRecognizer.ERROR_SERVER: return "network";
+                  default: return "aborted";
+              }
+          }
+
+          private void startListening(String lang) {
+              sttLang = (lang == null || lang.length() == 0) ? "tr-TR" : lang;
+              if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                  sttWantStart = true;
+                  requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_STT);
+                  return;
+              }
+              if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+                  js("window.__nvSTT.ev('error','service-not-allowed');");
+                  js("window.__nvSTT.ev('end');");
+                  Toast.makeText(this, "Bu telefonda ses tanıma servisi (Google) bulunamadı", Toast.LENGTH_LONG).show();
+                  return;
+              }
+              destroyRecognizer();
+              recognizer = SpeechRecognizer.createSpeechRecognizer(this);
+              recognizer.setRecognitionListener(new RecognitionListener() {
+                  public void onReadyForSpeech(Bundle b) { js("window.__nvSTT.ev('start');"); }
+                  public void onBeginningOfSpeech() { js("window.__nvSTT.ev('speechstart');"); }
+                  public void onRmsChanged(float v) { }
+                  public void onBufferReceived(byte[] b) { }
+                  public void onEndOfSpeech() { }
+                  public void onPartialResults(Bundle b) { }
+                  public void onEvent(int t, Bundle b) { }
+                  public void onError(int code) {
+                      js("window.__nvSTT.ev('error'," + JSONObject.quote(sttErr(code)) + ");");
+                      js("window.__nvSTT.ev('end');");
+                  }
+                  public void onResults(Bundle b) {
+                      ArrayList<String> r = b.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                      if (r != null && r.size() > 0) js("window.__nvSTT.ev('result'," + JSONObject.quote(r.get(0)) + ");");
+                      else js("window.__nvSTT.ev('error','no-speech');");
+                      js("window.__nvSTT.ev('end');");
+                  }
+              });
+              Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+              i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+              i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, sttLang);
+              i.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false);
+              i.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+              i.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getPackageName());
+              try { recognizer.startListening(i); }
+              catch (Exception e) {
+                  js("window.__nvSTT.ev('error','aborted');");
+                  js("window.__nvSTT.ev('end');");
+              }
+          }
+
+          private String baseId(String uid) {
+              int k = uid.indexOf('~');
+              return k < 0 ? uid : uid.substring(0, k);
+          }
+
+          private void withTts(String id, Runnable r) {
+              if (ttsReady) { r.run(); return; }
+              if (ttsFailed) { js("window.__nvTTS.ev(" + JSONObject.quote(id) + ",'error','synthesis-unavailable');"); return; }
+              ttsQueue.add(r);
+              ttsQueuedIds.add(id);
+              if (tts == null) {
+                  tts = new TextToSpeech(this, new TextToSpeech.OnInitListener() {
+                      public void onInit(final int status) {
+                          runOnUiThread(new Runnable() { public void run() {
+                              if (status == TextToSpeech.SUCCESS) {
+                                  ttsReady = true;
+                                  tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                                      public void onStart(String uid) {
+                                          if (uid.indexOf('~') < 0 || uid.endsWith("~0")) js("window.__nvTTS.ev(" + JSONObject.quote(baseId(uid)) + ",'start');");
+                                      }
+                                      public void onDone(String uid) {
+                                          if (uid.indexOf('~') < 0 || uid.endsWith("~F")) js("window.__nvTTS.ev(" + JSONObject.quote(baseId(uid)) + ",'end');");
+                                      }
+                                      public void onError(String uid) {
+                                          js("window.__nvTTS.ev(" + JSONObject.quote(baseId(uid)) + ",'error','synthesis-failed');");
+                                      }
+                                  });
+                                  ArrayList<Runnable> q = new ArrayList<>(ttsQueue);
+                                  ttsQueue.clear(); ttsQueuedIds.clear();
+                                  for (Runnable x : q) x.run();
+                              } else {
+                                  ttsFailed = true;
+                                  for (String qid : ttsQueuedIds) js("window.__nvTTS.ev(" + JSONObject.quote(qid) + ",'error','synthesis-unavailable');");
+                                  ttsQueue.clear(); ttsQueuedIds.clear();
+                                  Toast.makeText(MainActivity.this, "Bu telefonda sesli okuma motoru bulunamadı", Toast.LENGTH_LONG).show();
+                              }
+                          } });
+                      }
+                  });
+              }
+          }
+
+          private void speak(final String id, final String text, final String lang, final float rate, final float pitch) {
+              withTts(id, new Runnable() { public void run() {
+                  try {
+                      tts.setLanguage(Locale.forLanguageTag(lang == null ? "tr-TR" : lang));
+                      tts.setSpeechRate(Math.max(0.3f, Math.min(3.0f, rate)));
+                      tts.setPitch(Math.max(0.3f, Math.min(2.5f, pitch)));
+                      String t = text == null ? "" : text;
+                      if (t.trim().length() == 0) { js("window.__nvTTS.ev(" + JSONObject.quote(id) + ",'start');"); js("window.__nvTTS.ev(" + JSONObject.quote(id) + ",'end');"); return; }
+                      int max = 3500;
+                      try { max = Math.min(max, TextToSpeech.getMaxSpeechInputLength() - 100); } catch (Throwable e) { }
+                      ArrayList<String> parts = new ArrayList<>();
+                      while (t.length() > max) {
+                          int cut = max;
+                          for (int k = max; k > max / 2; k--) { char c = t.charAt(k); if (c == '.' || c == '!' || c == '?' || c == '\n' || c == ' ') { cut = k + 1; break; } }
+                          parts.add(t.substring(0, cut)); t = t.substring(cut);
+                      }
+                      parts.add(t);
+                      if (parts.size() == 1) { tts.speak(parts.get(0), TextToSpeech.QUEUE_ADD, null, id); return; }
+                      for (int k = 0; k < parts.size(); k++) {
+                          String uid = id + "~" + (k == parts.size() - 1 ? "F" : Integer.toString(k));
+                          tts.speak(parts.get(k), TextToSpeech.QUEUE_ADD, null, uid);
+                      }
+                  } catch (Exception e) {
+                      js("window.__nvTTS.ev(" + JSONObject.quote(id) + ",'error','synthesis-failed');");
+                  }
+              } });
+          }
+
+          @Override
+          protected void onDestroy() {
+              destroyRecognizer();
+              if (tts != null) { try { tts.stop(); tts.shutdown(); } catch (Exception e) { } }
+              super.onDestroy();
+          }
+
+          // GERİ tuşu: önce web uygulamasındaki pencere/sayfa kapanır, kök ekranda uygulamadan çıkılır
               @Override
               public boolean onKeyDown(int keyCode, KeyEvent event) {
                   if (keyCode == KeyEvent.KEYCODE_BACK && web != null && web.canGoBack()) {

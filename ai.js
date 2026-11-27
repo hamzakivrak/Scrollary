@@ -552,23 +552,85 @@ function autoFillAndAddRss(name, url) {
 // 4. ÇEVİRİ VE SES İŞLEMLERİ (METİN ETKİLEŞİMLERİ)
 // ==========================================
 
-async function getTranslation(text, targetLang) {
-    // Uzun paragraflar GET isteğine sığmaz: cümle sınırından parçala
-    const chunks = [];
-    (text.match(/[^.!?…]+[.!?…]+["”')]*\s*|[^.!?…]+$/g) || [text]).forEach(s => {
-        if (chunks.length && (chunks[chunks.length - 1] + s).length < 1200) chunks[chunks.length - 1] += s; else chunks.push(s);
-    });
-    try {
-        const parts = await Promise.all(chunks.map(async c => {
-            const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(c)}`;
-            const res = await fetchWithTimeout(url, 8000);
-            const data = await res.json();
-            return data[0].map(x => x[0]).join('');
-        }));
-        return parts.join(' ').trim();
-    } catch (e) {
-        return "⚠️ Çeviri bağlantı hatası.";
+// Çeviri: tek bir adrese bağlı kalmaz. Sağlayıcılar sırayla denenir, çalışan hatırlanır, hata nedeni mesajda görünür.
+const GT_CACHE = new Map();
+let gtPref = 0;   // en son çalışan sağlayıcı önce denenir
+
+function gtFlatten(d) {   // gtx / dict-chrome-ex yanıt biçimlerini düz metne çevirir
+    if (d && Array.isArray(d.sentences)) return d.sentences.map(x => x.trans || '').join('');
+    if (Array.isArray(d)) {
+        if (Array.isArray(d[0])) return d[0].map(x => (Array.isArray(x) ? x[0] : x) || '').join('');
+        if (typeof d[0] === 'string') return d[0];
     }
+    return '';
+}
+function gtSplit(c, max) {   // cümle sınırından max karakterlik parçalara böler
+    const out = [];
+    (c.match(/[^.!?…]+[.!?…]+["”')]*\s*|[^.!?…]+$/g) || [c]).forEach(s => {
+        while (s.length > max) { out.push(s.slice(0, max)); s = s.slice(max); }
+        if (out.length && (out[out.length - 1] + s).length < max) out[out.length - 1] += s; else out.push(s);
+    });
+    return out;
+}
+const GT_PROVIDERS = [
+    { name: 'Google', run: async (c, tl) => {
+        const r = await fetchWithTimeout(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${tl}&dt=t&q=${encodeURIComponent(c)}`, 7000);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return gtFlatten(await r.json());
+    } },
+    { name: 'Google2', run: async (c, tl) => {
+        const r = await fetchWithTimeout(`https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl=${tl}&q=${encodeURIComponent(c)}`, 7000);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return gtFlatten(await r.json());
+    } },
+    { name: 'MyMemory', run: async (c, tl) => {
+        const parts = await Promise.all(gtSplit(c, 450).map(async q => {
+            const r = await fetchWithTimeout(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(q)}&langpair=Autodetect|${tl}`, 8000);
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const d = await r.json();
+            const t = d && d.responseData && d.responseData.translatedText;
+            if (!t || (d.responseStatus && Number(d.responseStatus) !== 200) || /MYMEMORY WARNING|INVALID/i.test(t)) throw new Error('kota/geçersiz');
+            return t;
+        }));
+        return parts.join(' ');
+    } },
+    { name: 'Vekil', run: async (c, tl) => {   // doğrudan erişim engelliyse mevcut CORS vekilleri üzerinden
+        if (typeof fetchHtmlRace !== 'function') throw new Error('vekil yok');
+        const raw = await fetchHtmlRace(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${tl}&dt=t&q=${encodeURIComponent(c)}`);
+        return gtFlatten(JSON.parse(raw));
+    } }
+];
+
+async function gtChunk(c, tl, errs) {
+    for (let k = 0; k < GT_PROVIDERS.length; k++) {
+        const idx = (gtPref + k) % GT_PROVIDERS.length, p = GT_PROVIDERS[idx];
+        try {
+            const t = (await p.run(c, tl) || '').trim();
+            if (t) { gtPref = idx; return t; }
+            errs.push(p.name + ': boş yanıt');
+        } catch (e) {
+            errs.push(p.name + ': ' + (e && e.name === 'AbortError' ? 'zaman aşımı' : (e && e.message) || 'hata'));
+        }
+    }
+    return '';
+}
+
+async function getTranslation(text, targetLang) {
+    text = String(text || '').trim();
+    if (!text) return '';
+    const key = targetLang + '|' + text;
+    if (GT_CACHE.has(key)) return GT_CACHE.get(key);
+    const chunks = gtSplit(text, 1200);   // uzun paragraflar GET isteğine sığmaz
+    const errs = [];
+    const parts = await Promise.all(chunks.map(c => gtChunk(c, targetLang, errs)));
+    if (parts.some(p => !p)) {
+        try { console.warn('Çeviri hatası:', errs.join(' | ')); } catch (e) {}
+        return '⚠️ Çeviri bağlantı hatası (' + errs.slice(0, 3).join('; ').slice(0, 110) + ')';
+    }
+    const out = parts.join(' ').trim();
+    if (GT_CACHE.size > 300) GT_CACHE.clear();
+    GT_CACHE.set(key, out);
+    return out;
 }
 
 async function translateParagraph(idx, btnEl) {

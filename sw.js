@@ -1,6 +1,6 @@
-// sw.js v8 — ağ öncelikli: güncellemeler anında gelir, internet yoksa önbellekten açılır
-const CACHE = 'scrollary-shell-v8';
-const SHELL = ['./', './index.html', './style.css', './config.js', './auth.js', './api.js', './ai.js', './ui.js', './kartfoto.js', './sondakika.js', './reader.js', './sesli-asistan.js', './manifest.json', './icon.png', './splash.png'];
+// sw.js v9 — ağ öncelikli: güncellemeler anında gelir, internet yoksa önbellekten açılır
+const CACHE = 'scrollary-shell-v9';
+const SHELL = ['./', './index.html', './style.css', './config.js', './auth.js', './api.js', './ai.js', './ui.js', './kartfoto.js', './native-voice.js', './sondakika.js', './reader.js', './sesli-asistan.js', './manifest.json', './icon.png', './splash.png'];
 
 self.addEventListener('install', e => {
     self.skipWaiting();
