@@ -622,6 +622,7 @@ function handleToastClick() {
 }
 
 function handleSearch(isSilentRefresh = false) {
+    if (window.wsActive && window.wsRender) { window.wsRender(); return; }   // websearch.js: Web arama sonuçları görünümü
     const searchText = (document.getElementById('searchInput').value.trim()).toLowerCase();
     const searchTerms = searchText.split(' ').filter(t => t.length > 0);
     let sourceArray = isArchiveView ? archivedArticles : allArticles;
@@ -650,7 +651,9 @@ function handleSearch(isSilentRefresh = false) {
         const t = TRANSLATIONS[currentRegion];
         const statusMsg = isFetchingRefresh ? t.waitingText : (window.sdActive && window.sdEmptyText ? sdEmptyText() : t.notFoundText);
         const icon = isFetchingRefresh ? '⏳' : '🔍';
-        document.getElementById('newsGrid').innerHTML = `<div class="status-msg"><div style="font-size:3rem; margin-bottom:15px;">${icon}</div>${statusMsg}</div>`; 
+        const _wsq = (document.getElementById('searchInput').value || '').trim();
+        const _wsBtn = (!isFetchingRefresh && _wsq && window.wsSearchFromBox) ? `<br><button class="ws-empty-btn" onclick="wsSearchFromBox(event)">🌐 “${escapeHtml(_wsq)}” için web'de ara</button>` : '';
+        document.getElementById('newsGrid').innerHTML = `<div class="status-msg"><div style="font-size:3rem; margin-bottom:15px;">${icon}</div>${statusMsg}${_wsBtn}</div>`; 
         return; 
     }
     renderNextBatch();

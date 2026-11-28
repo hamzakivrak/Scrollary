@@ -100,6 +100,7 @@
 
                 <div id="pane_search" class="c-pane active">
                     <div class="search-box"><span class="search-icon">⌕</span><input type="text" id="searchInput" data-i18n-ph="searchPlaceholder" placeholder="Search within fetched news..." onkeyup="handleSearch()"></div>
+                    <button type="button" class="ws-search-btn" onclick="wsSearchFromBox(event)" title="İzlenen kaynaklar dışında web'de ara">🌐 Web'de ara <small>(Google + Bing Haberler)</small></button>
                     <div style="background: rgba(255,255,255,0.05); padding: 10px 15px; border-radius: 8px; margin-bottom: 15px;"><label style="cursor:pointer; display:flex; align-items:center; gap:8px; color:var(--text-main); font-weight:600;"><input type="checkbox" id="showReadMain" onchange="toggleReadVisibility(this.checked)" style="width:18px; height:18px; accent-color:var(--primary);"><span id="hideReadText" data-i18n="hideReadText">👁️ Okunanları Gizle</span></label></div>
                 </div>
 
@@ -554,9 +555,10 @@ i.value=v;if(v&&s)s.textContent='✅ Kayıtlı: hızlı sunucu açık';})();
 <script src="ui.js?v=5.9"></script>
 <script src="kartfoto.js?v=5.8"></script>
 <script src="sondakika.js?v=5.4"></script>
+<script src="websearch.js?v=1"></script>
 <script src="reader.js?v=5.4"></script>
 <script src="native-voice.js?v=1"></script>
-<script src="sesli-asistan.js?v=5.5"></script>
+<script src="sesli-asistan.js?v=5.6"></script>
 <script src="tv.js?v=5.5"></script>
 </body>
 </html>

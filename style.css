@@ -886,3 +886,18 @@ body.lite-fx:not(.tv-mode) .modal-content { animation: none !important; }
 .ai-tr-btn:hover, .ai-tr-btn:active { opacity: 1; }
 .ai-tr-btn:disabled { opacity: .4; }
 #wordTooltip .ai-tr-btn { position: absolute; top: -8px; right: -8px; width: 22px; height: 22px; padding: 0; border-radius: 50%; background: var(--accent, #3b82f6); opacity: .95; font-size: .7rem; display: flex; align-items: center; justify-content: center; }
+
+/* ---- Web araması (websearch.js) ---- */
+.ws-search-btn { width: 100%; margin: -4px 0 14px; padding: 11px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.18); background: linear-gradient(135deg, rgba(59,130,246,.25), rgba(139,92,246,.25)); color: var(--text-main); font-weight: 700; font-size: .95rem; cursor: pointer; }
+.ws-search-btn small { font-weight: 500; opacity: .7; }
+.ws-search-btn:active { transform: scale(.98); }
+.ws-empty-btn { margin-top: 14px; padding: 10px 16px; border-radius: 20px; border: 0; background: var(--primary); color: #fff; font-weight: 700; cursor: pointer; }
+.ws-bar { display: flex; flex-direction: column; gap: 10px; margin: 0 0 14px 0; padding: 10px 14px; border-radius: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); }
+.ws-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ws-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ws-info b { color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-info span { color: var(--text-muted); font-size: .75rem; }
+.ws-back { flex-shrink: 0; padding: 7px 13px; border-radius: 16px; border: 0; background: var(--primary); color: #fff; font-weight: 700; font-size: .8rem; cursor: pointer; }
+.ws-win { display: flex; gap: 6px; flex-wrap: wrap; }
+.ws-win button { padding: 5px 11px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.2); background: transparent; color: var(--text-muted); font-weight: 700; font-size: .78rem; cursor: pointer; }
+.ws-win button.on { background: var(--primary); border-color: var(--primary); color: #fff; }

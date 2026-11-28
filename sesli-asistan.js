@@ -274,9 +274,10 @@ async function processVoiceCommandInner(komut, preset) {
        - ÇOK ÖNEMLİ: "search_query" kısmına SADECE salt anahtar kelimeyi yaz. "haber", "haberleri", "haberler", "var mı", "aç", "göster", "oku" kelimelerini KESİNLİKLE ÇIKAR!
        - (Örn: "sözcü haberleri aç" -> "sözcü")
        - (Örn: "iş kazası haberleri var mı" -> "iş kazası")
-    5. ui_message: Ekranda belirecek çok kısa bilgi mesajı.
+    5. WEB ARAMASI: Kullanıcı "web'de/internette ara" diyorsa ya da bir konuyu belirli bir süre içinde arıyorsa (Örn: "deprem haberlerini son 1 saatte ara", "son 3 günde enflasyon") intent: "web_search" yap, "search_query" = salt konu, "time_window" = "1h" (saat), "24h", "3d" (gün), "7d", "30d" gibi (süre yoksa ""). "Akışa dön / normal habere dön" için intent: "web_exit".
+    6. ui_message: Ekranda belirecek çok kısa bilgi mesajı.
     
-    JSON FORMATI: {"intent":"search|detail|continue|general_list", "list_index": 1, "search_query":"", "ui_message":""}`;
+    JSON FORMATI: {"intent":"search|web_search|web_exit|detail|continue|general_list", "list_index": 1, "search_query":"", "time_window":"", "ui_message":""}`;
 
     let aiData = preset || null;      // yerel komut ayrıştırıcı bulduysa yapay zekaya gitme
     if (!aiData) try {
@@ -296,6 +297,23 @@ async function processVoiceCommandInner(komut, preset) {
 
     const searchInput = document.getElementById('searchInput');
 
+    // WEB ARAMASI: izlenen kaynaklar dışında, istenen süre içinde (ör. "son 1 saatteki")
+    if (aiData.intent === "web_exit") {
+        if (window.wsExit) window.wsExit();
+        return sesliOkuAsync("Normal habere döndüm.", myCmdId, false);
+    }
+    if (aiData.intent === "web_search" && window.wsSearch) {
+        const wq = String(aiData.search_query || '').replace(/\b(haber|haberler|haberleri|haberlerini|ara|bul|hakkında)\b/gi, '').replace(/\s+/g, ' ').trim();
+        const ww = /^\d+[hd]$/.test(aiData.time_window || '') ? aiData.time_window : 'any';
+        if (!wq) return sesliOkuAsync("Hangi konuda arama yapayım?", myCmdId, false);
+        if (searchInput) searchInput.value = wq;
+        const searching = window.wsSearch(wq, ww);
+        await sesliOkuAsync(`"${wq}" için ${ww === 'any' ? 'webde' : window.wsWindowLabel(ww) + ' içindeki'} haberleri arıyorum...`, myCmdId, false);
+        const found = await searching;
+        if (myCmdId !== currentVoiceCmdId || !isVoiceActive) return;
+        if (!found || !found.length) return sesliOkuAsync("Bu konuda belirttiğiniz sürede web'de haber bulamadım.", myCmdId, false);
+    }
+    else
     // EYLEM 1: DETAY OKUMA
     if (aiData.intent === "detail" && aiData.list_index) {
         let index = aiData.list_index - 1;
@@ -307,6 +325,7 @@ async function processVoiceCommandInner(komut, preset) {
     } 
     // EYLEM 2: GENEL ÖZET/LİSTE (Aramayı temizle)
     else if (aiData.intent === "general_list") {
+        if (window.wsActive && window.wsExit) window.wsExit();
         if (searchInput) searchInput.value = "";
         if(typeof handleSearch === 'function') handleSearch(true);
         await sesliOkuAsync("Sizin için güncel haberleri derliyorum...", myCmdId, false);
@@ -314,6 +333,7 @@ async function processVoiceCommandInner(komut, preset) {
     // EYLEM 3: YENİ ARAMA
     else if (aiData.intent === "search") {
         let cleanQuery = aiData.search_query || "";
+        if (window.wsActive && window.wsExit) window.wsExit();
         cleanQuery = cleanQuery.replace(/\b(haber|haberler|haberleri|haberlerini|var mı|aç|göster|oku|bul|hakkında)\b/gi, '').replace(/\s+/g, ' ').trim();
         
         if (searchInput) searchInput.value = cleanQuery;
@@ -564,6 +584,8 @@ function parseLocalIntent(raw) {
     const strongExit = /(^| )(kapat|kapatabilirsin|kapatın|kapatır mısın|bitir|bitti|yeter|çık|çıkabilirsin|çıkar mısın|çıkış|sus|susabilirsin|kapan|görüşürüz|hoşça kal|istemiyorum)( |$)/;
     const softExit = /^(tamam|evet tamam|hayır|yok|hayır teşekkürler|yok teşekkürler|teşekkürler|teşekkür ederim|sağ ol|sağol|gerek yok|başka bir şey yok|başka isteğim yok|hepsi bu|bu kadar|şimdilik bu kadar|tamam teşekkürler|tamam sağ ol)$/;
     if ((words.length <= 6 && strongExit.test(t)) || softExit.test(t)) return { intent: 'exit' };
+
+    if (window.wsParseVoice) { const w = window.wsParseVoice(raw); if (w) return w; }   // websearch.js: web'de haber ara / akışa dön
 
     if (/^(tamam )?(devam( et| edelim| edin| et lütfen)?|sonraki( haber| haberler| haberleri)?|diğerleri|diğer haberler|başka( haber| haberler)?( var mı)?|sıradaki( haber| haberler)?)$/.test(t)) return { intent: 'continue', ui_message: 'Devam ediyorum' };
 
