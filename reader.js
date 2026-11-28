@@ -77,19 +77,60 @@ function titleOverlap(a, b) {
     let n = 0; A.forEach(w => { if (B.has(w)) n++; });
     return n / A.size;
 }
-function pickSearchResult(cands, clean, domain, pub) {
+function pickSearchResults(cands, clean, domain, pub) {
     const bad = /(^|\.)(google|bing|duckduckgo|microsoft|facebook|twitter|x|youtube|instagram|wikipedia)\./i;
     const pubKey = trNorm(pub).replace(/\s/g, '').replace(/(net|com|org|tr)$/g, '');
-    let best = null, bestScore = 0;
+    const scored = [], seen = new Set();
     for (const c of cands) {
         let host = ''; try { host = new URL(c.href).hostname.replace(/^www\./, ''); } catch (e) { continue; }
         if (bad.test(host + '.')) continue;
         if (domain && !(host === domain || host.endsWith('.' + domain))) continue;
         if (!domain && pubKey.length > 3 && !host.replace(/[^a-z0-9]/g, '').includes(pubKey)) continue;
+        if (seen.has(c.href)) continue; seen.add(c.href);
         const sc = titleOverlap(clean, c.text);
-        if (sc > bestScore) { bestScore = sc; best = c.href; }
+        if (sc >= 0.5) scored.push({ href: c.href, sc, date: c.date || 0 });   // başlık yeterince benzemiyorsa yanlış habere gitmeyelim
     }
-    return bestScore >= 0.5 ? best : null;   // başlık yeterince benzemiyorsa yanlış habere gitmeyelim
+    return scored.sort((a, b) => b.sc - a.sc).slice(0, 3);
+}
+function pickSearchResult(cands, clean, domain, pub) { const l = pickSearchResults(cands, clean, domain, pub); return l.length ? l[0].href : null; }
+
+// ---------- Tarih doğrulaması: aynı başlıklı başka günün haberi açılmasın ----------
+const DATE_TOL_MS = 3 * 864e5;   // Google'ın indeksleme gecikmesi / saat dilimi payı
+function pageDate(html) {
+    const h = String(html || '').slice(0, 200000);
+    const pats = [
+        /<meta[^>]+(?:property|name|itemprop)=["'](?:article:published_time|og:published_time|datePublished|date|pubdate|publishdate|publish-date|dc\.date|DC\.date\.issued|parsely-pub-date)["'][^>]*content=["']([^"']+)["']/i,
+        /<meta[^>]+content=["']([^"']+)["'][^>]*(?:property|name|itemprop)=["'](?:article:published_time|og:published_time|datePublished|date|pubdate|publishdate|publish-date)["']/i,
+        /"datePublished"\s*:\s*"([^"]+)"/i,
+        /<time[^>]+datetime=["']([^"']+)["']/i
+    ];
+    for (const re of pats) {
+        const m = re.exec(h);
+        if (m) { const t = Date.parse(m[1]); if (t > 946684800000 && t < Date.now() + 864e5 * 2) return t; }
+    }
+    return 0;
+}
+// Adaylar başlık benzerliğine göre sıralı gelir. Kartın tarihi biliniyorsa yayın tarihi uyuşmayanlar elenir.
+// Tarihi okunamayan aday reddedilmez (eski davranış korunur); doğrulama hata verirse ilk aday döner.
+async function pickVerified(art, cands, clean, domain, pub) {
+    const list = pickSearchResults(cands, clean, domain, pub);
+    if (!list.length) return null;
+    const ts = art && art.timestamp > 0 ? art.timestamp : 0;
+    if (!ts) return list[0].href;
+    try {
+        const dates = await Promise.all(list.map(async c => {
+            if (c.date) return c.date;
+            try { return pageDate(await Promise.race([getHtmlShared(c.href), new Promise((_, r) => setTimeout(() => r(new Error('t')), 6000))])); }
+            catch (e) { return 0; }
+        }));
+        let undated = null;
+        for (let i = 0; i < list.length; i++) {
+            if (!dates[i]) { if (!undated) undated = list[i].href; continue; }
+            if (Math.abs(dates[i] - ts) <= DATE_TOL_MS) { gnT('tarih-doğrulama', 'OK', 0, list[i].href.replace(/^https?:\/\//, '').slice(0, 40)); return list[i].href; }
+        }
+        gnT('tarih-doğrulama', undated ? 'tarihsiz aday' : 'uyuşmadı', 0, list.length + ' aday');
+        return undated;   // hepsinin tarihi okundu ve hiçbiri tutmadıysa null: yanlış günün haberini açmaktan iyidir
+    } catch (e) { return list[0].href; }
 }
 async function searchPublisherUrl(art) {
     if (!art || !art.title) throw new Error('art yok');
@@ -106,7 +147,7 @@ async function searchPublisherUrl(art) {
             if (h.startsWith('//')) h = 'https:' + h;
             return { href: h, text: a.textContent || '' };
         }).filter(x => /^https?:/.test(x.href));
-        const hit = pickSearchResult(c, clean, domain, pub);
+        const hit = await pickVerified(art, c, clean, domain, pub);
         gnT('ddg-sayfa', c.length ? 'OK' : 'HATA', 0, html.length + ' bayt, ' + c.length + ' sonuç' + (c.length ? ' | ' + c.slice(0, 2).map(x => x.href.replace(/^https?:\/\//, '').slice(0, 28)).join(' ; ') : ' | ' + html.replace(/\s+/g, ' ').slice(0, 70)));
         if (!hit) throw new Error('ddg sonuç yok');
         return hit;
@@ -120,7 +161,7 @@ async function searchPublisherUrl(art) {
             if (m) { try { let b = m[1].replace(/-/g, '+').replace(/_/g, '/'); while (b.length % 4) b += '='; h = atob(b); } catch (e) {} }
             return { href: h, text: a.textContent || '' };
         }).filter(x => /^https?:/.test(x.href));
-        const hit = pickSearchResult(c, clean, domain, pub);
+        const hit = await pickVerified(art, c, clean, domain, pub);
         gnT('bing-sayfa', c.length ? 'OK' : 'HATA', 0, html.length + ' bayt, ' + c.length + ' sonuç' + (c.length ? '' : ' | ' + html.replace(/\s+/g, ' ').slice(0, 70)));
         if (!hit) throw new Error('bing sonuç yok');
         return hit;
@@ -136,9 +177,10 @@ async function searchPublisherUrl(art) {
             const t = (n.getElementsByTagName('title')[0] || {}).textContent || '';
             const l = ((n.getElementsByTagName('link')[0] || {}).textContent || '').trim();
             let h = l; try { h = new URL(l).searchParams.get('url') || l; } catch (e) {}
-            return { href: h, text: t };
+            const pd = Date.parse((n.getElementsByTagName('pubDate')[0] || {}).textContent || '') || 0;
+            return { href: h, text: t, date: pd };
         }).filter(i => /^https?:/.test(i.href));
-        const hit = pickSearchResult(c, clean, domain, pub);
+        const hit = await pickVerified(art, c, clean, domain, pub);
         gnT('bing-haber-sayfa', c.length ? 'OK' : 'HATA', 0, xml.length + ' bayt, ' + c.length + ' öğe' + (c.length ? ' | ' + c.slice(0, 2).map(x => x.href.replace(/^https?:\/\//, '').slice(0, 28)).join(' ; ') : ' | ' + xml.replace(/\s+/g, ' ').slice(0, 70)));
         if (!hit) throw new Error('bing-haber sonuç yok (' + c.length + ' öğe)');
         return hit;
@@ -167,7 +209,7 @@ function parseFeedItems(text) {
         let link = g('link').trim();
         if (!link) { const le = n.getElementsByTagName('link')[0]; link = le ? (le.getAttribute('href') || '') : ''; }
         const ce = n.getElementsByTagName('content:encoded')[0] || n.getElementsByTagName('encoded')[0] || n.getElementsByTagName('content')[0];
-        return { title: g('title').trim(), link, html: ce ? (ce.textContent || '') : g('description') };
+        return { title: g('title').trim(), link, html: ce ? (ce.textContent || '') : g('description'), date: Date.parse(g('pubDate') || g('published') || g('updated') || g('dc:date')) || 0 };
     }).filter(i => i.title && /^https?:/.test(i.link));
     if (!items.length) throw new Error('rss boş');
     return items;
@@ -221,6 +263,7 @@ async function matchViaPublisherFeed(art) {
         const P = stemSet(it.title);
         let n = 0; S.forEach(w => { if (P.has(w)) n++; });
         const sc = n / S.size;
+        if (art.timestamp > 0 && it.date && Math.abs(it.date - art.timestamp) > DATE_TOL_MS) continue;   // başka günün benzer başlıklı haberi
         if (sc > bs) { bs = sc; best = it; bn = n; }
     }
     if (!best || bs < 0.6 || bn < Math.min(3, S.size)) throw new Error('feed eşleşmedi');

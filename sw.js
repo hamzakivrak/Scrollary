@@ -1,5 +1,5 @@
-// sw.js v12 — ağ öncelikli: güncellemeler anında gelir, internet yoksa önbellekten açılır
-const CACHE = 'scrollary-shell-v12';
+// sw.js v13 — ağ öncelikli: güncellemeler anında gelir, internet yoksa önbellekten açılır
+const CACHE = 'scrollary-shell-v13';
 const SHELL = ['./', './index.html', './style.css', './config.js', './auth.js', './api.js', './ai.js', './ui.js', './kartfoto.js', './native-voice.js', './websearch.js', './sondakika.js', './reader.js', './sesli-asistan.js', './manifest.json', './icon.png', './splash.png'];
 
 self.addEventListener('install', e => {
