@@ -607,8 +607,12 @@ window.prefetchArticle = function (art) {
 
 // Sayfa yolu hızlıysa Jina hiç devreye girmez; yavaşsa/bloklandıysa 1.2 sn sonra yedek olarak başlar
 async function extractArticle(url, hint, fresh) {
+    // Kısa haberler (KAP/ajans bildirimi: 2-3 cümle) normal eşiğin altında kalır; hiçbir yol uzun metin bulamazsa en iyi kısa sonuç kullanılır
+    let shortBest = null;
     const accept = (paras, via) => {
-        if (paras.length < 2 || paras.join(' ').length < 350) throw new Error('kısa');
+        const len = paras.join(' ').length;
+        if (paras.length >= 1 && len >= 150 && (!shortBest || len > shortBest.paras.join(' ').length)) shortBest = { paras, via };
+        if (paras.length < 2 || len < 350) throw new Error('kısa');
         return { paras, via };
     };
     const page = { delay: 0, run: async () => accept(extractFromHtml(await getHtmlShared(url, fresh), hint), 'sayfa') };
@@ -622,7 +626,15 @@ async function extractArticle(url, hint, fresh) {
             return accept(cleanMarkdown(j.data.content, hint), 'jina');
         }
     };
-    return raceStaggered([page, jina]);
+    try { return await raceStaggered([page, jina]); }
+    catch (e) {
+        if (shortBest) {
+            const hs = hintWords(hint), txt = shortBest.paras.join(' ').toLocaleLowerCase('tr');
+            let hit = 0; hs.forEach(w => { if (txt.includes(w)) hit++; });
+            if (!hs.size || hit >= Math.min(2, hs.size)) return { paras: shortBest.paras, via: shortBest.via + ' • kısa haber' };
+        }
+        throw e;
+    }
 }
 
 // ---------- Görünüm ----------
