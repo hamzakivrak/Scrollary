@@ -25,8 +25,27 @@ auth.onAuthStateChanged(async user => {
 });
 
 function signInWithGoogle() { 
+    // Android uygulamasında (WebView) Google girişi engellenir: giriş gerçek tarayıcıda yapılır, sonuç uygulamaya geri döner
+    if (window.ScrollaryNative && window.ScrollaryNative.openAuth) {
+        try { window.ScrollaryNative.openAuth(new URL('auth-bridge.html', location.href).href); return; } catch (e) {}
+    }
     auth.signInWithPopup(provider).catch(err => { alert("Google Login Error: " + err.message); });
 }
+
+// Tarayıcıdan dönen giriş bilgisini al (uygulama kapalıyken açıldıysa da, arka plandan döndüyse de)
+window.__nativeAuthPoll = function () {
+    try {
+        const raw = window.ScrollaryNative && window.ScrollaryNative.takeAuth && window.ScrollaryNative.takeAuth();
+        if (!raw) return;
+        const t = JSON.parse(raw);
+        if (!t.idToken && !t.accessToken) return;
+        const cred = firebase.auth.GoogleAuthProvider.credential(t.idToken || null, t.accessToken || null);
+        auth.signInWithCredential(cred).catch(err => { alert("Google Login Error: " + err.message); });
+    } catch (e) {}
+};
+window.addEventListener('focus', window.__nativeAuthPoll);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) window.__nativeAuthPoll(); });
+setTimeout(window.__nativeAuthPoll, 800);
 
 function signOut() { 
     auth.signOut(); 

@@ -134,10 +134,17 @@ jobs:
                       android:name=".MainActivity"
                       android:exported="true"
                       android:windowSoftInputMode="adjustResize"
+                      android:launchMode="singleTask"
                       android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|keyboard|navigation|uiMode">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                      <intent-filter>
+                          <action android:name="android.intent.action.VIEW" />
+                          <category android:name="android.intent.category.DEFAULT" />
+                          <category android:name="android.intent.category.BROWSABLE" />
+                          <data android:scheme="scrollary" android:host="auth" />
                       </intent-filter>
                   </activity>
               </application>
@@ -306,6 +313,7 @@ jobs:
 
                   web.loadUrl(BuildConfig.APP_URL);
                   web.requestFocus();
+          handleAuthIntent(getIntent());
               }
 
               private void openExternal(Uri uri) {
@@ -366,6 +374,20 @@ jobs:
           }
 
           public class NativeVoice {
+                  @JavascriptInterface public void openAuth(final String url) {
+                      runOnUiThread(new Runnable() { public void run() {
+                          try {
+                              Uri u = Uri.parse(url);
+                              String cur = web.getUrl();
+                              String h = cur == null ? null : Uri.parse(cur).getHost();
+                              if (h != null && h.equals(u.getHost()) && "https".equals(u.getScheme())) openExternal(u);
+                          } catch (Exception e) { }
+                      } });
+                  }
+                  @JavascriptInterface public String takeAuth() {
+                      String a = pendingAuth; pendingAuth = null;
+                      return a == null ? "" : a;
+                  }
               @JavascriptInterface public void sttStart(final String lang) {
                   runOnUiThread(new Runnable() { public void run() { startListening(lang); } });
               }
@@ -522,6 +544,31 @@ jobs:
                       js("window.__nvTTS.ev(" + JSONObject.quote(id) + ",'error','synthesis-failed');");
                   }
               } });
+          }
+
+          private volatile String pendingAuth = null;
+
+          private void handleAuthIntent(Intent i) {
+              if (i == null) return;
+              Uri d = i.getData();
+              if (d == null || !"scrollary".equals(d.getScheme()) || !"auth".equals(d.getHost())) return;
+              String id = d.getQueryParameter("idToken"), at = d.getQueryParameter("accessToken");
+              if ((id == null || id.length() == 0) && (at == null || at.length() == 0)) return;
+              try {
+                  JSONObject o = new JSONObject();
+                  o.put("idToken", id == null ? "" : id);
+                  o.put("accessToken", at == null ? "" : at);
+                  pendingAuth = o.toString();
+              } catch (Exception e) { return; }
+              i.setData(null);
+              if (web != null) js("window.__nativeAuthPoll && window.__nativeAuthPoll();");
+          }
+
+          @Override
+          protected void onNewIntent(Intent i) {
+              super.onNewIntent(i);
+              setIntent(i);
+              handleAuthIntent(i);
           }
 
           @Override
