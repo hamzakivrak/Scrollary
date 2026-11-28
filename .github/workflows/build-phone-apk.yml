@@ -157,6 +157,8 @@ jobs:
           import android.Manifest;
           import android.annotation.SuppressLint;
           import android.app.Activity;
+          import android.app.Dialog;
+          import android.view.ViewGroup;
           import android.content.Intent;
           import android.content.pm.PackageManager;
           import android.graphics.Bitmap;
@@ -255,28 +257,59 @@ jobs:
                           });
                       }
 
-                      // window.open(...) çağrıları ("tarayıcıda orijinal site") telefonun tarayıcısında açılır
+                      // window.open(...): Google/Firebase giriş pencereleri uygulama içinde açılır, diğer her şey telefonun tarayıcısında
                       @Override
                       public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
-                          WebView tmp = new WebView(MainActivity.this);
+                          final WebView tmp = new WebView(MainActivity.this);
+                          WebSettings ps = tmp.getSettings();
+                          ps.setJavaScriptEnabled(true);
+                          ps.setDomStorageEnabled(true);
+                          ps.setDatabaseEnabled(true);
+                          // Google, "wv" ve "Version/x.x" içeren gömülü tarayıcıdan girişi reddeder: giriş penceresi normal Chrome gibi görünür
+                          ps.setUserAgentString(ps.getUserAgentString().replace("; wv)", ")").replaceAll("Version/\\d+\\.\\d+ ", ""));
+                          CookieManager.getInstance().setAcceptCookie(true);
+                          CookieManager.getInstance().setAcceptThirdPartyCookies(tmp, true);
+                          final Dialog[] dlg = new Dialog[1];
+                          tmp.setWebChromeClient(new WebChromeClient() {
+                              @Override
+                              public void onCloseWindow(WebView w) { closePopup(dlg[0], tmp); }
+                          });
                           tmp.setWebViewClient(new WebViewClient() {
-                              private boolean done = false;
-                              private void go(String url) {
-                                  if (done || url == null || url.startsWith("about:")) return;
-                                  done = true;
-                                  openExternal(Uri.parse(url));
-                                  // Geçici pencere işini bitirince yok edilir (sızıntı olmasın)
-                                  new Handler(Looper.getMainLooper()).postDelayed(() -> { try { tmp.stopLoading(); tmp.destroy(); } catch (Exception ignored) {} }, 500);
+                              private boolean decided = false;
+                              private boolean isAuthUrl(String url) {
+                                  try {
+                                      String h = Uri.parse(url).getHost();
+                                      if (h == null) return false;
+                                      return h.endsWith("google.com") || h.endsWith("firebaseapp.com") || h.endsWith("gstatic.com")
+                                              || h.endsWith("googleapis.com") || h.endsWith("googleusercontent.com");
+                                  } catch (Exception e) { return false; }
+                              }
+                              private void decide(String url) {
+                                  if (decided || url == null || url.startsWith("about:")) return;
+                                  decided = true;
+                                  if (isAuthUrl(url)) {
+                                      Dialog d = new Dialog(MainActivity.this, android.R.style.Theme_DeviceDefault_NoActionBar);
+                                      d.setContentView(tmp);
+                                      d.setOnDismissListener(x -> destroyPopup(tmp));
+                                      d.show();
+                                      if (d.getWindow() != null) d.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+                                      dlg[0] = d;
+                                  } else {
+                                      openExternal(Uri.parse(url));
+                                      new Handler(Looper.getMainLooper()).postDelayed(() -> destroyPopup(tmp), 500);
+                                  }
                               }
                               @Override
                               public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) {
-                                  go(r.getUrl().toString());
-                                  return true;
+                                  String u = r.getUrl().toString();
+                                  decide(u);
+                                  return !isAuthUrl(u) && !decidedAuth();
                               }
+                              private boolean decidedAuth() { return dlg[0] != null; }
                               @Override
                               public void onPageStarted(WebView v, String url, Bitmap favicon) {
-                                  go(url);
-                                  v.stopLoading();
+                                  decide(url);
+                                  if (dlg[0] == null) v.stopLoading();
                               }
                           });
                           WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
@@ -314,6 +347,18 @@ jobs:
                   web.loadUrl(BuildConfig.APP_URL);
                   web.requestFocus();
           handleAuthIntent(getIntent());
+              }
+
+              private void destroyPopup(WebView w) {
+                  try {
+                      w.stopLoading();
+                      if (w.getParent() instanceof ViewGroup) ((ViewGroup) w.getParent()).removeView(w);
+                      w.destroy();
+                  } catch (Exception ignored) { }
+              }
+
+              private void closePopup(Dialog d, WebView w) {
+                  try { if (d != null && d.isShowing()) d.dismiss(); else destroyPopup(w); } catch (Exception ignored) { }
               }
 
               private void openExternal(Uri uri) {

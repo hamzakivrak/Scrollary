@@ -33,9 +33,18 @@ function authDiag(msg) {
 window.addEventListener('DOMContentLoaded', () => { try { if (window.ScrollaryNative && localStorage.getItem('authDiag')) authDiag(localStorage.getItem('authDiag').split(' • ').slice(1).join(' • ')); } catch (e) {} });
 
 function signInWithGoogle() { 
-    // Android uygulamasında (WebView) Google girişi engellenir: giriş gerçek tarayıcıda yapılır, sonuç uygulamaya geri döner
+    // Android uygulaması: önce uygulama içi Google penceresi denenir; olmazsa (Google WebView'i engelleyebilir) telefonun tarayıcısıyla giriş önerilir
     if (window.ScrollaryNative && window.ScrollaryNative.openAuth) {
-        try { window.ScrollaryNative.openAuth(new URL('auth-bridge.html', location.href).href); authDiag('tarayıcı açıldı, giriş bekleniyor'); return; } catch (e) { authDiag('tarayıcı açılamadı: ' + e.message); }
+        authDiag('uygulama içi Google penceresi açılıyor');
+        auth.signInWithPopup(provider)
+            .then(r => authDiag('başarılı: ' + ((r.user && r.user.email) || 'kullanıcı')))
+            .catch(err => {
+                authDiag('uygulama içi giriş olmadı: ' + (err.code || err.message));
+                if (confirm('Uygulama içinde giriş tamamlanamadı (Google bunu engelliyor olabilir).\n\nTelefonun tarayıcısıyla girmeyi deneyelim mi?')) {
+                    try { window.ScrollaryNative.openAuth(new URL('auth-bridge.html', location.href).href); authDiag('tarayıcı açıldı, giriş bekleniyor'); } catch (e) { authDiag('tarayıcı açılamadı: ' + e.message); }
+                }
+            });
+        return;
     }
     auth.signInWithPopup(provider).catch(err => { alert("Google Login Error: " + err.message); });
 }
