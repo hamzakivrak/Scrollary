@@ -24,24 +24,40 @@ auth.onAuthStateChanged(async user => {
     }
 });
 
+// Giriş tanısı: tarayıcıdan dönüşte ne olduğu Ayarlar > Hesap Girişi altında görünür (sorun olursa nerede koptuğu anlaşılır)
+function authDiag(msg) {
+    try { localStorage.setItem('authDiag', new Date().toLocaleTimeString() + ' • ' + msg); } catch (e) {}
+    const el = document.getElementById('authDiagLine');
+    if (el) { el.textContent = 'Giriş durumu: ' + (localStorage.getItem('authDiag') || ''); el.style.display = 'block'; }
+}
+window.addEventListener('DOMContentLoaded', () => { try { if (window.ScrollaryNative && localStorage.getItem('authDiag')) authDiag(localStorage.getItem('authDiag').split(' • ').slice(1).join(' • ')); } catch (e) {} });
+
 function signInWithGoogle() { 
     // Android uygulamasında (WebView) Google girişi engellenir: giriş gerçek tarayıcıda yapılır, sonuç uygulamaya geri döner
     if (window.ScrollaryNative && window.ScrollaryNative.openAuth) {
-        try { window.ScrollaryNative.openAuth(new URL('auth-bridge.html', location.href).href); return; } catch (e) {}
+        try { window.ScrollaryNative.openAuth(new URL('auth-bridge.html', location.href).href); authDiag('tarayıcı açıldı, giriş bekleniyor'); return; } catch (e) { authDiag('tarayıcı açılamadı: ' + e.message); }
     }
     auth.signInWithPopup(provider).catch(err => { alert("Google Login Error: " + err.message); });
 }
 
 // Tarayıcıdan dönen giriş bilgisini al (uygulama kapalıyken açıldıysa da, arka plandan döndüyse de)
+let _authBusy = false;
 window.__nativeAuthPoll = function () {
+    if (_authBusy) return;
     try {
         const raw = window.ScrollaryNative && window.ScrollaryNative.takeAuth && window.ScrollaryNative.takeAuth();
         if (!raw) return;
         const t = JSON.parse(raw);
-        if (!t.idToken && !t.accessToken) return;
+        if (!t.idToken && !t.accessToken) { authDiag('boş giriş bilgisi geldi'); return; }
+        _authBusy = true;
+        authDiag('giriş bilgisi alındı (' + (t.idToken || '').length + '/' + (t.accessToken || '').length + '), Firebase\'e bağlanılıyor…');
+        if (typeof showToastGlobal === 'function') showToastGlobal('🔐 Google girişi alındı, bağlanıyor…', 3000);
         const cred = firebase.auth.GoogleAuthProvider.credential(t.idToken || null, t.accessToken || null);
-        auth.signInWithCredential(cred).catch(err => { alert("Google Login Error: " + err.message); });
-    } catch (e) {}
+        auth.signInWithCredential(cred)
+            .then(r => { authDiag('başarılı: ' + ((r.user && r.user.email) || 'kullanıcı')); if (typeof showToastGlobal === 'function') showToastGlobal('✅ Giriş yapıldı', 3000); })
+            .catch(err => { authDiag('Firebase hatası: ' + (err.code || '') + ' ' + err.message); alert("Google Login Error: " + err.message); })
+            .finally(() => { _authBusy = false; });
+    } catch (e) { _authBusy = false; authDiag('hata: ' + e.message); }
 };
 window.addEventListener('focus', window.__nativeAuthPoll);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) window.__nativeAuthPoll(); });

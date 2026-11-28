@@ -211,6 +211,7 @@
                     <summary>Hesap Girişi</summary>
                     <div class="setting-detail">
                         <button id="loginBtn" class="btn-login" style="width:100%; justify-content:center; padding:12px;" onclick="signInWithGoogle()" data-i18n="login">Google ile Giriş Yap</button>
+                        <div id="authDiagLine" style="display:none; margin-top:8px; font-size:.78rem; color:var(--text-muted); word-break:break-word;"></div>
                         <div id="userInfo" class="user-profile" style="display:none; justify-content:space-between; align-items:center; padding:10px 15px; background: rgba(255,255,255,0.05); border-radius: 8px;">
                             <div style="display:flex; align-items:center; gap:10px;">
                                 <img id="userPic" src="" alt="User" style="width:40px; height:40px; border-radius:50%;">
@@ -549,7 +550,7 @@ i.value=v;if(v&&s)s.textContent='✅ Kayıtlı: hızlı sunucu açık';})();
 (function(){var s=document.getElementById('voiceIdleSec');if(!s)return;var v=null;try{v=localStorage.getItem('voiceIdleSec');}catch(e){}s.value=(v===null||v==='')?'6':v;})();
 </script>
 <script src="config.js?v=5.6"></script>
-<script src="auth.js?v=5.5"></script>
+<script src="auth.js?v=5.6"></script>
 <script src="api.js?v=5.4"></script>
 <script src="ai.js?v=5.7"></script>
 <script src="ui.js?v=5.9"></script>
